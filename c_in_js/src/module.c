@@ -1,4 +1,5 @@
 #include <node_api.h>
+#include "memory.h"
 
 napi_value MyFunction(napi_env env, napi_callback_info info)
 {
@@ -31,6 +32,21 @@ napi_value MyFunction(napi_env env, napi_callback_info info)
   return myNumber;
 }
 
+napi_value MempoolTest(napi_env env, napi_callback_info info)
+{
+  napi_status status;
+  napi_value returnVal;
+  struct mempool *myMempool = memory_allocate_mempool(36, 256);
+  status = napi_create_arraybuffer(env, myMempool->buf_size, (void **)&myMempool, &returnVal);
+
+  if (status != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Unable to create return value");
+  }
+
+  return returnVal;
+}
+
 napi_value Init(napi_env env, napi_value exports)
 {
   napi_status status;
@@ -43,6 +59,19 @@ napi_value Init(napi_env env, napi_value exports)
   }
 
   status = napi_set_named_property(env, exports, "my_function", fn);
+  if (status != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Unable to populate exports");
+  }
+
+  //adding my tets buffer thingy
+  status = napi_create_function(env, NULL, 0, MempoolTest, NULL, &fn);
+  if (status != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Unable to wrap native function");
+  }
+
+  status = napi_set_named_property(env, exports, "mempoolTest", fn);
   if (status != napi_ok)
   {
     napi_throw_error(env, NULL, "Unable to populate exports");

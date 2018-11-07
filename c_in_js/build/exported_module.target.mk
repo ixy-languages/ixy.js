@@ -98,7 +98,8 @@ INCS_Release := \
 	-I/Users/Basti/.node-gyp/8.9.1/deps/v8/include
 
 OBJS := \
-	$(obj).target/$(TARGET)/src/module.o
+	$(obj).target/$(TARGET)/src/module.o \
+	$(obj).target/$(TARGET)/src/memory.o
 
 # Add to the list of files we specially track dependencies for.
 all_deps += $(OBJS)
