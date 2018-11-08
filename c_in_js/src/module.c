@@ -37,7 +37,7 @@ napi_value MempoolTest(napi_env env, napi_callback_info info)
   napi_status status;
   napi_value returnVal;
 
-  size_t argc = 1;
+  size_t argc = 2;
   int num_entries = 1; // default to 1 i guess
   int entry_size = 0;  // will default inside memory.c if it stays 0
   napi_value argv[2];
