@@ -51,13 +51,13 @@ napi_value MempoolTest(napi_env env, napi_callback_info info)
   status = napi_get_value_int32(env, argv[0], &num_entries);
   if (status != napi_ok)
   {
-    napi_throw_error(env, NULL, "Invalid number was passed as argument");
+    napi_throw_error(env, NULL, "Invalid number was passed as first argument");
   }
 
   status = napi_get_value_int32(env, argv[1], &entry_size);
   if (status != napi_ok)
   {
-    napi_throw_error(env, NULL, "Invalid number was passed as argument");
+    napi_throw_error(env, NULL, "Invalid number was passed as second argument");
   }
 
   struct mempool *myMempool = memory_allocate_mempool(num_entries, entry_size);
