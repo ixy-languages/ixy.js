@@ -60,6 +60,9 @@ napi_value MempoolTest(napi_env env, napi_callback_info info)
     napi_throw_error(env, NULL, "Invalid number was passed as second argument");
   }
 
+  	printf("Inside module.c:\nNum entries: "+num_entries+"\n"+"Entry size: "+ entry_size);
+
+
   struct mempool *myMempool = memory_allocate_mempool(num_entries, entry_size);
 
   status = napi_create_arraybuffer(env, myMempool->buf_size, (void **)&myMempool, &returnVal);
