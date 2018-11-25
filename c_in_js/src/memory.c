@@ -65,7 +65,7 @@ struct dma_memory memory_allocate_dma(size_t size, bool require_contiguous) {
 // this means a packet can only be sent/received by a single thread
 // entry_size can be 0 to use the default
 struct mempool* memory_allocate_mempool(uint32_t num_entries, uint32_t entry_size) {
-	printf("Inside memory.c:\nNum entries: %d\n"+"Entry size: %d",num_entries, entry_size);
+	printf("Inside memory.c:\nNum entries: %d\nEntry size: %d",num_entries, entry_size);
 	entry_size = entry_size ? entry_size : 2048;
 	// require entries that neatly fit into the page size, this makes the memory pool much easier
 	// otherwise our base_addr + index * size formula would be wrong because we can't cross a page-boundary
