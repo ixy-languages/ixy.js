@@ -6,21 +6,19 @@ let numEntries = 2;
 const entrySize = 2048;
 let myArrayBuffer = addon.mempoolTest(numEntries, entrySize);
 let myTypedArray = new Int8Array(myArrayBuffer);
-let inputs= addon.InputTest(numEntries,entrySize);
 // let's see how big this buffer is, shall we?
 console.log(`My Array buffer parameters:
-Num Entries: ${numEntries}, In C: ${inputs[0]}
-Entry Size: ${entrySize} In C:${inputs[1]}
+Num Entries: ${numEntries}
+Entry Size: ${entrySize}
 Returned buffer byte length is: ${myArrayBuffer.byteLength}
 Created typed array byte length is: ${myTypedArray.byteLength}`);
 //with more entries?
  numEntries = 1000;
 myArrayBuffer = addon.mempoolTest(numEntries, entrySize);
 myTypedArray = new Int8Array(myArrayBuffer);
-inputs= addon.InputTest(numEntries,entrySize);
 // let's see how big this buffer is, shall we?
 console.log(`My Array buffer parameters:
-Num Entries: ${numEntries}, In C: ${inputs[0]}
-Entry Size: ${entrySize} In C:${inputs[1]}
+Num Entries: ${numEntries}
+Entry Size: ${entrySize}
 Returned buffer byte length is: ${myArrayBuffer.byteLength}
 Created typed array byte length is: ${myTypedArray.byteLength}`);
