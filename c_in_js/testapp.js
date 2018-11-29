@@ -40,7 +40,7 @@ const jsMempool = js.Struct([
     js.Type.uint32('buf_size'),
     js.Type.uint32('num_entries'),
     js.Type.uint32('free_stack_top'),
-    js.Type.array(Type.uint32,numEntries)('free_stack'),
+    js.Type.array(js.Type.uint32,numEntries)('free_stack'),
   ]);
   console.log("Now this should be the struct:");
   console.log(jsMempool.read(myTypedArray, 0));
