@@ -1,7 +1,4 @@
 # ixy.js
-javascript implementation of ixy 
+this will be the javascript implementation of [ixy](https://github.com/emmericp/ixy)
 
-# TODO list
-1. memory.c&.h
-2. ixgbe.c&.h
-3. ...
+I'm currently trying to get to the first working version, nothing to see here yet.
