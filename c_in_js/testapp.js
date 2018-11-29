@@ -1,10 +1,9 @@
 const addon = require('./build/Release/exported_module');
-const js = require("js-struct");
+const jstruct = require("js-struct");
 // testing the random function that uses c 
 const value = 99558;
 console.log(`Input :${value}\nOutput:${addon.my_function(value)}`); // expected to add 200
-let numEntries = 2;
-const entrySize = 2048;
+let numEntries = 2, entrySize = 2048;
 let myArrayBuffer = addon.mempoolTest(numEntries, entrySize);
 let myTypedArray = new Uint8Array(myArrayBuffer);
 // let's see how big this buffer is, shall we?
@@ -15,6 +14,7 @@ Returned buffer byte length is: ${myArrayBuffer.byteLength}
 Created typed array byte length is: ${myTypedArray.byteLength}`);
 //with more entries?
  numEntries = 10;
+ entrySize = 1024;
 myArrayBuffer = addon.mempoolTest(numEntries, entrySize);
 myTypedArray = new Uint8Array(myArrayBuffer);
 // let's see how big this buffer is, shall we?
@@ -35,12 +35,12 @@ struct mempool {
 	uint32_t free_stack[];
 };
 */
-const jsMempool = js.Struct([
-    js.Type.byte('base_addr'),
-    js.Type.uint32('buf_size'),
-    js.Type.uint32('num_entries'),
-    js.Type.uint32('free_stack_top'),
-    js.Type.array(js.Type.uint32,numEntries)('free_stack'),
+const jsMempool = jstruct.Struct([
+    jstruct.Type.byte('base_addr'),
+    jstruct.Type.uint32('buf_size'),
+    jstruct.Type.uint32('num_entries'),
+    jstruct.Type.uint32('free_stack_top'),
+    jstruct.Type.array(jstruct.Type.uint32,numEntries)('free_stack'),
   ]);
   console.log("Now this should be the struct:");
   console.log(jsMempool.read(myTypedArray, 0));
