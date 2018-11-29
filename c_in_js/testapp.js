@@ -1,5 +1,5 @@
 const addon = require('./build/Release/exported_module');
-const jstruct = require("js-struct");
+const js = require("js-struct");
 // testing the random function that uses c 
 const value = 99558;
 console.log(`Input :${value}\nOutput:${addon.my_function(value)}`); // expected to add 200
@@ -35,12 +35,12 @@ struct mempool {
 	uint32_t free_stack[];
 };
 */
-const jsMempool = Struct([
-    Type.byte('base_addr'),
-    Type.uint32('buf_size'),
-    Type.uint32('num_entries'),
-    Type.uint32('free_stack_top'),
-    Type.array(Type.uint32,numEntries)('free_stack'),
+const jsMempool = js.Struct([
+    js.Type.byte('base_addr'),
+    js.Type.uint32('buf_size'),
+    js.Type.uint32('num_entries'),
+    js.Type.uint32('free_stack_top'),
+    js.Type.array(Type.uint32,numEntries)('free_stack'),
   ]);
   console.log("Now this should be the struct:");
   console.log(jsMempool.read(myTypedArray, 0));
