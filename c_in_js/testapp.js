@@ -13,8 +13,8 @@ console.log(`My Array buffer parameters:
 Returned buffer byte length is: ${myArrayBuffer.byteLength}
 Created typed array byte length is: ${myTypedArray.byteLength}`);
 //with more entries?
- numEntries = 10;
- entrySize = 1024;
+numEntries = 10;
+entrySize = 1024;
 myArrayBuffer = addon.mempoolTest(numEntries, entrySize);
 myTypedArray = new Uint8Array(myArrayBuffer);
 // let's see how big this buffer is, shall we?
@@ -40,8 +40,34 @@ const jsMempool = jstruct.Struct([
     jstruct.Type.uint32('buf_size'),
     jstruct.Type.uint32('num_entries'),
     jstruct.Type.uint32('free_stack_top'),
-    jstruct.Type.array(jstruct.Type.uint32,numEntries)('free_stack'),
-  ]);
-  console.log("Now this should be the struct:");
-  console.log(jsMempool.read(myTypedArray, 0));
+    jstruct.Type.array(jstruct.Type.uint32, numEntries)('free_stack'),
+]);
+console.log("Now this should be the struct:");
+console.log(jsMempool.read(myTypedArray, 0));
 
+// trying ixy_Device stuff
+const klaipedaPci = "0000:02:00.0", narvaPci = "0000:03:00.0";
+let myIxyDevice = addon.createIxyDevice(klaipedaPci, 1, 1);
+myTypedArray = new Uint16Array(myIxyDevice);
+// original struct:
+/*
+struct ixy_device
+{
+	const char *pci_addr;
+	const char *driver_name;
+	uint16_t num_rx_queues;
+	uint16_t num_tx_queues;
+	uint32_t (*rx_batch)(struct ixy_device *dev, uint16_t queue_id, struct pkt_buf *bufs[], uint32_t num_bufs);
+	uint32_t (*tx_batch)(struct ixy_device *dev, uint16_t queue_id, struct pkt_buf *bufs[], uint32_t num_bufs);
+	void (*read_stats)(struct ixy_device *dev, struct device_stats *stats);
+	void (*set_promisc)(struct ixy_device *dev, bool enabled);
+	uint32_t (*get_link_speed)(const struct ixy_device *dev);
+};
+*/
+const jsIxyDevice = jstruct(
+    //TODO
+);
+/* since struct is not yet defined we do not try using it yet:
+console.log("Now this should be the ixy device struct:");
+console.log(klaipedaPci.read(myTypedArray, 0));
+*/
