@@ -1,5 +1,7 @@
 #include <node_api.h>
 #include "memory.h"
+// we're going to use a whole lot of c code at first, and then work our way down
+#include "device.h"
 
 napi_value MyFunction(napi_env env, napi_callback_info info)
 {
@@ -60,8 +62,7 @@ napi_value MempoolTest(napi_env env, napi_callback_info info)
     napi_throw_error(env, NULL, "Invalid number was passed as second argument");
   }
 
-  	//printf("Inside module.c:\nNum entries: "+num_entries+"\n"+"Entry size: "+ entry_size);
-
+  //printf("Inside module.c:\nNum entries: "+num_entries+"\n"+"Entry size: "+ entry_size);
 
   struct mempool *myMempool = memory_allocate_mempool(num_entries, entry_size);
 
@@ -74,6 +75,10 @@ napi_value MempoolTest(napi_env env, napi_callback_info info)
   return returnVal;
 }
 
+napi_value createIxyDevice(napi_env env, napi_callback_info info)
+{
+  //TODO use the c code here correctly
+}
 
 napi_value Init(napi_env env, napi_value exports)
 {
@@ -105,7 +110,7 @@ napi_value Init(napi_env env, napi_value exports)
     napi_throw_error(env, NULL, "Unable to populate exports");
   }
 
-    return exports;
+  return exports;
 }
 
 NAPI_MODULE(NODE_GYP_MODULE_NAME, Init)
