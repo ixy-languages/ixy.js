@@ -45,6 +45,12 @@ const jsMempool = jstruct.Struct([
 console.log("Now this should be the struct:");
 console.log(jsMempool.read(myTypedArray, 0));
 
+// testing if struct actually works the way i think it does
+
+// todo
+
+// endof testing struct stuff
+
 // trying ixy_Device stuff
 const klaipedaPci = "0000:02:00.0", narvaPci = "0000:03:00.0";
 let myIxyDevice = addon.createIxyDevice(klaipedaPci, 1, 1);
