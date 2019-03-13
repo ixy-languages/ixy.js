@@ -2,9 +2,9 @@
   "name": "ixy.js",
   "version": "0.1.0",
   "description": "Node.js implementation of ixy, a userspace network driver",
-  "main": "module.js",
+  "main": "testapp.js",
   "scripts": {
-    "start": "node-gyp configure build && node module.js",
+    "start": "node-gyp configure build && node testapp.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
