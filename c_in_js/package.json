@@ -1,7 +1,7 @@
 {
-  "name": "n-api-article",
+  "name": "ixy.js",
   "version": "0.1.0",
-  "description": "https://medium.com/@schahriar/n-api-and-getting-started-with-writing-c-addons-for-node-js-cf061b3eae75",
+  "description": "Node.js implementation of ixy, a userspace network driver",
   "main": "module.js",
   "scripts": {
     "start": "node-gyp configure build && node module.js",
@@ -9,17 +9,13 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/schahriar/n-api-article.git"
+    "url": "git+https://github.com/ixy-languages/ixy.js.git"
   },
   "engines": {
     "node": ">=8.4.0"
   },
-  "author": "Schahriar SaffarShargh <info@schahriar.com>",
+  "author": "Sebastian Di LUzio <sebastian.di-luzio@tum.de>",
   "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/schahriar/n-api-article/issues"
-  },
-  "homepage": "https://github.com/schahriar/n-api-article#readme",
   "dependencies": {
     "js-struct": "^1.3.0"
   }
