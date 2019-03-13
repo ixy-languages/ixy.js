@@ -14,7 +14,7 @@
   "engines": {
     "node": ">=8.4.0"
   },
-  "author": "Sebastian Di LUzio <sebastian.di-luzio@tum.de>",
+  "author": "Sebastian Di Luzio <sebastian.di-luzio@tum.de>",
   "license": "MIT",
   "dependencies": {
     "js-struct": "^1.3.0"

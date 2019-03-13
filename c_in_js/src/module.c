@@ -107,7 +107,7 @@ napi_value MempoolTest(napi_env env, napi_callback_info info)
 
   return returnVal;
 }
-
+/* temporarily disable this
 napi_value createIxyDevice(napi_env env, napi_callback_info info)
 {
   //TODO use the c code here correctly
@@ -115,7 +115,7 @@ napi_value createIxyDevice(napi_env env, napi_callback_info info)
   napi_value returnVal;
 
   size_t argc = 3;
-  const char *pci_addr;
+  char *pci_addr;
   uint16_t rx_queues = 1; // default to 1
   uint16_t tx_queues = 1; // default to 1
   napi_value argv[3];
@@ -126,7 +126,7 @@ napi_value createIxyDevice(napi_env env, napi_callback_info info)
     napi_throw_error(env, NULL, "Failed to parse arguments");
   }
 
-  status = napi_get_value_string_utf8(env, argv[0], &pci_addr); //not sure if & is needed here or not /shrugs
+  status = napi_get_value_string_utf8(env, argv[0], pci_addr); //not sure if & is needed here or not /shrugs
   if (status != napi_ok)
   {
     napi_throw_error(env, NULL, "Invalid char was passed as first argument");
@@ -157,7 +157,7 @@ napi_value createIxyDevice(napi_env env, napi_callback_info info)
 
   return returnVal;
 }
-
+*/
 // potential TODO rewrite these to Node API
 /*
 static inline uint32_t ixy_rx_batch(struct ixy_device *dev, uint16_t queue_id, struct pkt_buf *bufs[], uint32_t num_bufs)
@@ -359,7 +359,7 @@ napi_value Init(napi_env env, napi_value exports)
   {
     napi_throw_error(env, NULL, "Unable to populate exports");
   }
-
+/* temproarily deactivate
   // adding ixy device creator
   status = napi_create_function(env, NULL, 0, createIxyDevice, NULL, &fn);
   if (status != napi_ok)
@@ -372,7 +372,7 @@ napi_value Init(napi_env env, napi_value exports)
   {
     napi_throw_error(env, NULL, "Unable to populate exports");
   }
-
+*/
   return exports;
 }
 

@@ -44,17 +44,19 @@ const jsMempool = jstruct.Struct([
 ]);
 console.log("Now this should be the struct:");
 console.log(jsMempool.read(myTypedArray, 0));
+console.log(myTypedArray.length)
 
 // testing if struct actually works the way i think it does
 
 // todo
 
 // endof testing struct stuff
-
+/* temporarily deactivate this
 // trying ixy_Device stuff
 const klaipedaPci = "0000:02:00.0", narvaPci = "0000:03:00.0";
 let myIxyDevice = addon.createIxyDevice(klaipedaPci, 1, 1);
 myTypedArray = new Uint16Array(myIxyDevice);
+*/
 // original struct:
 /*
 struct ixy_device
@@ -70,7 +72,7 @@ struct ixy_device
 	uint32_t (*get_link_speed)(const struct ixy_device *dev);
 };
 */
-const jsIxyDevice = jstruct(
+const jsIxyDevice = jstruct.Struct(
     //TODO
 );
 /* since struct is not yet defined we do not try using it yet:
