@@ -80,6 +80,15 @@ const bookobj2 = Book.read(book2, 0);
 console.log('book 1 author: ' + bookobj.author);
 console.log('book2 author: ' + bookobj2.author);
 
+let str = "newStr";
+let oldStr = new ArrayBuffer(10);
+console.log(`new str: ${str}\nempty str: ${jstruct.Type.char.read(oldStr)}`);
+console.log('------- c code start -------');
+let newStr = addon.writeString(str, oldStr);
+console.log('------- c code end -------');
+console.log(`new str: ${str}\nempty str: ${jstruct.Type.char.read(oldStr)}`);
+
+
 // todo
 
 // endof testing struct stuff

@@ -65,32 +65,88 @@ napi_value changeAuthor(napi_env env, napi_callback_info info)
   {
     napi_throw_error(env, NULL, "Invalid authorname was passed as first argument");
   }
-napi_value book1ArrayBuffer;
-size_t bytelength;
-  status = napi_get_arraybuffer_info( env,
-                                      argv[1],
-                                      &book1,
-                                      &bytelength);
+  size_t bytelength;
+  status = napi_get_arraybuffer_info(env,
+                                     argv[1],
+                                     &book1,
+                                     &bytelength);
   if (status != napi_ok)
   {
     napi_throw_error(env, NULL, "Invalid book was passed as second argument");
   }
 
-printf("size of book class: %d\nSize of our arraybuffer: %d\n", sizeof( Book), bytelength);
-printf("The author name we got: %s\n",newAuthor);
-printf("old author name of book1: %s\n",book1.author);
-memcpy(&(book1.author), &(newAuthor), member_size(Book, author));
-printf("new author name of book1: %s\n",book1.author);
-// TODO get output working
-  status = napi_create_arraybuffer(env, sizeof( Book), &book1, &returnVal);
+  printf("size of book class: %d\nSize of our arraybuffer: %d\n", sizeof(Book), bytelength);
+  printf("The author name we got: %s\n", newAuthor);
+  printf("old author name of book1: %s\n", book1.author);
+  memcpy(&(book1.author), &(newAuthor), member_size(Book, author));
+  printf("new author name of book1: %s\n", book1.author);
+  // TODO get output working
+  status = napi_create_external_arraybuffer(env,
+                                            (void *)&book1,
+                                            sizeof(Book),
+                                            NULL,
+                                            NULL,
+                                            &returnVal);
+  // napi_create_arraybuffer(env, sizeof( Book), &book1, &returnVal);
   if (status != napi_ok)
   {
     napi_throw_error(env, NULL, "Unable to create return value");
   }
-printf("todo print return value here\n");
+  printf("todo print return value here\n");
   return returnVal;
 }
 /* */
+// Try writing a string into the buf
+napi_value writeString(napi_env env, napi_callback_info info)
+{
+  napi_status status;
+  napi_value returnVal;
+
+  size_t argc = 2;
+  napi_value argv[2];
+
+  status = napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+  if (status != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Failed to parse arguments");
+  }
+  char newString[10];
+  status = napi_get_value_string_utf8(env, argv[0], newString, 10, NULL);
+  if (status != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Invalid string of length 10 was passed as first argument");
+  }
+  char string[10];
+  size_t lengthOfString;
+  status = napi_get_arraybuffer_info(env,
+                                     argv[1],
+                                     (void **)&string,
+                                     &lengthOfString);
+  // napi_get_value_string_utf8(env, argv[1], string, 10, NULL);
+
+  if (status != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Invalid string of length 10 was passed as second argument");
+  }
+
+  printf("Input string: %s\n", newString);
+  printf("empty string: %s\n", string);
+  memcpy(&(string), &(newString), sizeof(string));
+  printf("changed string: %s\n", string);
+  // TODO get output working
+  status = napi_create_external_arraybuffer(env,
+                                            (void *)&string,
+                                            sizeof(string),
+                                            NULL,
+                                            NULL,
+                                            &returnVal);
+  if (status != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Unable to create return value");
+  }
+  return returnVal;
+}
+
 //end testing struct stuff
 
 napi_value arrayTest(napi_env env, napi_callback_info info) // we create a uint32 array based on an input, to be sure we deliver data correctly
@@ -432,7 +488,7 @@ napi_value Init(napi_env env, napi_value exports)
     napi_throw_error(env, NULL, "Unable to populate exports");
   }
 
-//adding my test struct thingy
+  //adding my test struct thingy
   status = napi_create_function(env, NULL, 0, changeAuthor, NULL, &fn);
   if (status != napi_ok)
   {
@@ -440,6 +496,18 @@ napi_value Init(napi_env env, napi_value exports)
   }
 
   status = napi_set_named_property(env, exports, "changeAuthor", fn);
+  if (status != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Unable to populate exports");
+  }
+  //adding my test string thingy
+  status = napi_create_function(env, NULL, 0, writeString, NULL, &fn);
+  if (status != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Unable to wrap native function");
+  }
+
+  status = napi_set_named_property(env, exports, "writeString", fn);
   if (status != napi_ok)
   {
     napi_throw_error(env, NULL, "Unable to populate exports");
