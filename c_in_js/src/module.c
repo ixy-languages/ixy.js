@@ -54,10 +54,23 @@ napi_value arrayTest(napi_env env, napi_callback_info info) // we create a uint3
     napi_throw_error(env, NULL, "Invalid number was passed as argument");
   }
   napi_value ret;
+  printf("the number we got: %d", number);
 
-  uint32_t uints []= {number,number*2,number*3,number*4};
+  uint32_t uints[] = {number, number * 2, number * 3, number * 4};
   // TODO find out how we would actually convert this, seems very inconvenient from what i found in napi docs. Maybe we want to handle only single values later ? would be impractical in some cases though
   // status = napi_create_uint32(env, uints, &ret);
+  printf("our array: \n");
+  for (int i = 0; i < sizeof(uints) / sizeof(uints[0]); i++)
+  {
+    printf("%d\n", uints[i]);
+  }
+  // trying to create an array buffer from this input
+  napi_create_external_arraybuffer(env,
+                                   uints,
+                                   sizeof(uints),
+                                   NULL,
+                                   NULL,
+                                   &ret);
 
   if (status != napi_ok)
   {
@@ -359,7 +372,20 @@ napi_value Init(napi_env env, napi_value exports)
   {
     napi_throw_error(env, NULL, "Unable to populate exports");
   }
-/* temproarily deactivate
+
+  //adding my second test buffer thingy
+  status = napi_create_function(env, NULL, 0, arrayTest, NULL, &fn);
+  if (status != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Unable to wrap native function");
+  }
+
+  status = napi_set_named_property(env, exports, "arrayTest", fn);
+  if (status != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Unable to populate exports");
+  }
+  /* temproarily deactivate
   // adding ixy device creator
   status = napi_create_function(env, NULL, 0, createIxyDevice, NULL, &fn);
   if (status != napi_ok)

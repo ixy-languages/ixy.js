@@ -44,7 +44,14 @@ const jsMempool = jstruct.Struct([
 ]);
 console.log("Now this should be the struct:");
 console.log(jsMempool.read(myTypedArray, 0));
-console.log(myTypedArray.length)
+console.log(`length of my typed array: ${myTypedArray.length}`);
+
+
+console.log('starting array test with input 5');
+const myArrayTestBuffer = addon.arrayTest(5);
+let myTypedArrayTest = new Uint32Array(myArrayTestBuffer);
+console.log('this is the array we got: ');
+console.log(myTypedArrayTest);
 
 // testing if struct actually works the way i think it does
 
@@ -72,9 +79,10 @@ struct ixy_device
 	uint32_t (*get_link_speed)(const struct ixy_device *dev);
 };
 */
+/*
 const jsIxyDevice = jstruct.Struct(
     //TODO
-);
+);*/
 /* since struct is not yet defined we do not try using it yet:
 console.log("Now this should be the ixy device struct:");
 console.log(klaipedaPci.read(myTypedArray, 0));
