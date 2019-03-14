@@ -36,15 +36,18 @@ struct mempool {
 };
 */
 const jsMempool = jstruct.Struct([
-    jstruct.Type.byte('base_addr'),
-    jstruct.Type.uint32('buf_size'),
-    jstruct.Type.uint32('num_entries'),
-    jstruct.Type.uint32('free_stack_top'),
-    jstruct.Type.array(jstruct.Type.uint32, numEntries)('free_stack'),
+	jstruct.Type.byte('base_addr'),
+	jstruct.Type.uint32('buf_size'),
+	jstruct.Type.uint32('num_entries'),
+	jstruct.Type.uint32('free_stack_top'),
+	jstruct.Type.array(jstruct.Type.uint32, numEntries)('free_stack'),
 ]);
 console.log("Now this should be the struct:");
 console.log(jsMempool.read(myTypedArray, 0));
 console.log(`length of my typed array: ${myTypedArray.length}`);
+console.log('this is the struct read from the buffer without typed:');
+console.log(jsMempool.read(myArrayBuffer, 0));
+console.log(`length of my typed array: ${myArrayBuffer.length}`);
 
 
 console.log('starting array test with input 5');
@@ -54,6 +57,28 @@ console.log('this is the array we got: ');
 console.log(myTypedArrayTest);
 
 // testing if struct actually works the way i think it does
+const Book = jstruct.Struct([
+	jstruct.Type.array(jstruct.Type.char, 50)('title'),
+	jstruct.Type.array(jstruct.Type.char, 50)('author'),
+	jstruct.Type.uint32('id')
+	/*
+	char title[50];
+  char author[50];
+  int book_id;
+  */
+]);
+// let book = new Uint8Array(Book.size);
+let book = new ArrayBuffer(Book.size);
+const bookstring = Book.read(book, 0);
+console.log('book: ');
+console.log(bookstring);
+let book2 = addon.changeAuthor('this guy', book);
+const bookstring2 = Book.read(book2, 0);
+console.log('book2: ');
+console.log(bookstring2);
+
+
+
 
 // todo
 

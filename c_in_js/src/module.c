@@ -34,6 +34,64 @@ napi_value MyFunction(napi_env env, napi_callback_info info)
   return myNumber;
 }
 
+// start testing struct stuff
+/* TODO look over this, as theres still stuff to adjust */
+struct Book
+{
+  char title[50];
+  char author[50];
+  uint32_t book_id;
+};
+typedef struct Book Book;
+
+#define member_size(type, member) sizeof(((type *)0)->member)
+
+napi_value changeAuthor(napi_env env, napi_callback_info info)
+{
+  napi_status status;
+  napi_value returnVal;
+
+  size_t argc = 2;
+  struct Book book1;
+  napi_value argv[2];
+
+  status = napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+  if (status != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Failed to parse arguments");
+  }
+  char16_t newAuthor[50];
+  status = napi_get_value_string_utf16(env, argv[0], newAuthor, sizeof(newAuthor), NULL);
+  if (status != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Invalid authorname was passed as first argument");
+  }
+napi_value book1ArrayBuffer;
+size_t bytelength;
+  status = napi_get_arraybuffer_info( env,
+                                      argv[1],
+                                      &book1,
+                                      &bytelength);
+  if (status != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Invalid book was passed as second argument");
+  }
+
+printf("This is in C:\nsize of book class: %d\nSize of our arraybuffer: %d\n", sizeof(struct Book), bytelength);
+printf("The author name we got: %s",newAuthor);
+memcpy(&(book1.author), &(newAuthor), member_size(Book, author));
+
+  status = napi_create_arraybuffer(env, sizeof(struct Book), (void **)&book1, &returnVal);
+  if (status != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Unable to create return value");
+  }
+
+  return returnVal;
+}
+/* */
+//end testing struct stuff
+
 napi_value arrayTest(napi_env env, napi_callback_info info) // we create a uint32 array based on an input, to be sure we deliver data correctly
 {
   napi_status status;
@@ -66,7 +124,7 @@ napi_value arrayTest(napi_env env, napi_callback_info info) // we create a uint3
   }
   // trying to create an array buffer from this input
   napi_create_external_arraybuffer(env,
-                                   uints,
+                                   &uints,
                                    sizeof(uints),
                                    NULL,
                                    NULL,
@@ -368,6 +426,19 @@ napi_value Init(napi_env env, napi_value exports)
   }
 
   status = napi_set_named_property(env, exports, "mempoolTest", fn);
+  if (status != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Unable to populate exports");
+  }
+
+//adding my test struct thingy
+  status = napi_create_function(env, NULL, 0, changeAuthor, NULL, &fn);
+  if (status != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Unable to wrap native function");
+  }
+
+  status = napi_set_named_property(env, exports, "changeAuthor", fn);
   if (status != napi_ok)
   {
     napi_throw_error(env, NULL, "Unable to populate exports");
