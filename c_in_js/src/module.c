@@ -54,7 +54,7 @@ napi_value arrayTest(napi_env env, napi_callback_info info) // we create a uint3
     napi_throw_error(env, NULL, "Invalid number was passed as argument");
   }
   napi_value ret;
-  printf("the number we got: %d", number);
+  printf("the number we got: %d\n", number);
 
   uint32_t uints[] = {number, number * 2, number * 3, number * 4};
   // TODO find out how we would actually convert this, seems very inconvenient from what i found in napi docs. Maybe we want to handle only single values later ? would be impractical in some cases though
