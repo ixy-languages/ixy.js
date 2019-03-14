@@ -61,7 +61,7 @@ napi_value changeAuthor(napi_env env, napi_callback_info info)
     napi_throw_error(env, NULL, "Failed to parse arguments");
   }
   char16_t newAuthor[50];
-  status = napi_get_value_string_utf16(env, argv[0], newAuthor, sizeof(newAuthor), NULL);
+  status = napi_get_value_string_utf8(env, argv[0], newAuthor, sizeof(newAuthor), NULL);
   if (status != napi_ok)
   {
     napi_throw_error(env, NULL, "Invalid authorname was passed as first argument");
@@ -77,10 +77,12 @@ size_t bytelength;
     napi_throw_error(env, NULL, "Invalid book was passed as second argument");
   }
 
-printf("This is in C:\nsize of book class: %d\nSize of our arraybuffer: %d\n", sizeof(struct Book), bytelength);
-printf("The author name we got: %s",newAuthor);
+printf("size of book class: %d\nSize of our arraybuffer: %d\n", sizeof(struct Book), bytelength);
+printf("The author name we got: %s\n",newAuthor);
+printf("old author name of book1: %s\n",book1.author);
 memcpy(&(book1.author), &(newAuthor), member_size(Book, author));
-
+printf("new author name of book1: %s\n",book1.author);
+// TODO get output working
   status = napi_create_arraybuffer(env, sizeof(struct Book), (void **)&book1, &returnVal);
   if (status != napi_ok)
   {
