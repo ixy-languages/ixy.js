@@ -35,7 +35,6 @@ napi_value MyFunction(napi_env env, napi_callback_info info)
 }
 
 // start testing struct stuff
-/* TODO look over this, as theres still stuff to adjust */
 struct Book
 {
   char title[50];
@@ -77,18 +76,18 @@ size_t bytelength;
     napi_throw_error(env, NULL, "Invalid book was passed as second argument");
   }
 
-printf("size of book class: %d\nSize of our arraybuffer: %d\n", sizeof(struct Book), bytelength);
+printf("size of book class: %d\nSize of our arraybuffer: %d\n", sizeof( Book), bytelength);
 printf("The author name we got: %s\n",newAuthor);
 printf("old author name of book1: %s\n",book1.author);
 memcpy(&(book1.author), &(newAuthor), member_size(Book, author));
 printf("new author name of book1: %s\n",book1.author);
 // TODO get output working
-  status = napi_create_arraybuffer(env, sizeof(struct Book), (void **)&book1, &returnVal);
+  status = napi_create_arraybuffer(env, sizeof( Book), &book1, &returnVal);
   if (status != napi_ok)
   {
     napi_throw_error(env, NULL, "Unable to create return value");
   }
-
+printf("todo print return value here\n");
   return returnVal;
 }
 /* */

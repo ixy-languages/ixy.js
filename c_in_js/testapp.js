@@ -1,5 +1,6 @@
 const addon = require('./build/Release/exported_module');
 const jstruct = require("js-struct");
+
 // testing the random function that uses c 
 const value = 99558;
 console.log(`Input :${value}\nOutput:${addon.my_function(value)}`); // expected to add 200
@@ -56,6 +57,7 @@ let myTypedArrayTest = new Uint32Array(myArrayTestBuffer);
 console.log('this is the array we got: ');
 console.log(myTypedArrayTest);
 
+
 // testing if struct actually works the way i think it does
 const Book = jstruct.Struct([
 	jstruct.Type.array(jstruct.Type.char, 50)('title'),
@@ -69,18 +71,14 @@ const Book = jstruct.Struct([
 ]);
 // let book = new Uint8Array(Book.size);
 let book = new ArrayBuffer(Book.size);
-const bookstring = Book.read(book, 0);
-console.log('book: ');
-console.log(bookstring);
+const bookobj = Book.read(book, 0);
+console.log('book 1 author: ' + bookobj.author);
 console.log('------- c code start -------');
 let book2 = addon.changeAuthor('this guy', book);
 console.log('------- c code end -------');
-const bookstring2 = Book.read(book2, 0);
-console.log('book2: ');
-console.log(bookstring2);
-
-
-
+const bookobj2 = Book.read(book2, 0);
+console.log('book 1 author: ' + bookobj.author);
+console.log('book2 author: ' + bookobj2.author);
 
 // todo
 
