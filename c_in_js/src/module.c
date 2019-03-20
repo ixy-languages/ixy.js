@@ -144,7 +144,8 @@ napi_value writeString(napi_env env, napi_callback_info info)
   {
     napi_throw_error(env, NULL, "Unable to create return value");
   }
-  return returnVal;
+  //return returnVal;
+  return argv[1]; // this should be the original array buffer, and we changed the data lying beneath?
 }
 
 //end testing struct stuff

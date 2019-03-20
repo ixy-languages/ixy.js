@@ -87,6 +87,8 @@ console.log('------- c code start -------');
 let newStr = addon.writeString(str, oldStr);
 console.log('------- c code end -------');
 console.log(`new str: ${str}\nempty str: ${jstruct.Type.char.read(oldStr)}`);
+console.log(`this should be the original string stuff as well\nnew str: ${str}\nempty str: ${jstruct.Type.char.read(newStr)}`);
+
 
 
 // todo
