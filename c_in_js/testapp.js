@@ -82,12 +82,21 @@ console.log('book2 author: ' + bookobj2.author);
 
 let str = "newStr";
 let oldStr = new ArrayBuffer(10);
-console.log(`new str: ${str}\nempty str: ${jstruct.Type.char.read(oldStr)}`);
+let dv = new DataView(oldStr, 0);
+dv.setInt16(1, 42);
+console.log(`str input: ${str}\noldStr (arraybuffer) : ${jstruct.Type.char.read(oldStr)}`);
+console.log(`oldStr (arraybuffer) as int : ${jstruct.Type.int8.read(oldStr)}`);
+console.log(`byte 1 of our arraybuffer: ${dv.getInt16(1)}`);
 console.log('------- c code start -------');
 let newStr = addon.writeString(str, oldStr);
 console.log('------- c code end -------');
-console.log(`new str: ${str}\nempty str: ${jstruct.Type.char.read(oldStr)}`);
-console.log(`this should be the original string stuff as well\nnew str: ${str}\nempty str: ${jstruct.Type.char.read(newStr)}`);
+console.log(`oldStr (arraybuffer) : ${jstruct.Type.char.read(oldStr)}`);
+console.log(`this should be the original string stuff as well\nnewStr (arraybuffer) : ${jstruct.Type.char.read(newStr)}`);
+console.log(`oldStr (arraybuffer) as int : ${jstruct.Type.int8.read(oldStr)}`);
+console.log(`newStr (arraybuffer) as int : ${jstruct.Type.int8.read(newStr)}`);
+console.log(`byte 1 of our arraybuffer: ${dv.getInt16(1)}`);
+dv = new DataView(newStr, 0);
+console.log(`byte 1 of our returned arraybuffer: ${dv.getInt16(1)}`);
 
 
 
