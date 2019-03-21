@@ -137,11 +137,11 @@ napi_value writeString(napi_env env, napi_callback_info info)
   }
   printf("The inputted data is an arraybuffer?: %d\n", result);
   //char string[10];
-  int16_t inputArrayBuffer[4];
+  int16_t *inputArrayBuffer[4];
   size_t lengthOfString;
   status = napi_get_arraybuffer_info(env,
                                      argv[1],
-                                     (void **)*&inputArrayBuffer,
+                                     (void **)inputArrayBuffer,
                                      &lengthOfString);
   // napi_get_value_string_utf8(env, argv[1], string, 10, NULL);
 
@@ -152,14 +152,15 @@ napi_value writeString(napi_env env, napi_callback_info info)
   printf("The inputted arraybuffer as string: %s\n", argv[1]);
   printf("The inputted arraybuffers data as string: %s\n", inputArrayBuffer);
 
-  // printf("length of string: %d"\n, lengthOfString);
+  printf("length of arraybuffer: %d\n", lengthOfString);
   // printf("Input string: %s\n", inputString);
   // printf("Input arraybuffer: %d\n", argv[1]);
-  printf("size of a single element in arraybuffer: %d\n", sizeof(inputArrayBuffer[0]));
-  for (int i = 0; i < sizeof(inputArrayBuffer) / sizeof(inputArrayBuffer[0]); i++)
+  printf("size of a single element in arraybuffer: %d\n", sizeof(inputArrayBuffer[0][0]));
+  for (int i = 0; i < lengthOfString / sizeof(inputArrayBuffer[0][0]); i++)
   {
-    printf("Input arraybuffers data at index %d : %d\n", i, inputArrayBuffer[i]++);
-    printf("Change arraybuffers data at index %d : %d\n", i, inputArrayBuffer[i]);
+    printf("Input arraybuffers data at index %d : %d\n", i, inputArrayBuffer[0][i]);
+    inputArrayBuffer[0][i] = 30;
+    printf("Change arraybuffers data at index %d : %d\n", i, inputArrayBuffer[0][i]);
   }
   //memcpy(string, inputString, sizeof(string));
 
