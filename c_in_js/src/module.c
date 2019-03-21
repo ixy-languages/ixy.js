@@ -139,11 +139,11 @@ napi_value writeString(napi_env env, napi_callback_info info)
   const char *pciAddress = "0000:03:00.0";
   uint8_t *pciMap = pci_map_resource(pciAddress);
   //https://en.wikipedia.org/wiki/PCI_configuration_space#Technical_information
-  for (int i = 0; i < 10; i++)
+  for (int i = 0; i < 64; i++) // apparently first 64 byte are standardized so they need to be readable
   {
     printf("byte at %d in pciMap: %d\n", i, pciMap[i]);
   }
-
+  
   //endof mmap stuff
 
   printf("c says is this little endian?: %d\n", isLittleEndian());
