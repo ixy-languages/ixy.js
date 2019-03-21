@@ -1,7 +1,17 @@
 const addon = require('./build/Release/exported_module');
 const jstruct = require("js-struct");
 
+// check if little or big endian
+var littleEndian = (function () {
+	var buffer = new ArrayBuffer(2);
+	new DataView(buffer).setInt16(0, 256, true /* littleEndian */);
+	// Int16Array benutzt die Plattform Byte-Reihenfolge.
+	return new Int16Array(buffer)[0] === 256;
+})();
+console.log(`little endian?: ${littleEndian}`);
+
 // testing the random function that uses c 
+/*
 const value = 99558;
 console.log(`Input :${value}\nOutput:${addon.my_function(value)}`); // expected to add 200
 let numEntries = 2, entrySize = 2048;
@@ -24,6 +34,7 @@ console.log(`My Array buffer parameters:
     Entry Size: ${entrySize}
 Returned buffer byte length is: ${myArrayBuffer.byteLength}
 Created typed array byte length is: ${myTypedArray.byteLength}`);
+*/
 
 //trying to use js-struct to use the c struct correctly 
 /* c struct:
@@ -36,6 +47,7 @@ struct mempool {
 	uint32_t free_stack[];
 };
 */
+/*
 const jsMempool = jstruct.Struct([
 	jstruct.Type.byte('base_addr'),
 	jstruct.Type.uint32('buf_size'),
@@ -57,8 +69,9 @@ let myTypedArrayTest = new Uint32Array(myArrayTestBuffer);
 console.log('this is the array we got: ');
 console.log(myTypedArrayTest);
 
-
+*/
 // testing if struct actually works the way i think it does
+/*
 const Book = jstruct.Struct([
 	jstruct.Type.array(jstruct.Type.char, 50)('title'),
 	jstruct.Type.array(jstruct.Type.char, 50)('author'),
@@ -68,7 +81,9 @@ const Book = jstruct.Struct([
   char author[50];
   int book_id;
   */
+/*
 ]);
+*/
 // let book = new Uint8Array(Book.size);
 
 /* disable book stuff
@@ -89,9 +104,9 @@ let oldStr = new ArrayBuffer(8);
 let dv = new DataView(oldStr, 0);
 console.log(`str input: ${str}`);
 for (let i = 0; i < 8; i = i + 2) {
-	dv.setInt16(i, (i + 1), true); // we need to use little endian!
-	console.log(`byte ${i} of our arraybuffer (lE): ${dv.getInt16(i, true)}`);
-	console.log(`byte ${i} of our arraybuffer (bE): ${dv.getInt16(i)}`);
+	dv.setInt16(i, (i + 1), littleEndian); // we need to use little endian!
+	console.log(`byte ${i} of our arraybuffer (lE): ${dv.getInt16(i, littleEndian)}`);
+	//console.log(`byte ${i} of our arraybuffer (bE): ${dv.getInt16(i)}`);
 	//console.log(`oldStr (arraybuffer) as int at inde ${i} : ${jstruct.Type.int16.read(oldStr, i)}`);
 }
 console.log('------- c code start -------');
@@ -101,10 +116,10 @@ console.log(`oldStr (arraybuffer) : ${jstruct.Type.char.read(oldStr)}`);
 console.log(`this should be the original string stuff as well\nnewStr (arraybuffer) : ${jstruct.Type.char.read(newStr)}`);
 let dv2 = new DataView(newStr, 0);
 for (let i = 0; i < 8; i = i + 2) {
-	console.log(`byte ${i} of our arraybuffer (lE): ${dv.getInt16(i, true)}`);
-	//console.log(`byte ${i} of our returned arraybuffer (lE): ${dv2.getInt16(i, true)}`); returned is obviously the same
-	console.log(`byte ${i} of our arraybuffer (bE): ${dv.getInt16(i)}`);
-	//console.log(`byte ${i} of our returned arraybuffer (bE): ${dv2.getInt16(i)}`);
+	console.log(`byte ${i} of our arraybuffer (lE): ${dv.getInt16(i, littleEndian)}`);
+	console.log(`byte ${i} of our ret arraybuffer (lE): ${dv2.getInt16(i, littleEndian)}`); //returned is obviously the same
+	//console.log(`byte ${i} of our arraybuffer (bE): ${dv.getInt16(i)}`);
+	//console.log(`byte ${i} of our ret arraybuffer (bE): ${dv2.getInt16(i)}`);
 
 	//console.log(`oldStr (arraybuffer) as int : ${jstruct.Type.int16.read(oldStr, i)}`);
 	//console.log(`newStr (arraybuffer) as int : ${jstruct.Type.int16.read(newStr, i)}`);

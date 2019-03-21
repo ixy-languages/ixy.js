@@ -105,7 +105,7 @@ napi_value writeString(napi_env env, napi_callback_info info)
   size_t argc = 2;
   napi_value argv[2];
 
-  status = napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+  status = napi_get_cb_info(env, info, &argc, &argv, NULL, NULL);
   if (status != napi_ok)
   {
     napi_throw_error(env, NULL, "Failed to parse arguments");
@@ -116,6 +116,13 @@ napi_value writeString(napi_env env, napi_callback_info info)
   {
     napi_throw_error(env, NULL, "Invalid string of length 10 was passed as first argument");
   }
+  bool *result;
+  status = napi_is_arraybuffer(env, argv[1], result);
+  if (status != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Failed checking if input is arraybuffer");
+  }
+  printf("The inputted data is an arraybuffer?: %d\n", result);
   //char string[10];
   int16_t inputArrayBuffer[4];
   size_t lengthOfString;
@@ -127,20 +134,21 @@ napi_value writeString(napi_env env, napi_callback_info info)
 
   if (status != napi_ok)
   {
-    napi_throw_error(env, NULL, "Invalid string of length 8? was passed as second argument");
+    napi_throw_error(env, NULL, "Invalid arraybuffer was passed as second argument");
   }
+  printf("The inputted arraybuffer as string: %s\n", argv[1]);
+  printf("The inputted arraybuffers data as string: %s\n", inputArrayBuffer);
+
   // printf("length of string: %d"\n, lengthOfString);
   // printf("Input string: %s\n", inputString);
   // printf("Input arraybuffer: %d\n", argv[1]);
-  printf("size of a single element in arraybuffer: %d"\n, sizeof(inputArrayBuffer[0]));
+  printf("size of a single element in arraybuffer: %d\n", sizeof(inputArrayBuffer[0]));
   for (int i = 0; i < sizeof(inputArrayBuffer) / sizeof(inputArrayBuffer[0]); i++)
   {
-    printf("Input arraybuffers data at index %d : %d\n", i, inputArrayBuffer[i]);
-    inputArrayBuffer[i] = 0;
-    printf("Changed arraybuffers data at index %d : %d\n", i, inputArrayBuffer[i]);
+    printf("Input arraybuffers data at index %d : %d\n", i, inputArrayBuffer[i]++);
+    printf("Change arraybuffers data at index %d : %d\n", i, inputArrayBuffer[i]);
   }
   //memcpy(string, inputString, sizeof(string));
-  printf("changed arrabuffer array: %d\n", inputArrayBuffer[1]);
 
   // TODO get output working
   /*status = napi_create_external_arraybuffer(env,
