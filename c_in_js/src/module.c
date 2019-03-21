@@ -123,12 +123,44 @@ uint8_t *pci_map_resource(const char *pci_addr)
   char path[PATH_MAX];
   snprintf(path, PATH_MAX, "/sys/bus/pci/devices/%s/resource0", pci_addr);
   debug("Mapping PCI resource at %s", path);
-  //remove_driver(pci_addr);
-  //enable_dma(pci_addr);
+  remove_driver(pci_addr);
+  enable_dma(pci_addr);
   int fd = check_err(open(path, O_RDWR), "open pci resource");
   struct stat stat;
   check_err(fstat(fd, &stat), "stat pci resource");
   return (uint8_t *)check_err(mmap(NULL, stat.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0), "mmap pci resource");
+}
+void remove_driver(const char *pci_addr)
+{
+  char path[PATH_MAX];
+  snprintf(path, PATH_MAX, "/sys/bus/pci/devices/%s/driver/unbind", pci_addr);
+  int fd = open(path, O_WRONLY);
+  if (fd == -1)
+  {
+    debug("no driver loaded");
+    return;
+  }
+  if (write(fd, pci_addr, strlen(pci_addr)) != (ssize_t)strlen(pci_addr))
+  {
+    warn("failed to unload driver for device %s", pci_addr);
+  }
+  check_err(close(fd), "close");
+}
+
+void enable_dma(const char *pci_addr)
+{
+  char path[PATH_MAX];
+  snprintf(path, PATH_MAX, "/sys/bus/pci/devices/%s/config", pci_addr);
+  int fd = check_err(open(path, O_RDWR), "open pci config");
+  // write to the command register (offset 4) in the PCIe config space
+  // bit 2 is "bus master enable", see PCIe 3.0 specification section 7.5.1.1
+  assert(lseek(fd, 4, SEEK_SET) == 4);
+  uint16_t dma = 0;
+  assert(read(fd, &dma, 2) == 2);
+  dma |= 1 << 2;
+  assert(lseek(fd, 4, SEEK_SET) == 4);
+  assert(write(fd, &dma, 2) == 2);
+  check_err(close(fd), "close");
 }
 //endof magic memory
 
@@ -137,13 +169,24 @@ napi_value writeString(napi_env env, napi_callback_info info)
 {
   // trying to get mmap
   const char *pciAddress = "0000:03:00.0";
+  const char *ressource = "resource0";
+  /*
   uint8_t *pciMap = pci_map_resource(pciAddress);
   //https://en.wikipedia.org/wiki/PCI_configuration_space#Technical_information
+  printf("pci map as string: %s\n", pciMap);
   for (int i = 0; i < 64; i++) // apparently first 64 byte are standardized so they need to be readable
   {
     printf("byte at %d in pciMap: %d\n", i, pciMap[i]);
   }
-  
+*/
+
+  //The file handle can be found by typing lscpi -v
+  //and looking for your device.
+  int fd = open("/sys/devices/pci0001\:00/0000\:03\:00.0/resource0", O_RDWR | O_SYNC);
+  //mmap returns a userspace address
+  //0, 4096 tells it to pull one page
+  unsigned short *ptr = mmap(0, 64, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+  printf("PCI BAR0 0x0000 = 0x%4x\n", *((unsigned short *)ptr));
   //endof mmap stuff
 
   printf("c says is this little endian?: %d\n", isLittleEndian());
