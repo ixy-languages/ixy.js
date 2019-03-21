@@ -129,12 +129,17 @@ napi_value writeString(napi_env env, napi_callback_info info)
   {
     napi_throw_error(env, NULL, "Invalid string of length 8? was passed as second argument");
   }
-  printf("length of string: %d", lengthOfString);
-  printf("Input string: %s\n", inputString);
-  printf("Input arraybuffer: %d\n", argv[1]);
-  printf("Input arraybuffers data: %d\n", inputArrayBuffer[1]);
+  // printf("length of string: %d"\n, lengthOfString);
+  // printf("Input string: %s\n", inputString);
+  // printf("Input arraybuffer: %d\n", argv[1]);
+  printf("size of a single element in arraybuffer: %d"\n, sizeof(inputArrayBuffer[0]));
+  for (int i = 0; i < sizeof(inputArrayBuffer) / sizeof(inputArrayBuffer[0]); i++)
+  {
+    printf("Input arraybuffers data at index %d : %d\n", i, inputArrayBuffer[i]);
+    inputArrayBuffer[i] = 0;
+    printf("Changed arraybuffers data at index %d : %d\n", i, inputArrayBuffer[i]);
+  }
   //memcpy(string, inputString, sizeof(string));
-  inputArrayBuffer[1] = 200;
   printf("changed arrabuffer array: %d\n", inputArrayBuffer[1]);
 
   // TODO get output working
