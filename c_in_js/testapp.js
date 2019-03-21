@@ -105,8 +105,7 @@ let dv = new DataView(oldStr, 0);
 console.log(`str input: ${str}`);
 for (let i = 0; i < 8; i = i + 2) {
 	dv.setInt16(i, (i + 1), littleEndian); // we need to use little endian!
-	console.log(`byte ${i} of our arraybuffer (lE): ${dv.getInt16(i, littleEndian)}`);
-	//console.log(`byte ${i} of our arraybuffer (bE): ${dv.getInt16(i)}`);
+	console.log(`byte ${i} of our arraybuffer: ${dv.getInt16(i, littleEndian)}`);
 	//console.log(`oldStr (arraybuffer) as int at inde ${i} : ${jstruct.Type.int16.read(oldStr, i)}`);
 }
 console.log('------- c code start -------');
@@ -116,10 +115,8 @@ console.log(`oldStr (arraybuffer) : ${jstruct.Type.char.read(oldStr)}`);
 console.log(`this should be the original string stuff as well\nnewStr (arraybuffer) : ${jstruct.Type.char.read(newStr)}`);
 let dv2 = new DataView(newStr, 0);
 for (let i = 0; i < 8; i = i + 2) {
-	console.log(`byte ${i} of our arraybuffer (lE): ${dv.getInt16(i, littleEndian)}`);
-	console.log(`byte ${i} of our ret arraybuffer (lE): ${dv2.getInt16(i, littleEndian)}`); //returned is obviously the same
-	//console.log(`byte ${i} of our arraybuffer (bE): ${dv.getInt16(i)}`);
-	//console.log(`byte ${i} of our ret arraybuffer (bE): ${dv2.getInt16(i)}`);
+	console.log(`byte ${i} of our arraybuffer: ${dv.getInt16(i, littleEndian)}`);
+	console.log(`byte ${i} of our ret arraybuffer: ${dv2.getInt16(i, littleEndian)}`); //returned is obviously the same
 
 	//console.log(`oldStr (arraybuffer) as int : ${jstruct.Type.int16.read(oldStr, i)}`);
 	//console.log(`newStr (arraybuffer) as int : ${jstruct.Type.int16.read(newStr, i)}`);

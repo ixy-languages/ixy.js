@@ -96,16 +96,31 @@ napi_value changeAuthor(napi_env env, napi_callback_info info)
   return returnVal;
 }
 /* */
+#define LITTLE_ENDIAN 0
+#define BIG_ENDIAN 1
+
+int endian()
+{
+  int i = 1;
+  char *p = (char *)&i;
+
+  if (p[0] == 1)
+    return LITTLE_ENDIAN;
+  else
+    return BIG_ENDIAN;
+}
+
 // Try writing a string into the buf
 napi_value writeString(napi_env env, napi_callback_info info)
 {
+  printf("c says is this little endian?: %d\n", !endian());
   napi_status status;
   napi_value returnVal;
 
   size_t argc = 2;
   napi_value argv[2];
 
-  status = napi_get_cb_info(env, info, &argc, &argv, NULL, NULL);
+  status = napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
   if (status != napi_ok)
   {
     napi_throw_error(env, NULL, "Failed to parse arguments");
@@ -116,8 +131,8 @@ napi_value writeString(napi_env env, napi_callback_info info)
   {
     napi_throw_error(env, NULL, "Invalid string of length 10 was passed as first argument");
   }
-  bool *result;
-  status = napi_is_arraybuffer(env, argv[1], result);
+  bool result;
+  status = napi_is_arraybuffer(env, argv[1], &result);
   if (status != napi_ok)
   {
     napi_throw_error(env, NULL, "Failed checking if input is arraybuffer");
