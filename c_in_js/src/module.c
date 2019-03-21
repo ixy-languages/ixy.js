@@ -96,24 +96,22 @@ napi_value changeAuthor(napi_env env, napi_callback_info info)
   return returnVal;
 }
 /* */
-#define LITTLE_ENDIAN 0
-#define BIG_ENDIAN 1
 
-int endian()
+int isLittleEndian()
 {
   int i = 1;
   char *p = (char *)&i;
 
   if (p[0] == 1)
-    return LITTLE_ENDIAN;
+    return 1 /*LITTLE_ENDIAN*/;
   else
-    return BIG_ENDIAN;
+    return 0 /*BIG_ENDIAN*/;
 }
 
 // Try writing a string into the buf
 napi_value writeString(napi_env env, napi_callback_info info)
 {
-  printf("c says is this little endian?: %d\n", !endian());
+  printf("c says is this little endian?: %d\n", isLittleEndian());
   napi_status status;
   napi_value returnVal;
 
@@ -143,7 +141,7 @@ napi_value writeString(napi_env env, napi_callback_info info)
   size_t lengthOfString;
   status = napi_get_arraybuffer_info(env,
                                      argv[1],
-                                     (void **)&inputArrayBuffer,
+                                     (void **)*&inputArrayBuffer,
                                      &lengthOfString);
   // napi_get_value_string_utf8(env, argv[1], string, 10, NULL);
 

@@ -121,6 +121,11 @@ for (let i = 0; i < 8; i = i + 2) {
 	//console.log(`oldStr (arraybuffer) as int : ${jstruct.Type.int16.read(oldStr, i)}`);
 	//console.log(`newStr (arraybuffer) as int : ${jstruct.Type.int16.read(newStr, i)}`);
 }
+/* test if were accessing the same data
+dv.setInt16(2, 100, littleEndian);
+console.log(`byte 2 of our arraybuffer: ${dv.getInt16(2, littleEndian)}`);
+console.log(`byte 2 of our ret arraybuffer: ${dv2.getInt16(2, littleEndian)}`); //returned is obviously the same
+*/
 
 
 
