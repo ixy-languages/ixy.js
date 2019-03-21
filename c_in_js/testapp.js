@@ -10,6 +10,16 @@ const littleEndian = (function () {
 })();
 console.log(`little endian?: ${littleEndian}`);
 
+const pci_addr = "0000:03:00.0";
+console.log(`pci addr input: ${pci_addr}, size: ${Buffer.byteLength(pci_addr, 'utf8')}`);
+console.log('------- c code start -------');
+let data = addon.getIDs(pci_addr);
+console.log('------- c code end -------');
+let dataview = new DataView(data, 0);
+console.log(`vendor id of our arraybuffer: ${dataview.getUint16(0, littleEndian)}`);
+console.log(`device id of our arraybuffer: ${dataview.getUint16(2, littleEndian)}`);
+
+
 // testing the random function that uses c 
 /*
 const value = 99558;
@@ -98,7 +108,8 @@ console.log('book 1 author: ' + bookobj.author);
 console.log('book2 author: ' + bookobj2.author);
 */
 
-
+//teporarily deactivate
+/*
 let str = "newStr";
 let oldStr = new ArrayBuffer(8);
 let dv = new DataView(oldStr, 0);
@@ -121,6 +132,8 @@ for (let i = 0; i < 8; i = i + 2) {
 	//console.log(`oldStr (arraybuffer) as int : ${jstruct.Type.int16.read(oldStr, i)}`);
 	//console.log(`newStr (arraybuffer) as int : ${jstruct.Type.int16.read(newStr, i)}`);
 }
+*/
+
 /* test if were accessing the same data
 dv.setInt16(2, 100, littleEndian);
 console.log(`byte 2 of our arraybuffer: ${dv.getInt16(2, littleEndian)}`);

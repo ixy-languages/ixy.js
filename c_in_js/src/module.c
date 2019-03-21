@@ -131,17 +131,32 @@ napi_value getIDs(napi_env env, napi_callback_info info)
 {
   napi_status stat;
   napi_value returnValue;
+  size_t argc = 1;
+  napi_value argv[1];
 
-  const char *pci_addr = "0000:03:00.0";
-  const char *ressource = "resource0";
+  stat = napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+  if (stat != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Failed to parse arguments");
+  }
+  char *pci_addr = malloc(12); // "0000:03:00.0"
+  printf("size of pci_addr buffer :%d\n", sizeof(pci_addr));
+  size_t size;
+  stat = napi_get_value_string_utf8(env, argv[0], pci_addr, 12, &size);
+  if (stat != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Invalid string of length 12, the PCI adress, was passed as first argument");
+  }
+  printf("the pci_address we got: %s ; we copied %d chars\n", pci_addr, size);
+  // dumb fix for now:
+  pci_addr = "0000:03:00.0";
 
   //The file handle can be found by typing lscpi -v
   //and looking for your device.
   int config = pci_open_resource(pci_addr, "config");
-  printf("vendor id: %d\ndervice id: %d\n", vendor_id, device_id);
   // now lets create this as a buffer we give JS
-  void *buf = malloc(8); // lets use 8 bytes to not destroy our other code
-  stat = napi_create_arraybuffer(env, 8, &buf, &returnValue);
+  void *buf = malloc(4);
+  stat = napi_create_arraybuffer(env, 4, &buf, &returnValue);
   if (stat != napi_ok)
   {
     napi_throw_error(env, NULL, "Failed our buffer creation");
@@ -585,6 +600,18 @@ napi_value Init(napi_env env, napi_value exports)
   }
 
   status = napi_set_named_property(env, exports, "writeString", fn);
+  if (status != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Unable to populate exports");
+  }
+  // adding my getIDs to get PCI id stuff
+  status = napi_create_function(env, NULL, 0, getIDs, NULL, &fn);
+  if (status != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Unable to wrap native function");
+  }
+
+  status = napi_set_named_property(env, exports, "getIDs", fn);
   if (status != napi_ok)
   {
     napi_throw_error(env, NULL, "Unable to populate exports");
