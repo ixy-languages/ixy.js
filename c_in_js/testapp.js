@@ -81,7 +81,7 @@ console.log('book 1 author: ' + bookobj.author);
 console.log('book2 author: ' + bookobj2.author);
 
 let str = "newStr";
-let oldStr = new ArrayBuffer(10);
+let oldStr = new ArrayBuffer(8);
 let dv = new DataView(oldStr, 0);
 dv.setInt16(1, 42);
 console.log(`str input: ${str}\noldStr (arraybuffer) : ${jstruct.Type.char.read(oldStr)}`);

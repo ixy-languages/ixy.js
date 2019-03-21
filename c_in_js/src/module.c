@@ -110,31 +110,33 @@ napi_value writeString(napi_env env, napi_callback_info info)
   {
     napi_throw_error(env, NULL, "Failed to parse arguments");
   }
-  char newString[10];
-  status = napi_get_value_string_utf8(env, argv[0], newString, 10, NULL);
+  char inputString[8];
+  status = napi_get_value_string_utf8(env, argv[0], inputString, sizeof(inputString), NULL);
   if (status != napi_ok)
   {
     napi_throw_error(env, NULL, "Invalid string of length 10 was passed as first argument");
   }
   //char string[10];
-  int16_t string[10];
+  int16_t inputArrayBuffer[4];
   size_t lengthOfString;
   status = napi_get_arraybuffer_info(env,
                                      argv[1],
-                                     (void **)&string,
+                                     (void **)&inputArrayBuffer,
                                      &lengthOfString);
   // napi_get_value_string_utf8(env, argv[1], string, 10, NULL);
 
   if (status != napi_ok)
   {
-    napi_throw_error(env, NULL, "Invalid string of length 10 was passed as second argument");
+    napi_throw_error(env, NULL, "Invalid string of length 8? was passed as second argument");
   }
   printf("length of string: %d", lengthOfString);
-  printf("Input string: %d\n", newString);
-  printf("Input arraybuffer: %s\n", argv[1]);
-  printf("Input arraybuffers data: %d\n", string[1]);
-  memcpy(string, newString, sizeof(string));
-  printf("changed arrabuffer char array: %s\n", string[1]);
+  printf("Input string: %s\n", inputString);
+  printf("Input arraybuffer: %d\n", argv[1]);
+  printf("Input arraybuffers data: %d\n", inputArrayBuffer[1]);
+  //memcpy(string, inputString, sizeof(string));
+  inputArrayBuffer[1] = 200;
+  printf("changed arrabuffer array: %d\n", inputArrayBuffer[1]);
+
   // TODO get output working
   /*status = napi_create_external_arraybuffer(env,
                                             (void *)&string,
