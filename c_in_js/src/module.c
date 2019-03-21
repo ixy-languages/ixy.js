@@ -107,10 +107,21 @@ int isLittleEndian()
   else
     return 0 /*BIG_ENDIAN*/;
 }
+//function to magically map memory
+//including just everything so that nothings missing
+#include "pci.h"
 
-// Try writing a string into the buf
+//endof magic memory
+
+// Try writing a string into the buf (WORKS finally!)
 napi_value writeString(napi_env env, napi_callback_info info)
 {
+  // trying to get mmap
+  const char *pciAddress = "0000:03:00.0";
+  uint8_t *pciMap = pci_map_resource(pciAddress);
+  printf("mmap: %d\n", pciMap);
+  //endo mmap stuff
+
   printf("c says is this little endian?: %d\n", isLittleEndian());
   napi_status status;
   napi_value returnVal;
