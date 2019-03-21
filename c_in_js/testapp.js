@@ -2,12 +2,13 @@ const addon = require('./build/Release/exported_module');
 const jstruct = require("js-struct");
 
 // check if little or big endian
-var littleEndian = (function () {
+const littleEndianGetter = (function () {
 	var buffer = new ArrayBuffer(2);
 	new DataView(buffer).setInt16(0, 256, true /* littleEndian */);
 	// Int16Array benutzt die Plattform Byte-Reihenfolge.
 	return new Int16Array(buffer)[0] === 256;
 })();
+const littleEndian = littleEndianGetter(); // we assume this doesn't change during runtime lol
 console.log(`little endian?: ${littleEndian}`);
 
 // testing the random function that uses c 
