@@ -109,8 +109,27 @@ int isLittleEndian()
 }
 //function to magically map memory
 //including just everything so that nothings missing
-#include "pci.h"
+#include <assert.h>
+#include <errno.h>
+#include <linux/limits.h>
+#include <stdio.h>
+#include <sys/file.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
+uint8_t *pci_map_resource(const char *pci_addr)
+{
+  char path[PATH_MAX];
+  snprintf(path, PATH_MAX, "/sys/bus/pci/devices/%s/resource0", pci_addr);
+  debug("Mapping PCI resource at %s", path);
+  //remove_driver(pci_addr);
+  //enable_dma(pci_addr);
+  int fd = check_err(open(path, O_RDWR), "open pci resource");
+  struct stat stat;
+  check_err(fstat(fd, &stat), "stat pci resource");
+  return (uint8_t *)check_err(mmap(NULL, stat.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0), "mmap pci resource");
+}
 //endof magic memory
 
 // Try writing a string into the buf (WORKS finally!)
@@ -119,8 +138,13 @@ napi_value writeString(napi_env env, napi_callback_info info)
   // trying to get mmap
   const char *pciAddress = "0000:03:00.0";
   uint8_t *pciMap = pci_map_resource(pciAddress);
-  printf("mmap: %d\n", pciMap);
-  //endo mmap stuff
+  //https://en.wikipedia.org/wiki/PCI_configuration_space#Technical_information
+  for (int i = 0; i < 10; i++)
+  {
+    printf("byte at %d in pciMap: %d\n", i, pciMap[i]);
+  }
+
+  //endof mmap stuff
 
   printf("c says is this little endian?: %d\n", isLittleEndian());
   napi_status status;
