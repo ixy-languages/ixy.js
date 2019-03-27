@@ -171,7 +171,7 @@ napi_value getIDs(napi_env env, napi_callback_info info)
     napi_throw_error(env, NULL, "Failed our buffer creation");
   }
   // fill empty buffer inside of C
-  if (getRawPointer)
+  if (!returnRawPointer)
   {
     pread(config, buf, 4, 0);
 
