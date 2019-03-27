@@ -1,26 +1,26 @@
 const addon = require('./build/Release/exported_module');
-const jstruct = require("js-struct");
+// const jstruct = require('js-struct');
 
 // check if little or big endian
-const littleEndian = (function () {
-	var buffer = new ArrayBuffer(2);
-	new DataView(buffer).setInt16(0, 256, true /* littleEndian */);
-	// Int16Array benutzt die Plattform Byte-Reihenfolge.
-	return new Int16Array(buffer)[0] === 256;
+const littleEndian = (function lE() {
+  const buffer = new ArrayBuffer(2);
+  new DataView(buffer).setInt16(0, 256, true /* littleEndian */);
+  // Int16Array benutzt die Plattform Byte-Reihenfolge.
+  return new Int16Array(buffer)[0] === 256;
 })();
 console.log(`little endian?: ${littleEndian}`);
 
-const pci_addr = "0000:03:00.0";
-console.log(`pci addr input: ${pci_addr}, size: ${Buffer.byteLength(pci_addr, 'utf8')}`);
+const pciAddr = '0000:03:00.0';
+console.log(`pci addr input: ${pciAddr}, size: ${Buffer.byteLength(pciAddr, 'utf8')}`);
 console.log('------- c code start -------');
-let data = addon.getIDs(pci_addr);
+const data = addon.getIDs(pciAddr);
 console.log('------- c code end -------');
-let dataview = new DataView(data, 0);
+const dataview = new DataView(data, 0);
 console.log(`vendor id of our arraybuffer: ${dataview.getUint16(0, littleEndian)}`);
 console.log(`device id of our arraybuffer: ${dataview.getUint16(2, littleEndian)}`);
 
 
-// testing the random function that uses c 
+// testing the random function that uses c
 /*
 const value = 99558;
 console.log(`Input :${value}\nOutput:${addon.my_function(value)}`); // expected to add 200
@@ -46,7 +46,7 @@ Returned buffer byte length is: ${myArrayBuffer.byteLength}
 Created typed array byte length is: ${myTypedArray.byteLength}`);
 */
 
-//trying to use js-struct to use the c struct correctly 
+// trying to use js-struct to use the c struct correctly
 /* c struct:
 struct mempool {
 	void* base_addr;
@@ -108,7 +108,7 @@ console.log('book 1 author: ' + bookobj.author);
 console.log('book2 author: ' + bookobj2.author);
 */
 
-//teporarily deactivate
+// teporarily deactivate
 /*
 let str = "newStr";
 let oldStr = new ArrayBuffer(8);
@@ -141,7 +141,6 @@ console.log(`byte 2 of our ret arraybuffer: ${dv2.getInt16(2, littleEndian)}`); 
 */
 
 
-
 // todo
 
 // endof testing struct stuff
@@ -155,7 +154,7 @@ myTypedArray = new Uint16Array(myIxyDevice);
 /*
 struct ixy_device
 {
-	const char *pci_addr;
+	const char *pciAddr;
 	const char *driver_name;
 	uint16_t num_rx_queues;
 	uint16_t num_tx_queues;
