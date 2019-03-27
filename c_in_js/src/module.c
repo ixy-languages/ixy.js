@@ -162,9 +162,24 @@ napi_value getIDs(napi_env env, napi_callback_info info)
     napi_throw_error(env, NULL, "Failed our buffer creation");
   }
   // lets actually fill the buffer
+  // TODO try without pread after the arraybuffer creation, but instead create external_arrabuffer using the buffer we created/read into
+  /*
   pread(config, buf, 4, 0);
 
   return returnValue;
+  */
+
+  FILE *filepointer = fdopen(config, "w+")
+      // testing area - not tested yet
+      napi_value testReturnVal;
+  stat = napi_create_external_arraybuffer(env, filepointer, sizeof(filepointer), NULL, NULL, &testReturnVal);
+  if (stat != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Failed our external buffer creation");
+  }
+  return testReturnVal;
+
+  // endof testing area
 }
 // Try writing a string into the buf (WORKS finally!)
 napi_value writeString(napi_env env, napi_callback_info info)
@@ -221,22 +236,8 @@ napi_value writeString(napi_env env, napi_callback_info info)
     inputArrayBuffer[0][i] = 30;
     printf("Change arraybuffers data at index %d : %d\n", i, inputArrayBuffer[0][i]);
   }
-  //memcpy(string, inputString, sizeof(string));
 
-  // TODO get output working
-  /*status = napi_create_external_arraybuffer(env,
-                                            (void *)&string,
-                                            sizeof(string),
-                                            NULL,
-                                            NULL,
-                                            &returnVal);
-  if (status != napi_ok)
-  {
-    napi_throw_error(env, NULL, "Unable to create return value");
-  }
-  */
-  //return returnVal;
-  return argv[1]; // this should be the original array buffer, and we changed the data lying beneath?
+  return argv[1]; // this should be the original array buffer, and we changed the data lying beneath? - yes
 }
 
 //end testing struct stuff
