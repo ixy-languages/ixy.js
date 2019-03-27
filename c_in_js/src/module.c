@@ -131,8 +131,8 @@ napi_value getIDs(napi_env env, napi_callback_info info)
 {
   napi_status stat;
   napi_value returnValue;
-  size_t argc = 1;
-  napi_value argv[1];
+  size_t argc = 2;
+  napi_value argv[2];
 
   stat = napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
   if (stat != napi_ok)
@@ -148,9 +148,17 @@ napi_value getIDs(napi_env env, napi_callback_info info)
     napi_throw_error(env, NULL, "Invalid string of length 12, the PCI adress, was passed as first argument");
   }
   printf("size of pci_addr buffer after being filled :%d\n", sizeof(pci_addr));
-  printf("the pci_address we got: %s ; we copied %d chars\n", pci_addr, size);
+  printf("the pci_address we got: %s ; we copied %d chars\n", pci_addr, size); // this gives us "0000:03:00." for some reason, missing the last "0"
   // dumb fix for now:
   pci_addr = "0000:03:00.0";
+
+  //check if we want to actually give JS the raw adress or already parse (to compare the values we get)
+  bool returnRawPointer;
+  stat = napi_get_value_bool(env, argv[1], &returnRawPointer);
+  if (stat != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Failed to get the 2nd argument, a boolean");
+  }
 
   //The file handle can be found by typing lscpi -v
   //and looking for your device.
@@ -162,23 +170,26 @@ napi_value getIDs(napi_env env, napi_callback_info info)
   {
     napi_throw_error(env, NULL, "Failed our buffer creation");
   }
-  // lets actually fill the buffer
-  // TODO try without pread after the arraybuffer creation, but instead create external_arrabuffer using the buffer we created/read into
-  /*
-  pread(config, buf, 4, 0);
-
-  return returnValue;
-  */
-
-  FILE *filepointer = fdopen(config, "w+");
-  // testing area - not tested yet
-  napi_value testReturnVal;
-  stat = napi_create_external_arraybuffer(env, filepointer, sizeof(filepointer), NULL, NULL, &testReturnVal);
-  if (stat != napi_ok)
+  // fill empty buffer inside of C
+  if (getRawPointer)
   {
-    napi_throw_error(env, NULL, "Failed our external buffer creation");
+    pread(config, buf, 4, 0);
+
+    return returnValue;
   }
-  return testReturnVal;
+  else
+  {
+
+    FILE *filepointer = fdopen(config, "w+");
+    // testing area - not tested yet
+    napi_value testReturnVal;
+    stat = napi_create_external_arraybuffer(env, filepointer, sizeof(filepointer), NULL, NULL, &testReturnVal);
+    if (stat != napi_ok)
+    {
+      napi_throw_error(env, NULL, "Failed our external buffer creation");
+    }
+    return testReturnVal;
+  }
 
   // endof testing area
 }
