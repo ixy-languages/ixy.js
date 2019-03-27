@@ -169,9 +169,9 @@ napi_value getIDs(napi_env env, napi_callback_info info)
   return returnValue;
   */
 
-  FILE *filepointer = fdopen(config, "w+")
-      // testing area - not tested yet
-      napi_value testReturnVal;
+  FILE *filepointer = fdopen(config, "w+");
+  // testing area - not tested yet
+  napi_value testReturnVal;
   stat = napi_create_external_arraybuffer(env, filepointer, sizeof(filepointer), NULL, NULL, &testReturnVal);
   if (stat != napi_ok)
   {
