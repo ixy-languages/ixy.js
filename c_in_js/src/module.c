@@ -146,7 +146,6 @@ napi_value getIDs(napi_env env, napi_callback_info info)
   {
     napi_throw_error(env, NULL, "Invalid string of length 12, the PCI adress, was passed as first argument");
   }
-  printf("the pci_address we got: %s ; we copied %d chars\n", pci_addr, size);
 
   //check if we want to actually give JS the raw adress or already parse (to compare the values we get)
   bool returnRawPointer;
@@ -178,7 +177,7 @@ napi_value getIDs(napi_env env, napi_callback_info info)
 
     FILE *filepointer = fdopen(config, "w+");
     napi_value testReturnVal;
-    stat = napi_create_external_arraybuffer(env, filepointer, sizeof(filepointer), NULL, NULL, &testReturnVal);
+    stat = napi_create_external_arraybuffer(env, filepointer, 4, NULL, NULL, &testReturnVal);
     if (stat != napi_ok)
     {
       napi_throw_error(env, NULL, "Failed our external buffer creation");
@@ -206,13 +205,13 @@ napi_value getReg(napi_env env, napi_callback_info info)
 	*((volatile uint32_t *)(addr + reg)) = value;
 }
   */
-  void **get_reg(uint8_t * addr, int reg)
+  void *get_reg(uint8_t * addr, int reg)
   {
     __asm__ volatile(""
                      :
                      :
                      : "memory"); // i dont think we need this but lets just keep this here before changing too much
-    void **regPointer = *((volatile uint32_t *)(addr + reg));
+    void *regPointer = (volatile uint32_t *)(addr + reg);
     return regPointer;
   }
 
@@ -230,7 +229,6 @@ napi_value getReg(napi_env env, napi_callback_info info)
   {
     napi_throw_error(env, NULL, "Invalid string of length 12, the PCI adress, was passed as first argument");
   }
-  printf("the pci_address we got: %s ; we copied %d chars\n", pci_addr, size);
 
   //this is what we need to get the root adress
   int fd = pci_open_resource(pci_addr, "resource0");
@@ -239,9 +237,9 @@ napi_value getReg(napi_env env, napi_callback_info info)
   printf("Size of the stat: %d\n", stat2.st_size);
   uint8_t *pci_map_resource_js = check_err(mmap(NULL, stat2.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0), "mmap pci resource"); // we get the error Invalid Argument here
 
-  void **filepointer = get_reg(pci_map_resource_js, IXGBE_EIMC);
+  void *filepointer = get_reg(pci_map_resource_js, IXGBE_EIMC);
   napi_value testReturnVal;
-  stat = napi_create_external_arraybuffer(env, filepointer, sizeof(filepointer), NULL, NULL, &testReturnVal);
+  stat = napi_create_external_arraybuffer(env, filepointer, /*pretty sure this wont work*/ sizeof(filepointer), NULL, NULL, &testReturnVal);
   if (stat != napi_ok)
   {
     napi_throw_error(env, NULL, "Failed our external buffer creation");
