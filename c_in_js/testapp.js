@@ -11,7 +11,9 @@ const littleEndian = (function lE() {
 console.log(`little endian?: ${littleEndian}`);
 
 const pciAddr = '0000:03:00.0';
-console.log(`pci addr input: ${pciAddr}, size: ${Buffer.byteLength(pciAddr, 'utf8')}`);
+console.log(
+  `pci addr input: ${pciAddr}, size: ${Buffer.byteLength(pciAddr, 'utf8')}`
+);
 console.log('------- c code start -------');
 const data = addon.getIDs(pciAddr, false);
 const dataRaw = addon.getIDs(pciAddr, true);
@@ -19,12 +21,55 @@ console.log('------- c code end -------');
 const dataview = new DataView(data, 0);
 const dv2 = new DataView(dataRaw, 0);
 console.log('read in C:');
-console.log(`vendor id of our arraybuffer: ${dataview.getUint16(0, littleEndian)}`);
-console.log(`device id of our arraybuffer: ${dataview.getUint16(2, littleEndian)}`);
+console.log(
+  `vendor id (first two bytes) of our arraybuffer: ${dataview.getUint16(
+    0,
+    littleEndian
+  )}`
+);
+console.log(
+  `vendor id P1 (first byte) of our arraybuffer: ${dataview.getUint8(
+    0,
+    littleEndian
+  )}`
+);
+console.log(
+  `vendor id P2 (second byte) of our arraybuffer: ${dataview.getInt8(
+    1,
+    littleEndian
+  )}`
+);
+console.log(
+  `device id (second two bytes) of our arraybuffer: ${dataview.getUint16(
+    2,
+    littleEndian
+  )}`
+);
 console.log('read in JS:');
-console.log(`vendor id of our arraybuffer: ${dv2.getUint16(0, littleEndian)}`);
-console.log(`device id of our arraybuffer: ${dv2.getUint16(2, littleEndian)}`);
-
+console.log(
+  `vendor id (first two bytes) of our arraybuffer: ${dv2.getUint16(
+    0,
+    littleEndian
+  )}`
+);
+console.log(
+  `vendor id P1 (first byte) of our arraybuffer: ${dv2.getUint8(
+    0,
+    littleEndian
+  )}`
+);
+console.log(
+  `vendor id P2 (second byte) of our arraybuffer: ${dv2.getInt8(
+    1,
+    littleEndian
+  )}`
+);
+console.log(
+  `device id (second two bytes) of our arraybuffer: ${dv2.getUint16(
+    2,
+    littleEndian
+  )}`
+);
 
 // testing the random function that uses c
 /*
@@ -145,7 +190,6 @@ dv.setInt16(2, 100, littleEndian);
 console.log(`byte 2 of our arraybuffer: ${dv.getInt16(2, littleEndian)}`);
 console.log(`byte 2 of our ret arraybuffer: ${dv2.getInt16(2, littleEndian)}`); //returned is obviously the same
 */
-
 
 // todo
 
