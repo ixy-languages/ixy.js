@@ -146,8 +146,7 @@ napi_value getIDs(napi_env env, napi_callback_info info)
   {
     napi_throw_error(env, NULL, "Invalid string of length 12, the PCI adress, was passed as first argument");
   }
-  printf("the pci_address we got: %s ; we copied %d chars\n", pci_addr, size); 
-  
+  printf("the pci_address we got: %s ; we copied %d chars\n", pci_addr, size);
 
   //check if we want to actually give JS the raw adress or already parse (to compare the values we get)
   bool returnRawPointer;
@@ -178,7 +177,6 @@ napi_value getIDs(napi_env env, napi_callback_info info)
   {
 
     FILE *filepointer = fdopen(config, "w+");
-    // testing area - not tested yet
     napi_value testReturnVal;
     stat = napi_create_external_arraybuffer(env, filepointer, sizeof(filepointer), NULL, NULL, &testReturnVal);
     if (stat != napi_ok)
@@ -187,8 +185,72 @@ napi_value getIDs(napi_env env, napi_callback_info info)
     }
     return testReturnVal;
   }
+}
+#define IXGBE_EIMC 0x00888
 
-  // endof testing area
+napi_value getReg(napi_env env, napi_callback_info info)
+{
+  napi_status stat;
+  napi_value returnValue;
+  size_t argc = 1;
+  napi_value argv[1];
+
+  // lets try to make this work in JS:
+  /*set_reg32(dev->addr, IXGBE_EIMC, 0x7FFFFFFF);
+  defined as:
+  static inline void set_reg32(uint8_t *addr, int reg, uint32_t value)
+{
+	__asm__ volatile(""
+					 :
+					 :
+					 : "memory");
+	*((volatile uint32_t *)(addr + reg)) = value;
+}
+  */
+  static inline void **get_reg(uint8_t * addr, int reg)
+  {
+    __asm__ volatile(""
+                     :
+                     :
+                     : "memory"); // i dont think we need this but lets just keep this here before changing too much
+    void **regPointer = *((volatile uint32_t *)(addr + reg));
+    return regPointer;
+  }
+
+  // endof trying
+
+  stat = napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+  if (stat != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Failed to parse arguments");
+  }
+  char *pci_addr = malloc(12); // "0000:03:00.0"
+  size_t size;
+  stat = napi_get_value_string_utf8(env, argv[0], pci_addr, 13, &size); // for some reason we need to use length 13 not 12, to get 12 bytes
+  if (stat != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Invalid string of length 12, the PCI adress, was passed as first argument");
+  }
+  printf("the pci_address we got: %s ; we copied %d chars\n", pci_addr, size);
+
+  //The file handle can be found by typing lscpi -v
+  //and looking for your device.
+  int config = pci_open_resource(pci_addr, "config");
+  // now lets create this as a buffer we give JS
+  void *buf = malloc(4);
+  stat = napi_create_arraybuffer(env, 4, &buf, &returnValue);
+  if (stat != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Failed our buffer creation");
+  }
+  void **filepointer = get_reg(/*TODO root adress*/, IXGBE_EIMC);
+  napi_value testReturnVal;
+  stat = napi_create_external_arraybuffer(env, filepointer, sizeof(filepointer), NULL, NULL, &testReturnVal);
+  if (stat != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Failed our external buffer creation");
+  }
+  return testReturnVal;
 }
 // Try writing a string into the buf (WORKS finally!)
 napi_value writeString(napi_env env, napi_callback_info info)
