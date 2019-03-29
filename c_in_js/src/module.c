@@ -93,7 +93,7 @@ napi_value getIDs(napi_env env, napi_callback_info info)
 #define IXGBE_EIMC 0x00888
 
 // tmp copypastas
-void remove_driver(const char *pci_addr)
+void remove_driver(const char *pci_addr) // for now C is fine but at some point well put this into JS
 {
   char path[PATH_MAX];
   snprintf(path, PATH_MAX, "/sys/bus/pci/devices/%s/driver/unbind", pci_addr);
@@ -125,7 +125,7 @@ void enable_dma(const char *pci_addr)
   assert(write(fd, &dma, 2) == 2);
   check_err(close(fd), "close");
 }
-//
+//endof copypastas
 
 napi_value getReg(napi_env env, napi_callback_info info)
 {
@@ -169,22 +169,8 @@ napi_value getReg(napi_env env, napi_callback_info info)
   {
     napi_throw_error(env, NULL, "Invalid string of length 12, the PCI adress, was passed as first argument");
   }
-  // temporarily use the function pci.c implements to see if our implementation is the problem:
-  uint8_t *pci_map_resource(const char *pci_addr)
-  {
-    char path[PATH_MAX];
-    snprintf(path, PATH_MAX, "/sys/bus/pci/devices/%s/resource0", pci_addr);
-    debug("Mapping PCI resource at %s", path);
-    //remove_driver(pci_addr);
-    enable_dma(pci_addr);
-    int fd = check_err(open(path, O_RDWR), "open pci resource");
-    struct stat stat;
-    check_err(fstat(fd, &stat), "stat pci resource");
-    return (uint8_t *)check_err(mmap(NULL, stat.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0), "mmap pci resource");
-  }
-  //uint8_t *pci_map_resource_js = pci_map_resource(pci_addr);
+
   remove_driver(pci_addr); // we added this to see if it works now
-  // end of c copypaste
 
   //this is what we need to get the root adress
   int fd = pci_open_resource(pci_addr, "resource0");
