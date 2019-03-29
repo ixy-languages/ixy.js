@@ -142,6 +142,7 @@ napi_value getReg(napi_env env, napi_callback_info info)
   printf("Size of the stat: %d\n", stat2.st_size);
   uint8_t *pci_map_resource_js = check_err(mmap(NULL, stat2.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0), "mmap pci resource"); // we get the error Invalid Argument here
 
+  // ab hier ist alles noch nicht ganz fertig, aber ich will erstmal mmap fixen
   void *filepointer = get_reg(pci_map_resource_js, IXGBE_EIMC);
   napi_value testReturnVal;
   stat = napi_create_external_arraybuffer(env, filepointer, /*pretty sure this wont work*/ sizeof(filepointer), NULL, NULL, &testReturnVal);
