@@ -235,7 +235,7 @@ napi_value getReg(napi_env env, napi_callback_info info)
 
   //The file handle can be found by typing lscpi -v
   //and looking for your device.
-  int config = pci_open_resource(pci_addr, "config");
+  int fd = pci_open_resource(pci_addr, "resource0");
   // now lets create this as a buffer we give JS
   void *buf = malloc(4);
   stat = napi_create_arraybuffer(env, 4, &buf, &returnValue);
@@ -243,7 +243,12 @@ napi_value getReg(napi_env env, napi_callback_info info)
   {
     napi_throw_error(env, NULL, "Failed our buffer creation");
   }
-  void **filepointer = get_reg(/*TODO root adress*/, IXGBE_EIMC);
+  //this is what we need to get the root adress
+  struct stat stat;
+  check_err(fstat(fd, &stat), "stat pci resource");
+  uint8_t *pci_map_resource_js = check_err(mmap(NULL, stat.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0), "mmap pci resource");
+
+  void **filepointer = get_reg(pci_map_resource_js, IXGBE_EIMC);
   napi_value testReturnVal;
   stat = napi_create_external_arraybuffer(env, filepointer, sizeof(filepointer), NULL, NULL, &testReturnVal);
   if (stat != napi_ok)
