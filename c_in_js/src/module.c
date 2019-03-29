@@ -139,18 +139,15 @@ napi_value getIDs(napi_env env, napi_callback_info info)
   {
     napi_throw_error(env, NULL, "Failed to parse arguments");
   }
-  char *pci_addr = malloc(12 * sizeof(char)); // "0000:03:00.0"
-  printf("size of pci_addr buffer :%d\n", sizeof(pci_addr));
+  char *pci_addr = malloc(12); // "0000:03:00.0"
   size_t size;
-  stat = napi_get_value_string_utf8(env, argv[0], pci_addr, 12, &size);
+  stat = napi_get_value_string_utf8(env, argv[0], pci_addr, 13, &size); // for some reason we need to use length 13 not 12, to get 12 bytes
   if (stat != napi_ok)
   {
     napi_throw_error(env, NULL, "Invalid string of length 12, the PCI adress, was passed as first argument");
   }
-  printf("size of pci_addr buffer after being filled :%d\n", sizeof(pci_addr));
-  printf("the pci_address we got: %s ; we copied %d chars\n", pci_addr, size); // this gives us "0000:03:00." for some reason, missing the last "0"
-  // dumb fix for now:
-  pci_addr = "0000:03:00.0";
+  printf("the pci_address we got: %s ; we copied %d chars\n", pci_addr, size); 
+  
 
   //check if we want to actually give JS the raw adress or already parse (to compare the values we get)
   bool returnRawPointer;
