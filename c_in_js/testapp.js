@@ -151,7 +151,9 @@ const dv4 = new DataView(oldStr, 0);
 console.log(`str input: ${str}`);
 for (let i = 0; i < 8; i += 2) {
   dv4.setInt16(i, i + 1, littleEndian); // we need to use little endian!
-  console.log(`index ${i} of our arraybuffer: ${dv4.getInt16(i, littleEndian)}`);
+  console.log(
+    `index ${i} of our arraybuffer: ${dv4.getInt16(i, littleEndian)}`
+  );
   // console.log(`oldStr (arraybuffer) as int at index ${i} : ${jstruct.Type.int16.read(oldStr, i)}`);
 }
 console.log('------- c code start -------');
@@ -159,14 +161,28 @@ const newStr = addon.writeString(str, oldStr);
 console.log('------- c code end -------');
 const dv6 = new DataView(newStr, 0);
 for (let i = 0; i < 8; i += 2) {
-  console.log(`index ${i} of our arraybuffer: ${dv4.getUint16(i, littleEndian)}`);
-  console.log(`index ${i} of our ret arraybuffer: ${dv6.getUint16(i, littleEndian)}`); // returned is obviously the same
+  console.log(
+    `index ${i} of our arraybuffer: ${dv4.getUint16(i, littleEndian)}`
+  );
+  console.log(
+    `index ${i} of our ret arraybuffer: ${dv6.getUint16(i, littleEndian)}`
+  ); // returned is obviously the same
 
   // console.log(`oldStr (arraybuffer) as int : ${jstruct.Type.int16.read(oldStr, i)}`);
   // console.log(`newStr (arraybuffer) as int : ${jstruct.Type.int16.read(newStr, i)}`);
 }
 console.log('testing if we can change data via JS:');
-dv4.setInt16(2, 100, littleEndian);
-console.log(`byte 2 of our arraybuffer: ${dv4.getInt16(2, littleEndian)}`);
-console.log(`byte 2 of our ret arraybuffer: ${dv6.getInt16(2, littleEndian)}`); // returned is obviously the same
+dv4.setUint16(2, 100, littleEndian);
+console.log(`byte 2 of our arraybuffer: ${dv4.getUint16(2, littleEndian)}`);
+console.log(`byte 2 of our ret arraybuffer: ${dv6.getUint16(2, littleEndian)}`); // returned is obviously the same
 
+console.log('\narrayTest\n');
+const buf = addon.arrayTest();
+const bufDv = new DataView(buf);
+console.log(`size of the buffer: ${bufDv.byteLength}`);
+console.log(bufDv.getUint32(0, littleEndian));
+console.log(bufDv.getUint32(4, littleEndian));
+console.log('changing to 900...');
+bufDv.setUint32(0, 900, littleEndian);
+console.log(bufDv.getUint32(0, littleEndian));
+console.log(bufDv.getUint32(4, littleEndian));

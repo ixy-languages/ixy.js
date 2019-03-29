@@ -253,7 +253,7 @@ napi_value writeString(napi_env env, napi_callback_info info)
   for (int i = 0; i < lengthOfString / sizeof(inputArrayBuffer[0][0]); i++)
   {
     printf("Input arraybuffers data at index %d : %d\n", i, inputArrayBuffer[0][i]);
-    inputArrayBuffer[0][i] = 30;
+    inputArrayBuffer[0][i] *= 3;
     printf("Change arraybuffers data at index %d : %d\n", i, inputArrayBuffer[0][i]);
   }
 
@@ -263,45 +263,27 @@ napi_value writeString(napi_env env, napi_callback_info info)
 napi_value arrayTest(napi_env env, napi_callback_info info) // we create a uint32 array based on an input, to be sure we deliver data correctly
 {
   napi_status status;
-  size_t argc = 1;
-  int number = 0;
-  napi_value argv[1];
-  status = napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-
-  if (status != napi_ok)
-  {
-    napi_throw_error(env, NULL, "Failed to parse arguments");
-  }
-
-  status = napi_get_value_int32(env, argv[0], &number);
-
-  if (status != napi_ok)
-  {
-    napi_throw_error(env, NULL, "Invalid number was passed as argument");
-  }
   napi_value ret;
-  printf("the number we got: %d\n", number);
+  uint32_t array[] = {3, 2, 7, 129};
+  uint32_t *uints;
 
-  uint32_t uints[] = {number, number * 2, number * 3, number * 4};
-  // TODO find out how we would actually convert this, seems very inconvenient from what i found in napi docs. Maybe we want to handle only single values later ? would be impractical in some cases though
-  // status = napi_create_uint32(env, uints, &ret);
-  printf("our array: \n");
-  for (int i = 0; i < sizeof(uints) / sizeof(uints[0]); i++)
-  {
-    printf("%d\n", uints[i]);
-  }
   // trying to create an array buffer from this input
-  napi_create_external_arraybuffer(env,
-                                   &uints,
-                                   sizeof(uints),
-                                   NULL,
-                                   NULL,
-                                   &ret);
+  status = napi_create_external_arraybuffer(env,
+                                            array,
+                                            4 * sizeof(uint32_t),
+                                            NULL,
+                                            NULL,
+                                            &ret);
 
+  /*status = napi_create_arraybuffer(env,
+                                   4 * sizeof(uint32_t),
+                                   &uints,
+                                   &ret);*/
   if (status != napi_ok)
   {
     napi_throw_error(env, NULL, "Unable to create return value");
   }
+  //uints = array;
 
   return ret;
 }
