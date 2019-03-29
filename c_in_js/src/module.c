@@ -207,7 +207,7 @@ napi_value getReg(napi_env env, napi_callback_info info)
 	*((volatile uint32_t *)(addr + reg)) = value;
 }
   */
-  static inline void **get_reg(uint8_t * addr, int reg)
+  void **get_reg(uint8_t * addr, int reg)
   {
     __asm__ volatile(""
                      :
@@ -244,9 +244,9 @@ napi_value getReg(napi_env env, napi_callback_info info)
     napi_throw_error(env, NULL, "Failed our buffer creation");
   }
   //this is what we need to get the root adress
-  struct stat stat;
-  check_err(fstat(fd, &stat), "stat pci resource");
-  uint8_t *pci_map_resource_js = check_err(mmap(NULL, stat.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0), "mmap pci resource");
+  struct stat stat2;
+  check_err(fstat(fd, &stat2), "stat pci resource");
+  uint8_t *pci_map_resource_js = check_err(mmap(NULL, stat2.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0), "mmap pci resource");
 
   void **filepointer = get_reg(pci_map_resource_js, IXGBE_EIMC);
   napi_value testReturnVal;
