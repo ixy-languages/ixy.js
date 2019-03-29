@@ -60,6 +60,8 @@ napi_value getIDs(napi_env env, napi_callback_info info)
     napi_throw_error(env, NULL, "Failed to get the 2nd argument, a boolean");
   }
 
+  enable_dma(pci_addr); // do we need this to actually be able to write there?
+
   //The file handle can be found by typing lscpi -v
   //and looking for your device.
   int config = pci_open_resource(pci_addr, "config");
@@ -177,7 +179,7 @@ napi_value getReg(napi_env env, napi_callback_info info)
   }
 
   remove_driver(pci_addr); // we added this to see if it works now
-  //enable_dma(pci_addr);    // do we need this to actually be able to write there?
+  enable_dma(pci_addr);    // do we need this to actually be able to write there?
 
   //this is what we need to get the root adress
   int fd = pci_open_resource(pci_addr, "resource0");

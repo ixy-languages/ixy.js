@@ -16,12 +16,16 @@ const pciAddr2 = '0000:06:00.0';
 console.log(
   `pci addr input: ${pciAddr}, size: ${Buffer.byteLength(pciAddr, 'utf8')}`
 );
+console.log('\nfirst test start:\n');
 console.log('------- c code start -------');
 const data = addon.getIDs(pciAddr, false);
 const dataRaw = addon.getIDs(pciAddr, true);
 console.log('------- c code end -------');
 const dataview = new DataView(data, 0);
 const dv2 = new DataView(dataRaw, 0);
+console.log(`length of dataview1: ${dataview.byteLength}`);
+console.log(`length of dataview2: ${dv2.byteLength}`);
+
 console.log('read in C:');
 console.log(
   `vendor id (first two bytes) of our arraybuffer: ${dataview.getUint16(
@@ -48,6 +52,37 @@ console.log(
     littleEndian
   )}`
 );
+// testing if changes go through
+dataview.setUint16(2, 200, littleEndian);
+
+console.log('we shouldve changed the values now:');
+console.log(
+  `from C: vendor id (first two bytes) of our arraybuffer: ${dataview.getUint16(
+    0,
+    littleEndian
+  )}`
+);
+console.log(
+  `from JS: vendor id (first two bytes) of our arraybuffer: ${dv2.getUint16(
+    0,
+    littleEndian
+  )}`
+);
+dv2.setUint16(2, 200, littleEndian);
+console.log('we shouldve changed the values now:');
+console.log(
+  `from C: vendor id (first two bytes) of our arraybuffer: ${dataview.getUint16(
+    0,
+    littleEndian
+  )}`
+);
+console.log(
+  `from JS: vendor id (first two bytes) of our arraybuffer: ${dv2.getUint16(
+    0,
+    littleEndian
+  )}`
+);
+
 // now for pciAddr2:
 console.log(
   `pci addr input: ${pciAddr2}, size: ${Buffer.byteLength(pciAddr2, 'utf8')}`
@@ -84,12 +119,14 @@ console.log(
     littleEndian
   )}`
 );
+console.log('\nsecond test start:\n');
 
 // here well test if we can set the register we get via getReg
 console.log('------- c code start -------');
 const reg = addon.getReg(pciAddr);
 console.log('------- c code end -------');
 const dv = new DataView(reg, 0);
+console.log(`length of dataview: ${dv.byteLength}`);
 console.log(`first two bytes of our reg: ${dv.getUint16(0, littleEndian)}`);
 console.log(`next two bytes of our reg: ${dv.getUint16(2, littleEndian)}`);
 dv.setUint16(0, 0, littleEndian);
@@ -106,34 +143,30 @@ const dv222 = new DataView(reg2, 0);
 console.log(`first two bytes of our reg: ${dv222.getUint16(0, littleEndian)}`);
 console.log(`next two bytes of our reg: ${dv222.getUint16(2, littleEndian)}`);
 
-// teporarily deactivate
-/*
-let str = "newStr";
-let oldStr = new ArrayBuffer(8);
-let dv = new DataView(oldStr, 0);
+console.log('\nthird test start:\n');
+
+const str = 'newStr';
+const oldStr = new ArrayBuffer(8);
+const dv4 = new DataView(oldStr, 0);
 console.log(`str input: ${str}`);
-for (let i = 0; i < 8; i = i + 2) {
-	dv.setInt16(i, (i + 1), littleEndian); // we need to use little endian!
-	console.log(`index ${i} of our arraybuffer: ${dv.getInt16(i, littleEndian)}`);
-	//console.log(`oldStr (arraybuffer) as int at index ${i} : ${jstruct.Type.int16.read(oldStr, i)}`);
+for (let i = 0; i < 8; i += 2) {
+  dv4.setInt16(i, i + 1, littleEndian); // we need to use little endian!
+  console.log(`index ${i} of our arraybuffer: ${dv4.getInt16(i, littleEndian)}`);
+  // console.log(`oldStr (arraybuffer) as int at index ${i} : ${jstruct.Type.int16.read(oldStr, i)}`);
 }
 console.log('------- c code start -------');
-let newStr = addon.writeString(str, oldStr);
+const newStr = addon.writeString(str, oldStr);
 console.log('------- c code end -------');
-console.log(`oldStr (arraybuffer) : ${jstruct.Type.char.read(oldStr)}`);
-console.log(`this should be the original string stuff as well\nnewStr (arraybuffer) : ${jstruct.Type.char.read(newStr)}`);
-let dv2 = new DataView(newStr, 0);
-for (let i = 0; i < 8; i = i + 2) {
-	console.log(`index ${i} of our arraybuffer: ${dv.getUint16(i, littleEndian)}`);
-	console.log(`index ${i} of our ret arraybuffer: ${dv2.getUint16(i, littleEndian)}`); //returned is obviously the same
+const dv6 = new DataView(newStr, 0);
+for (let i = 0; i < 8; i += 2) {
+  console.log(`index ${i} of our arraybuffer: ${dv4.getUint16(i, littleEndian)}`);
+  console.log(`index ${i} of our ret arraybuffer: ${dv6.getUint16(i, littleEndian)}`); // returned is obviously the same
 
-	//console.log(`oldStr (arraybuffer) as int : ${jstruct.Type.int16.read(oldStr, i)}`);
-	//console.log(`newStr (arraybuffer) as int : ${jstruct.Type.int16.read(newStr, i)}`);
+  // console.log(`oldStr (arraybuffer) as int : ${jstruct.Type.int16.read(oldStr, i)}`);
+  // console.log(`newStr (arraybuffer) as int : ${jstruct.Type.int16.read(newStr, i)}`);
 }
-*/
+console.log('testing if we can change data via JS:');
+dv4.setInt16(2, 100, littleEndian);
+console.log(`byte 2 of our arraybuffer: ${dv4.getInt16(2, littleEndian)}`);
+console.log(`byte 2 of our ret arraybuffer: ${dv6.getInt16(2, littleEndian)}`); // returned is obviously the same
 
-/* test if were accessing the same data
-dv.setInt16(2, 100, littleEndian);
-console.log(`byte 2 of our arraybuffer: ${dv.getInt16(2, littleEndian)}`);
-console.log(`byte 2 of our ret arraybuffer: ${dv2.getInt16(2, littleEndian)}`); //returned is obviously the same
-*/
