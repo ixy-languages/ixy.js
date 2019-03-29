@@ -80,7 +80,16 @@ napi_value getIDs(napi_env env, napi_callback_info info)
   else
   {
 
-    FILE *filepointer = fdopen(config, "w+");
+    FILE *filepointer = fdopen(config, "w+"); //deactivate using pointer to file
+    /*
+    struct stat stat2;
+    check_err(fstat(config, &stat2), "stat pci resource");
+    debug("Size of the stat: %d\n", stat2.st_size);
+
+    uint8_t *pci_map_resource_js = check_err(mmap(NULL, stat2.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, config, 0), "mmap pci resource"); // we get the error Invalid Argument here
+    //void *filepointer = get_reg(pci_map_resource_js, 0);
+    void *filepointer = *pci_map_resource_js;
+*/
     napi_value testReturnVal;
     stat = napi_create_external_arraybuffer(env, filepointer, 4, NULL, NULL, &testReturnVal);
     if (stat != napi_ok)
@@ -126,15 +135,8 @@ void enable_dma(const char *pci_addr)
   check_err(close(fd), "close");
 }
 //endof copypastas
-
-napi_value getReg(napi_env env, napi_callback_info info)
-{
-  napi_status stat;
-  size_t argc = 1;
-  napi_value argv[1];
-
-  // lets try to make this work in JS:
-  /*set_reg32(dev->addr, IXGBE_EIMC, 0x7FFFFFFF);
+// lets try to make this work in JS:
+/*set_reg32(dev->addr, IXGBE_EIMC, 0x7FFFFFFF);
   defined as:
   static inline void set_reg32(uint8_t *addr, int reg, uint32_t value)
 {
@@ -145,17 +147,21 @@ napi_value getReg(napi_env env, napi_callback_info info)
 	*((volatile uint32_t *)(addr + reg)) = value;
 }
   */
-  void *get_reg(uint8_t * addr, int reg)
-  {
-    __asm__ volatile(""
-                     :
-                     :
-                     : "memory"); // i dont think we need this but lets just keep this here before changing too much
-    void *regPointer = (volatile uint32_t *)(addr + reg);
-    return regPointer;
-  }
-
-  // endof trying
+void *get_reg(uint8_t *addr, int reg)
+{
+  __asm__ volatile(""
+                   :
+                   :
+                   : "memory"); // i dont think we need this but lets just keep this here before changing too much
+  void *regPointer = (volatile uint32_t *)(addr + reg);
+  return regPointer;
+}
+// endof trying
+napi_value getReg(napi_env env, napi_callback_info info)
+{
+  napi_status stat;
+  size_t argc = 1;
+  napi_value argv[1];
 
   stat = napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
   if (stat != napi_ok)
@@ -171,6 +177,7 @@ napi_value getReg(napi_env env, napi_callback_info info)
   }
 
   remove_driver(pci_addr); // we added this to see if it works now
+  //enable_dma(pci_addr);    // do we need this to actually be able to write there?
 
   //this is what we need to get the root adress
   int fd = pci_open_resource(pci_addr, "resource0");
@@ -182,9 +189,10 @@ napi_value getReg(napi_env env, napi_callback_info info)
   uint8_t *pci_map_resource_js = check_err(mmap(NULL, stat2.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0), "mmap pci resource"); // we get the error Invalid Argument here
 
   // ab hier ist alles noch nicht ganz fertig, aber ich will erstmal mmap fixen
-  void *filepointer = get_reg(pci_map_resource_js, IXGBE_EIMC);
+  //void *filepointer = get_reg(pci_map_resource_js, IXGBE_EIMC);
+  void *filepointer = pci_map_resource_js;
   napi_value testReturnVal;
-  stat = napi_create_external_arraybuffer(env, filepointer, /*pretty sure this wont work*/ sizeof(filepointer), NULL, NULL, &testReturnVal);
+  stat = napi_create_external_arraybuffer(env, filepointer, stat2.st_size /*pretty sure this wont work*/ /* sizeof(filepointer)*/, NULL, NULL, &testReturnVal);
   if (stat != napi_ok)
   {
     napi_throw_error(env, NULL, "Failed our external buffer creation");
