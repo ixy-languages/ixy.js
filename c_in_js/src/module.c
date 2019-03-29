@@ -191,7 +191,6 @@ napi_value getIDs(napi_env env, napi_callback_info info)
 napi_value getReg(napi_env env, napi_callback_info info)
 {
   napi_status stat;
-  napi_value returnValue;
   size_t argc = 1;
   napi_value argv[1];
 
@@ -233,17 +232,8 @@ napi_value getReg(napi_env env, napi_callback_info info)
   }
   printf("the pci_address we got: %s ; we copied %d chars\n", pci_addr, size);
 
-  //The file handle can be found by typing lscpi -v
-  //and looking for your device.
-  int fd = pci_open_resource(pci_addr, "resource0");
-  // now lets create this as a buffer we give JS
-  void *buf = malloc(4);
-  stat = napi_create_arraybuffer(env, 4, &buf, &returnValue);
-  if (stat != napi_ok)
-  {
-    napi_throw_error(env, NULL, "Failed our buffer creation");
-  }
   //this is what we need to get the root adress
+  int fd = pci_open_resource(pci_addr, "resource0");
   struct stat stat2;
   check_err(fstat(fd, &stat2), "stat pci resource");
   printf("Size of the stat: %d\n", stat2.st_size);
