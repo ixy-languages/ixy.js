@@ -84,6 +84,25 @@ console.log(
   )}`
 );
 
+// here well test if we can set the register we get via getReg
+console.log('------- c code start -------');
+const reg = addon.getReg(pciAddr);
+console.log('------- c code end -------');
+const dv = new DataView(reg, 0);
+console.log(
+  `first two bytes of our reg: ${dv.getUint16(
+    0,
+    littleEndian
+  )}`
+);
+console.log(
+  `next two bytes of our reg: ${dv.getUint16(
+    1,
+    littleEndian
+  )}`
+);
+
+
 // testing the random function that uses c
 /*
 const value = 99558;

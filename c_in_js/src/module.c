@@ -246,7 +246,8 @@ napi_value getReg(napi_env env, napi_callback_info info)
   //this is what we need to get the root adress
   struct stat stat2;
   check_err(fstat(fd, &stat2), "stat pci resource");
-  uint8_t *pci_map_resource_js = check_err(mmap(NULL, stat2.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0), "mmap pci resource");
+  printf("Size of the stat: %d\n", stat2.st_size);
+  uint8_t *pci_map_resource_js = check_err(mmap(NULL, stat2.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0), "mmap pci resource"); // we get the error Invalid Argument here
 
   void **filepointer = get_reg(pci_map_resource_js, IXGBE_EIMC);
   napi_value testReturnVal;
@@ -702,6 +703,18 @@ napi_value Init(napi_env env, napi_value exports)
   }
 
   status = napi_set_named_property(env, exports, "arrayTest", fn);
+  if (status != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Unable to populate exports");
+  }
+  //add getReg to exports
+  status = napi_create_function(env, NULL, 0, getReg, NULL, &fn);
+  if (status != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Unable to wrap native function");
+  }
+
+  status = napi_set_named_property(env, exports, "getReg", fn);
   if (status != napi_ok)
   {
     napi_throw_error(env, NULL, "Unable to populate exports");
