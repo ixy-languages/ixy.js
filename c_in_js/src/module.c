@@ -1,6 +1,7 @@
 #include <node_api.h>
 #include "memory.h"
 #include "device.h"
+#include "pci.h"
 
 int isLittleEndian()
 {
@@ -140,7 +141,10 @@ napi_value getReg(napi_env env, napi_callback_info info)
   struct stat stat2;
   check_err(fstat(fd, &stat2), "stat pci resource");
   printf("Size of the stat: %d\n", stat2.st_size);
-  uint8_t *pci_map_resource_js = check_err(mmap(NULL, stat2.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0), "mmap pci resource"); // we get the error Invalid Argument here
+  //uint8_t *pci_map_resource_js = check_err(mmap(NULL, stat2.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0), "mmap pci resource"); // we get the error Invalid Argument here
+
+  // temporarily use the function pci.c implements to see if our implementation is the problem:
+  uint8_t *pci_map_resource_js = pci_map_resource(pci_addr);
 
   // ab hier ist alles noch nicht ganz fertig, aber ich will erstmal mmap fixen
   void *filepointer = get_reg(pci_map_resource_js, IXGBE_EIMC);
