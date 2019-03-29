@@ -9,9 +9,9 @@ const littleEndian = (function lE() {
   return new Int16Array(buffer)[0] === 256;
 })();
 console.log(`little endian?: ${littleEndian}`);
-// rapla: '0000:05:01.0'
+// riga: '0000:04:00.0'
 // narva: '0000:03:00.0'
-const pciAddr = '0000:05:01.0';
+const pciAddr = '0000:04:00.0';
 const pciAddr2 = '0000:01:00.0';
 if (pciAddr === '0000:03:00.0') {
   console.log(
@@ -91,19 +91,8 @@ console.log('------- c code start -------');
 const reg = addon.getReg(pciAddr);
 console.log('------- c code end -------');
 const dv = new DataView(reg, 0);
-console.log(
-  `first two bytes of our reg: ${dv.getUint16(
-    0,
-    littleEndian
-  )}`
-);
-console.log(
-  `next two bytes of our reg: ${dv.getUint16(
-    1,
-    littleEndian
-  )}`
-);
-
+console.log(`first two bytes of our reg: ${dv.getUint16(0, littleEndian)}`);
+console.log(`next two bytes of our reg: ${dv.getUint16(1, littleEndian)}`);
 
 // teporarily deactivate
 /*
