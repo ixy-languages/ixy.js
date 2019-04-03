@@ -134,6 +134,7 @@ napi_value getIDs(napi_env env, napi_callback_info info)
 #define IXGBE_EIAC 0x00810 // RW
 #define IXGBE_EIAM 0x00890 // RW
 #define IXGBE_EITR 0x00820 // RW (bits 3-11 could be interesting to test?)
+#define IXGBE_EICR 0x00800 // RW1C (bits 0:15 interesting?) docs: 8.2.3.5.1
 
 // tmp copypastas
 void remove_driver(const char *pci_addr) // for now C is fine but at some point well put this into JS
@@ -230,9 +231,10 @@ napi_value getReg(napi_env env, napi_callback_info info)
   uint16_t *pci_map_resource_js = check_err(mmap(NULL, stat2.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0), "mmap pci resource");
   //void *filepointer = get_reg(pci_map_resource_js, IXGBE_EIMC);
   // uint16_t *filepointer = get_reg(pci_map_resource_js, IXGBE_EIAC);
-  //uint16_t *filepointer = get_reg(pci_map_resource_js, IXGBE_EIAM); //tmp disable // dereference once more?
-  uint16_t *filepointer = pci_map_resource_js;
-  uint8_t *filepointerUint8 = pci_map_resource_js;
+  // uint16_t *filepointer = get_reg(pci_map_resource_js, IXGBE_EIAM); //tmp disable // dereference once more?
+  // uint16_t *filepointer = pci_map_resource_js;
+  uint16_t *filepointer = get_reg(pci_map_resource_js, IXGBE_EICR);
+  uint8_t *filepointerUint8 = filepointer;
 
   if (!onlyReadPlease)
   { // i only want this printed once
@@ -256,7 +258,8 @@ napi_value getReg(napi_env env, napi_callback_info info)
     uint16_t changedInt = filepointer[0];
     uint8_t changed8bitInt = filepointerUint8[0];
     printf("the changed value directly after being changed: %d ; the uint8 value: %d\n", changedInt, changed8bitInt);
-
+    SHOW(uint16_t, changedInt);
+    printf("below should look the same:\n");
     for (i = offset; i < lengthofloop + offset; i += 1)
     {
       printf("%d :: our resource at uint16 %d\n", filepointer[i], i);
@@ -276,11 +279,10 @@ napi_value getReg(napi_env env, napi_callback_info info)
     debug("reloading the same area to see if the change persisted");
     //pci_map_resource_js = check_err(mmap(NULL, stat2.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0), "mmap pci resource"); // we get the error Invalid Argument here
     //filepointer = get_reg(pci_map_resource_js, IXGBE_EIMC);
-    debug("setting it to 3...");
-    filepointer[0] = 3;
     //filepointer = get_reg(pci_map_resource_js, IXGBE_EIAC);
     //filepointer = get_reg(pci_map_resource_js, IXGBE_EIAM); // tmp disable
-    filepointer = pci_map_resource_js;
+    filepointer = get_reg(pci_map_resource_js, IXGBE_EICR);
+    //filepointer = pci_map_resource_js;
 
     for (i = offset; i < lengthofloop + offset; i += 1)
     {
