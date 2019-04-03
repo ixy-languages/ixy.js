@@ -140,14 +140,14 @@ const reg = addon.getReg(pciAddr, false);
 console.log('------- c code end -------');
 const dv = new DataView(reg, 0);
 console.log(`length of dataview: ${dv.byteLength}`);
-for (let i = 0; i < 8; i += 2) {
-  console.log(`${i} bytes of our reg: ${dv.getUint16(i, littleEndian)}`);
+for (let i = 0; i < 16; i += 2) {
+  console.log(`${i} bytes of our reg: ${dv.getInt16(i, littleEndian)}`);
 }
-dv.setUint16(0, 10, littleEndian);
-dv.setUint16(0, 10, littleEndian);
+dv.setInt16(0, 10, littleEndian);
+dv.setInt16(2, 10, littleEndian);
 console.log('changing value in JS...');
-for (let i = 0; i < 8; i += 2) {
-  console.log(`${i} bytes of our reg: ${dv.getUint16(i, littleEndian)}`);
+for (let i = 0; i < 16; i += 2) {
+  console.log(`${i} bytes of our reg: ${dv.getInt16(i, littleEndian)}`);
 }
 // loading the same memory again to see if we actually changed it there
 console.log('running the getReg from C again to check for validity');
@@ -155,8 +155,8 @@ console.log('------- c code start -------');
 const reg2 = addon.getReg(pciAddr, true);
 console.log('------- c code end -------');
 const dv222 = new DataView(reg2, 0);
-for (let i = 0; i < 8; i += 2) {
-  console.log(`${i} bytes of our reg: ${dv222.getUint16(i, littleEndian)}`);
+for (let i = 0; i < 16; i += 2) {
+  console.log(`${i} bytes of our reg: ${dv222.getInt16(i, littleEndian)}`);
 }
 console.log('\n     third test start:\n');
 
@@ -167,7 +167,7 @@ console.log(`str input: ${str}`);
 for (let i = 0; i < 8; i += 2) {
   dv4.setInt16(i, i + 1, littleEndian); // we need to use little endian!
   console.log(
-    `index ${i} of our arraybuffer: ${dv4.getInt16(i, littleEndian)}`
+    `index ${i} of our arraybuffer: ${dv4.getUint16(i, littleEndian)}`
   );
   // console.log(`oldStr (arraybuffer) as int at index ${i} : ${jstruct.Type.int16.read(oldStr, i)}`);
 }

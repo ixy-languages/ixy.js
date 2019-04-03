@@ -201,8 +201,13 @@ napi_value getReg(napi_env env, napi_callback_info info)
                                                                                                                                        //void *filepointer = get_reg(pci_map_resource_js, IXGBE_EIMC);
                                                                                                                                        // uint16_t *filepointer = get_reg(pci_map_resource_js, IXGBE_EIAC);
   uint16_t *filepointer = get_reg(pci_map_resource_js, IXGBE_EIAM);
+  if (!onlyReadPlease)
+  { // i only want this printed once
+    //or not at all, because it ist 52k characters long
+    //debug("filepointer: %s", filepointer);
+  }
 
-  for (int i = 0; i < 8; i += 2)
+  for (int i = 0; i < 8; i += 1)
   {
     printf("our resource at byte %d: %d\n", i, filepointer[i]);
   }
@@ -210,12 +215,13 @@ napi_value getReg(napi_env env, napi_callback_info info)
   {
     debug("setting it to 3...");
     filepointer[0] = 3;
-    for (int i = 0; i < 8; i += 2)
+    for (int i = 0; i < 8; i += 1)
     {
-      printf("our resource at byte %d: %d\n", i, filepointer[i]);
+      int16_t currentInt = filepointer[i];
+      printf("our resource at byte %d: %d\n", i, currentInt);
     }
     debug("just printing the same again...");
-    for (int i = 0; i < 8; i += 2)
+    for (int i = 0; i < 8; i += 1)
     {
       printf("our resource at byte %d: %d\n", i, filepointer[i]);
     }
@@ -226,7 +232,7 @@ napi_value getReg(napi_env env, napi_callback_info info)
     filepointer[0] = 3;
     //filepointer = get_reg(pci_map_resource_js, IXGBE_EIAC);
     filepointer = get_reg(pci_map_resource_js, IXGBE_EIAM);
-    for (int i = 0; i < 8; i += 2)
+    for (int i = 0; i < 8; i += 1)
     {
       printf("our resource at byte %d: %d\n", i, filepointer[i]);
     }
@@ -329,10 +335,9 @@ napi_value arrayTest(napi_env env, napi_callback_info info) // we create a uint3
   return ret;
 }
 
-napi_value readArray(napi_env env, napi_callback_info info) // we create a uint32 array based on an input, to be sure we deliver data correctly
+napi_value readArray(napi_env env, napi_callback_info info)
 {
   napi_status status;
-
   size_t argc = 1;
   napi_value argv[1];
 
@@ -351,6 +356,7 @@ napi_value readArray(napi_env env, napi_callback_info info) // we create a uint3
     napi_throw_error(env, NULL, "failed to load the array buffer into C");
   }
   debug("array at 0: %d, array at 1: %d", array[0], array[1]);
+  return NULL;
 }
 
 napi_value Init(napi_env env, napi_value exports)
