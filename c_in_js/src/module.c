@@ -23,6 +23,35 @@ int isLittleEndian()
 #include <sys/stat.h>
 #include <unistd.h>
 
+//functions to print bits
+//use like this:   SHOW(int, 1);
+void print_byte_as_bits(char val)
+{
+  for (int i = 7; 0 <= i; i--)
+  {
+    printf("%c", (val & (1 << i)) ? '1' : '0');
+  }
+}
+
+void print_bits(char *ty, char *val, unsigned char *bytes, size_t num_bytes)
+{
+  printf("(%*s) %*s = [ ", 15, ty, 16, val);
+  for (size_t i = 0; i < num_bytes; i++)
+  {
+    print_byte_as_bits(bytes[i]);
+    printf(" ");
+  }
+  printf("]\n");
+}
+
+#define SHOW(T, V)                                      \
+  do                                                    \
+  {                                                     \
+    T x = V;                                            \
+    print_bits(#T, #V, (unsigned char *)&x, sizeof(x)); \
+  } while (0)
+//endof bit stuff
+
 int pci_open_resource(const char *pci_addr, const char *resource)
 {
   char path[PATH_MAX];
@@ -104,6 +133,7 @@ napi_value getIDs(napi_env env, napi_callback_info info)
 #define IXGBE_EIMC 0x00888 // WO
 #define IXGBE_EIAC 0x00810 // RW
 #define IXGBE_EIAM 0x00890 // RW
+#define IXGBE_EITR 0x00820 // RW (bits 3-11 could be interesting to test?)
 
 // tmp copypastas
 void remove_driver(const char *pci_addr) // for now C is fine but at some point well put this into JS
@@ -202,36 +232,46 @@ napi_value getReg(napi_env env, napi_callback_info info)
   // uint16_t *filepointer = get_reg(pci_map_resource_js, IXGBE_EIAC);
   //uint16_t *filepointer = get_reg(pci_map_resource_js, IXGBE_EIAM); //tmp disable // dereference once more?
   uint16_t *filepointer = pci_map_resource_js;
+  uint8_t *filepointerUint8 = pci_map_resource_js;
+
   if (!onlyReadPlease)
   { // i only want this printed once
     //or not at all, because it ist 52k characters long
     //debug("filepointer: %s", filepointer);
   }
+  // loop vars:
+  int i = 0;
+  int offset = 0;
+  int lengthofloop = 16;
 
-  for (int i = 0; i < 16; i += 1)
+  for (i = offset; i < lengthofloop + offset; i += 1)
   {
-    printf("our resource at byte %d: %d\n", i, filepointer[i]);
+    printf("%d :: our resource at uint16 %d\n", filepointer[i], i);
+    SHOW(uint16_t, filepointer[i]);
   }
   if (!onlyReadPlease) // for some reason we get segmentation fault when this is called as true
   {
     debug("setting it to 3...");
     filepointer[0] = 3;
     uint16_t changedInt = filepointer[0];
-    printf("the changed value directly after being changed: %d\n", changedInt);
+    uint8_t changed8bitInt = filepointerUint8[0];
+    printf("the changed value directly after being changed: %d ; the uint8 value: %d\n", changedInt, changed8bitInt);
 
-    for (int i = 0; i < 16; i += 1)
+    for (i = offset; i < lengthofloop + offset; i += 1)
     {
-      printf("our resource at byte %d: %d\n", i, filepointer[i]);
+      printf("%d :: our resource at uint16 %d\n", filepointer[i], i);
+      SHOW(uint16_t, filepointer[i]);
     }
-    for (int i = 0; i < 16; i += 1)
+    for (i = offset; i < lengthofloop + offset; i += 1)
     {
       filepointer[i] = i * 3;
       printf("just changed value at %d to %d: changed value: %d\n", i, i * 3, filepointer[i]);
     }
     debug("just printing the same again...");
-    for (int i = 0; i < 16; i += 1)
+    for (i = offset; i < lengthofloop + offset; i += 1)
     {
-      printf("our resource at byte %d: %d\n", i, filepointer[i]);
+      printf("%d :: our resource at uint16 %d\n", filepointer[i], i);
+      SHOW(uint16_t, filepointer[i]);
     }
     debug("reloading the same area to see if the change persisted");
     //pci_map_resource_js = check_err(mmap(NULL, stat2.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0), "mmap pci resource"); // we get the error Invalid Argument here
@@ -242,9 +282,10 @@ napi_value getReg(napi_env env, napi_callback_info info)
     //filepointer = get_reg(pci_map_resource_js, IXGBE_EIAM); // tmp disable
     filepointer = pci_map_resource_js;
 
-    for (int i = 0; i < 16; i += 1)
+    for (i = offset; i < lengthofloop + offset; i += 1)
     {
-      printf("our resource at byte %d: %d\n", i, filepointer[i]);
+      printf("%d :: our resource at uint16 %d\n", filepointer[i], i);
+      SHOW(uint16_t, filepointer[i]);
     }
   }
   //void *filepointer = pci_map_resource_js;
