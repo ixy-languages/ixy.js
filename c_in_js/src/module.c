@@ -215,10 +215,12 @@ napi_value getReg(napi_env env, napi_callback_info info)
   {
     debug("setting it to 3...");
     filepointer[0] = 3;
+    uint16_t changedInt = filepointer[0];
+    printf("the changed value directly after being changed: %d", changedInt);
+
     for (int i = 0; i < 8; i += 1)
     {
-      int16_t currentInt = filepointer[i];
-      printf("our resource at byte %d: %d\n", i, currentInt);
+      printf("our resource at byte %d: %d\n", i, filepointer[i]);
     }
     debug("just printing the same again...");
     for (int i = 0; i < 8; i += 1)
