@@ -9,10 +9,23 @@ const littleEndian = (function lE() {
   return new Int16Array(buffer)[0] === 256;
 })();
 console.log(`little endian?: ${littleEndian}`);
-// riga: '0000:04:00.0' , addr2: '0000:06:00.0'
-// narva: '0000:03:00.0' ,addr2: '0000:01:00.0'
-const pciAddr = '0000:04:00.0';
-const pciAddr2 = '0000:06:00.0';
+
+const currentHost = 'narva'; // adjust this part before deploy on machine
+let pciAddr;
+let pciAddr2;
+switch (currentHost) {
+case 'narva':
+  pciAddr = '0000:03:00.0';
+  pciAddr2 = '0000:01:00.0';
+  break;
+case 'riga':
+  pciAddr = '0000:04:00.0';
+  pciAddr2 = '0000:06:00.0';
+  break;
+default:
+  pciAddr = null;
+  pciAddr2 = null;
+}
 console.log(
   `pci addr input: ${pciAddr}, size: ${Buffer.byteLength(pciAddr, 'utf8')}`
 );
