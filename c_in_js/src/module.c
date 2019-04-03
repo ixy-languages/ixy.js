@@ -163,8 +163,8 @@ void *get_reg(uint8_t *addr, int reg)
 napi_value getReg(napi_env env, napi_callback_info info)
 {
   napi_status stat;
-  size_t argc = 1;
-  napi_value argv[1];
+  size_t argc = 2;
+  napi_value argv[2];
 
   stat = napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
   if (stat != napi_ok)
@@ -177,6 +177,12 @@ napi_value getReg(napi_env env, napi_callback_info info)
   if (stat != napi_ok)
   {
     napi_throw_error(env, NULL, "Invalid string of length 12, the PCI adress, was passed as first argument");
+  }
+  bool onlyReadPlease = false;
+  stat = napi_get_value_bool(env, argv[1], &onlyReadPlease);
+  if (stat != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Failed to get the 2nd argument, a boolean");
   }
 
   remove_driver(pci_addr); // we added this to see if it works now
@@ -192,19 +198,43 @@ napi_value getReg(napi_env env, napi_callback_info info)
   uint8_t *pci_map_resource_js = check_err(mmap(NULL, stat2.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0), "mmap pci resource"); // we get the error Invalid Argument here
   //void *filepointer = get_reg(pci_map_resource_js, IXGBE_EIMC);
   uint16_t *filepointer = get_reg(pci_map_resource_js, IXGBE_EIAC);
-  debug("our resource at byte 0-2: %d", filepointer[0]);
-  debug("setting it to 3...");
-  filepointer[0] = 3;
-  debug("our resource at byte 0-2: %d", filepointer[0]);
-
-  //void *filepointer = pci_map_resource_js;
-  napi_value testReturnVal;
-  stat = napi_create_external_arraybuffer(env, (void *)filepointer, stat2.st_size, NULL, NULL, &testReturnVal);
-  if (stat != napi_ok)
+  for (int i = 0; i < 8; i += 2)
   {
-    napi_throw_error(env, NULL, "Failed our external buffer creation");
+    printf("our resource at byte %d: %d\n", i, filepointer[0]);
   }
-  return testReturnVal;
+  if (!onlyReadPlease) // for some reason we get segmentation fault when this is called as true
+  {
+    debug("setting it to 3...");
+    filepointer[0] = 3;
+    for (int i = 0; i < 8; i += 2)
+    {
+      printf("our resource at byte %d: %d\n", i, filepointer[0]);
+    }
+    debug("just printing the same again...");
+    for (int i = 0; i < 8; i += 2)
+    {
+      printf("our resource at byte %d: %d\n", i, filepointer[0]);
+    }
+    debug("reloading the same area to see if the change persisted");
+    //pci_map_resource_js = check_err(mmap(NULL, stat2.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0), "mmap pci resource"); // we get the error Invalid Argument here
+    //void *filepointer = get_reg(pci_map_resource_js, IXGBE_EIMC);
+    debug("setting it to 3...");
+    filepointer[0] = 3;
+    filepointer = get_reg(pci_map_resource_js, IXGBE_EIAC);
+    for (int i = 0; i < 8; i += 2)
+    {
+      printf("our resource at byte %d: %d\n", i, filepointer[0]);
+    }
+
+    //void *filepointer = pci_map_resource_js;
+    napi_value testReturnVal;
+    stat = napi_create_external_arraybuffer(env, (void *)filepointer, stat2.st_size, NULL, NULL, &testReturnVal);
+    if (stat != napi_ok)
+    {
+      napi_throw_error(env, NULL, "Failed our external buffer creation");
+    }
+    return testReturnVal;
+  }
 }
 // Try writing a string into the buf (WORKS finally!)
 napi_value writeString(napi_env env, napi_callback_info info)
