@@ -29,7 +29,7 @@ default:
 console.log(
   `pci addr input: ${pciAddr}, size: ${Buffer.byteLength(pciAddr, 'utf8')}`
 );
-console.log('\nfirst test start:\n');
+console.log('\n     first test start:\n');
 console.log('------- c code start -------');
 const data = addon.getIDs(pciAddr, false);
 const dataRaw = addon.getIDs(pciAddr, true);
@@ -132,7 +132,7 @@ console.log(
     littleEndian
   )}`
 );
-console.log('\nsecond test start:\n');
+console.log('\n     second test start:\n');
 
 // here well test if we can set the register we get via getReg
 console.log('------- c code start -------');
@@ -142,8 +142,8 @@ const dv = new DataView(reg, 0);
 console.log(`length of dataview: ${dv.byteLength}`);
 console.log(`first two bytes of our reg: ${dv.getUint16(0, littleEndian)}`);
 console.log(`next two bytes of our reg: ${dv.getUint16(2, littleEndian)}`);
-dv.setUint16(0, 0, littleEndian);
-dv.setUint16(1, 0, littleEndian);
+dv.setUint16(0, 10, littleEndian);
+dv.setUint16(0, 10, littleEndian);
 console.log('changing value in JS...');
 console.log(`first two bytes of our reg: ${dv.getUint16(0, littleEndian)}`);
 console.log(`next two bytes of our reg: ${dv.getUint16(2, littleEndian)}`);
@@ -156,7 +156,7 @@ const dv222 = new DataView(reg2, 0);
 console.log(`first two bytes of our reg: ${dv222.getUint16(0, littleEndian)}`);
 console.log(`next two bytes of our reg: ${dv222.getUint16(2, littleEndian)}`);
 
-console.log('\nthird test start:\n');
+console.log('\n     third test start:\n');
 
 const str = 'newStr';
 const oldStr = new ArrayBuffer(8);

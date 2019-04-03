@@ -102,6 +102,7 @@ napi_value getIDs(napi_env env, napi_callback_info info)
   }
 }
 #define IXGBE_EIMC 0x00888
+#define IXGBE_EIAC 0x00810
 
 // tmp copypastas
 void remove_driver(const char *pci_addr) // for now C is fine but at some point well put this into JS
@@ -155,7 +156,7 @@ void *get_reg(uint8_t *addr, int reg)
                    :
                    :
                    : "memory"); // i dont think we need this but lets just keep this here before changing too much
-  void *regPointer = (volatile uint32_t *)(addr + reg);
+  void volatile *regPointer = (addr + reg);
   return regPointer;
 }
 // endof trying
@@ -189,12 +190,16 @@ napi_value getReg(napi_env env, napi_callback_info info)
 
   //this needs to be fixed:
   uint8_t *pci_map_resource_js = check_err(mmap(NULL, stat2.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0), "mmap pci resource"); // we get the error Invalid Argument here
-
-  // ab hier ist alles noch nicht ganz fertig, aber ich will erstmal mmap fixen
   //void *filepointer = get_reg(pci_map_resource_js, IXGBE_EIMC);
-  void *filepointer = pci_map_resource_js;
+  uint16_t *filepointer = get_reg(pci_map_resource_js, IXGBE_EIAC);
+  debug("our resource at byte 0-2: %d", filepointer[0]);
+  debug("setting it to 3...");
+  filepointer[0] = 3;
+  debug("our resource at byte 0-2: %d", filepointer[0]);
+
+  //void *filepointer = pci_map_resource_js;
   napi_value testReturnVal;
-  stat = napi_create_external_arraybuffer(env, filepointer, stat2.st_size /*pretty sure this wont work*/ /* sizeof(filepointer)*/, NULL, NULL, &testReturnVal);
+  stat = napi_create_external_arraybuffer(env, (void *)filepointer, stat2.st_size, NULL, NULL, &testReturnVal);
   if (stat != napi_ok)
   {
     napi_throw_error(env, NULL, "Failed our external buffer creation");
