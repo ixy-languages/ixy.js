@@ -140,16 +140,16 @@ const reg = addon.getReg(pciAddr, false);
 console.log('------- c code end -------');
 const dv = new DataView(reg, 0);
 console.log(`length of dataview: ${dv.byteLength}`);
-for (let i = 0; i < 16; i += 2) {
+for (let i = 0; i < 32; i += 2) {
   console.log(`${i} bytes of our reg: ${dv.getUint16(i, littleEndian)}`);
 }
 dv.setUint16(0, 10, littleEndian);
 dv.setUint16(2, 10, littleEndian);
 console.log('changed values in JS:');
-for (let i = 0; i < 16; i += 2) {
+for (let i = 0; i < 32; i += 2) {
   console.log(`${i} bytes of our reg: ${dv.getUint16(i, littleEndian)}`);
 }
-for (let i = 0; i < 16; i += 2) {
+for (let i = 0; i < 32; i += 2) {
   dv.setUint16(i, i * 5, littleEndian);
   const value = dv.getUint16(i, littleEndian);
   console.log(`changing values in loop in JS: value at ${i} should be ${i * 5}: ${value}`);
@@ -161,7 +161,7 @@ console.log('------- c code start -------');
 const reg2 = addon.getReg(pciAddr, true);
 console.log('------- c code end -------');
 const dv222 = new DataView(reg2, 0);
-for (let i = 0; i < 16; i += 2) {
+for (let i = 0; i < 32; i += 2) {
   console.log(`${i} bytes of our reg: ${dv222.getUint16(i, littleEndian)}`);
 }
 console.log('\n     third test start:\n');

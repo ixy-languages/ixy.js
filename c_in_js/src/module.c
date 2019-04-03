@@ -197,18 +197,18 @@ napi_value getReg(napi_env env, napi_callback_info info)
   printf("Size of the stat: %d\n", stat2.st_size);
 
   //this needs to be fixed:
-  uint8_t *pci_map_resource_js = check_err(mmap(NULL, stat2.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0), "mmap pci resource");
+  uint16_t *pci_map_resource_js = check_err(mmap(NULL, stat2.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0), "mmap pci resource");
   //void *filepointer = get_reg(pci_map_resource_js, IXGBE_EIMC);
   // uint16_t *filepointer = get_reg(pci_map_resource_js, IXGBE_EIAC);
-  uint16_t *filepointer = get_reg(pci_map_resource_js, IXGBE_EIAM); //tmp disable // dereference once more?
-  //uint16_t *filepointer = pci_map_resource_js;
+  //uint16_t *filepointer = get_reg(pci_map_resource_js, IXGBE_EIAM); //tmp disable // dereference once more?
+  uint16_t *filepointer = pci_map_resource_js;
   if (!onlyReadPlease)
   { // i only want this printed once
     //or not at all, because it ist 52k characters long
     //debug("filepointer: %s", filepointer);
   }
 
-  for (int i = 0; i < 8; i += 1)
+  for (int i = 0; i < 16; i += 1)
   {
     printf("our resource at byte %d: %d\n", i, filepointer[i]);
   }
@@ -219,17 +219,17 @@ napi_value getReg(napi_env env, napi_callback_info info)
     uint16_t changedInt = filepointer[0];
     printf("the changed value directly after being changed: %d\n", changedInt);
 
-    for (int i = 0; i < 8; i += 1)
+    for (int i = 0; i < 16; i += 1)
     {
       printf("our resource at byte %d: %d\n", i, filepointer[i]);
     }
-    for (int i = 0; i < 8; i += 1)
+    for (int i = 0; i < 16; i += 1)
     {
       filepointer[i] = i * 3;
       printf("just changed value at %d to %d: changed value: %d\n", i, i * 3, filepointer[i]);
     }
     debug("just printing the same again...");
-    for (int i = 0; i < 8; i += 1)
+    for (int i = 0; i < 16; i += 1)
     {
       printf("our resource at byte %d: %d\n", i, filepointer[i]);
     }
@@ -239,10 +239,10 @@ napi_value getReg(napi_env env, napi_callback_info info)
     debug("setting it to 3...");
     filepointer[0] = 3;
     //filepointer = get_reg(pci_map_resource_js, IXGBE_EIAC);
-    filepointer = get_reg(pci_map_resource_js, IXGBE_EIAM); // tmp disable
-    //filepointer = pci_map_resource_js;
+    //filepointer = get_reg(pci_map_resource_js, IXGBE_EIAM); // tmp disable
+    filepointer = pci_map_resource_js;
 
-    for (int i = 0; i < 8; i += 1)
+    for (int i = 0; i < 16; i += 1)
     {
       printf("our resource at byte %d: %d\n", i, filepointer[i]);
     }
