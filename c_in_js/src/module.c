@@ -204,7 +204,7 @@ napi_value getReg(napi_env env, napi_callback_info info)
 
   for (int i = 0; i < 8; i += 2)
   {
-    printf("our resource at byte %d: %d\n", i, filepointer[0]);
+    printf("our resource at byte %d: %d\n", i, filepointer[i]);
   }
   if (!onlyReadPlease) // for some reason we get segmentation fault when this is called as true
   {
@@ -212,12 +212,12 @@ napi_value getReg(napi_env env, napi_callback_info info)
     filepointer[0] = 3;
     for (int i = 0; i < 8; i += 2)
     {
-      printf("our resource at byte %d: %d\n", i, filepointer[0]);
+      printf("our resource at byte %d: %d\n", i, filepointer[i]);
     }
     debug("just printing the same again...");
     for (int i = 0; i < 8; i += 2)
     {
-      printf("our resource at byte %d: %d\n", i, filepointer[0]);
+      printf("our resource at byte %d: %d\n", i, filepointer[i]);
     }
     debug("reloading the same area to see if the change persisted");
     //pci_map_resource_js = check_err(mmap(NULL, stat2.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0), "mmap pci resource"); // we get the error Invalid Argument here
@@ -228,7 +228,7 @@ napi_value getReg(napi_env env, napi_callback_info info)
     filepointer = get_reg(pci_map_resource_js, IXGBE_EIAM);
     for (int i = 0; i < 8; i += 2)
     {
-      printf("our resource at byte %d: %d\n", i, filepointer[0]);
+      printf("our resource at byte %d: %d\n", i, filepointer[i]);
     }
   }
   //void *filepointer = pci_map_resource_js;
