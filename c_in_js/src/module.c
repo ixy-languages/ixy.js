@@ -290,6 +290,30 @@ napi_value arrayTest(napi_env env, napi_callback_info info) // we create a uint3
   return ret;
 }
 
+napi_value readArray(napi_env env, napi_callback_info info) // we create a uint32 array based on an input, to be sure we deliver data correctly
+{
+  napi_status status;
+
+  size_t argc = 1;
+  napi_value argv[1];
+
+  status = napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+  if (status != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Failed to parse arguments");
+  }
+
+  uint32_t *array;
+  size_t size;
+
+  status = napi_get_arraybuffer_info(env, argv[0], &array, &size);
+  if (status != napi_ok)
+  {
+    napi_throw_error(env, NULL, "failed to load the array buffer into C");
+  }
+  debug("array at 0: %d, array at 1: %d", array[0], array[1]);
+}
+
 napi_value Init(napi_env env, napi_value exports)
 {
   napi_status status;
@@ -303,6 +327,18 @@ napi_value Init(napi_env env, napi_value exports)
   }
 
   status = napi_set_named_property(env, exports, "writeString", fn);
+  if (status != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Unable to populate exports");
+  }
+  //adding the read array
+  status = napi_create_function(env, NULL, 0, readArray, NULL, &fn);
+  if (status != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Unable to wrap native function");
+  }
+
+  status = napi_set_named_property(env, exports, "readArray", fn);
   if (status != napi_ok)
   {
     napi_throw_error(env, NULL, "Unable to populate exports");

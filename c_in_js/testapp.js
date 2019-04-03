@@ -199,3 +199,4 @@ console.log('changing to 900...');
 bufDv.setUint32(0, 900, littleEndian);
 console.log(bufDv.getUint32(0, littleEndian));
 console.log(bufDv.getUint32(4, littleEndian));
+addon.readArray(buf);
