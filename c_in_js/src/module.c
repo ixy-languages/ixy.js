@@ -264,7 +264,8 @@ napi_value arrayTest(napi_env env, napi_callback_info info) // we create a uint3
 {
   napi_status status;
   napi_value ret;
-  uint32_t array[] = {3, 2, 7, 129};
+  uint32_t *array = malloc(4 * sizeof(uint32_t));
+  array[0] = 7;
   uint32_t *uints;
   debug("array at 0: %d, array at 1: %d", array[0], array[1]);
 
