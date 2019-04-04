@@ -196,7 +196,7 @@ void enable_dma(const char *pci_addr)
     check_err(close(fd), "close");
   }
 }
-uint16_t *pauls_pci_map_resource(const char *pci_addr)
+uint8_t *pauls_pci_map_resource(const char *pci_addr)
 {
   char path[PATH_MAX];
   snprintf(path, PATH_MAX, "/sys/bus/pci/devices/%s/resource0", pci_addr);
@@ -207,7 +207,7 @@ uint16_t *pauls_pci_map_resource(const char *pci_addr)
   debug("pauls fd: %d", fd);
   struct stat stat;
   check_err(fstat(fd, &stat), "stat pci resource");
-  return (uint16_t *)check_err(mmap(NULL, stat.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0), "mmap pci resource");
+  return (uint8_t *)check_err(mmap(NULL, stat.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0), "mmap pci resource");
 }
 //endof copypastas
 // lets try to make this work in JS:
@@ -269,21 +269,21 @@ napi_value printBits(napi_env env, napi_callback_info info)
   check_err(fstat(fd, &stat2), "stat pci resource");
   printf("Size of the stat: %d\n", stat2.st_size);
 
-  uint16_t *pci_map_resource_js = check_err(mmap(NULL, stat2.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0), "mmap pci resource");
+  uint8_t *pci_map_resource_js = check_err(mmap(NULL, stat2.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0), "mmap pci resource");
   //void *filepointer = get_reg(pci_map_resource_js, IXGBE_EIMC);
-  // uint16_t *filepointer = get_reg(pci_map_resource_js, IXGBE_EIAC);
-  // uint16_t *filepointer = get_reg(pci_map_resource_js, IXGBE_EIAM); //tmp disable // dereference once more?
-  // uint16_t *filepointer = pci_map_resource_js;
+  // uint8_t *filepointer = get_reg(pci_map_resource_js, IXGBE_EIAC);
+  // uint8_t *filepointer = get_reg(pci_map_resource_js, IXGBE_EIAM); //tmp disable // dereference once more?
+  // uint8_t *filepointer = pci_map_resource_js;
   //printf("should be 0x00800 : %x", getAddress(regi));
-  uint16_t *filepointer = get_reg(pci_map_resource_js, IXGBE_LLITHRESH);
-  //uint16_t *filepointer = pci_map_resource_js;
-  //uint16_t *filepointer = get_reg(pci_map_resource_js, 1);
+  uint8_t *filepointer = get_reg(pci_map_resource_js, IXGBE_LLITHRESH);
+  //uint8_t *filepointer = pci_map_resource_js;
+  //uint8_t *filepointer = get_reg(pci_map_resource_js, 1);
 
-  //uint16_t *pauls_filepointer = pauls_pci_map_resource(pci_addr); //according to below code we get the same data
+  //uint8_t *pauls_filepointer = pauls_pci_map_resource(pci_addr); //according to below code we get the same data
   //printf("%d ; our filepointer\n%d ; pauls filepointer\n", &filepointer, &pauls_filepointer);
   printf("%d :: our resource at %s\n", filepointer[0], regi);
-  SHOW(uint16_t, filepointer[0]);
-  SHOW(uint16_t, filepointer[1]);
+  SHOW(uint8_t, filepointer[0]);
+  SHOW(uint8_t, filepointer[1]);
 
   // compare to what pauls code got
   // loop vars:
@@ -296,8 +296,8 @@ napi_value printBits(napi_env env, napi_callback_info info)
   {
     printf("%d\n", i);
     printf("    ");
-    SHOW(uint16_t, filepointer[i]);
-    SHOW(uint16_t, pauls_filepointer[i]);
+    SHOW(uint8_t, filepointer[i]);
+    SHOW(uint8_t, pauls_filepointer[i]);
   }
 */
   //void *filepointer = pci_map_resource_js;
@@ -346,12 +346,12 @@ napi_value getReg(napi_env env, napi_callback_info info)
   printf("Size of the stat: %d\n", stat2.st_size);
 
   //this needs to be fixed:
-  uint16_t *pci_map_resource_js = check_err(mmap(NULL, stat2.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0), "mmap pci resource");
+  uint8_t *pci_map_resource_js = check_err(mmap(NULL, stat2.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0), "mmap pci resource");
   //void *filepointer = get_reg(pci_map_resource_js, IXGBE_EIMC);
-  // uint16_t *filepointer = get_reg(pci_map_resource_js, IXGBE_EIAC);
-  // uint16_t *filepointer = get_reg(pci_map_resource_js, IXGBE_EIAM); //tmp disable // dereference once more?
-  // uint16_t *filepointer = pci_map_resource_js;
-  uint16_t *filepointer = get_reg(pci_map_resource_js, IXGBE_LLITHRESH);
+  // uint8_t *filepointer = get_reg(pci_map_resource_js, IXGBE_EIAC);
+  // uint8_t *filepointer = get_reg(pci_map_resource_js, IXGBE_EIAM); //tmp disable // dereference once more?
+  // uint8_t *filepointer = pci_map_resource_js;
+  uint8_t *filepointer = get_reg(pci_map_resource_js, IXGBE_LLITHRESH);
   uint8_t *filepointerUint8 = filepointer;
 
   if (!onlyReadPlease)
@@ -366,34 +366,34 @@ napi_value getReg(napi_env env, napi_callback_info info)
 
   for (i = offset; i < lengthofloop + offset; i += 1)
   {
-    printf("%d :: our resource at uint16 %d\n", filepointer[i], i);
-    SHOW(uint16_t, filepointer[i]);
+    printf("%d :: our resource at uint8 %d\n", filepointer[i], i);
+    SHOW(uint8_t, filepointer[i]);
   }
   if (!onlyReadPlease)
   {
-    int valueChanger = 20;
+    int valueChanger = 27;
     debug("setting it to %d .", valueChanger);
     filepointer[0] = valueChanger;
-    uint16_t changedInt = filepointer[0];
+    uint8_t changedInt = filepointer[0];
     uint8_t changed8bitInt = filepointerUint8[0];
     printf("the changed value directly after being changed: %d ; the uint8 value: %d\n", changedInt, changed8bitInt);
-    SHOW(uint16_t, changedInt);
+    SHOW(uint8_t, changedInt);
     printf("below should look the same:\n");
     for (i = offset; i < lengthofloop + offset; i += 1)
     {
-      printf("%d :: our resource at uint16 %d\n", filepointer[i], i);
-      SHOW(uint16_t, filepointer[i]);
+      printf("%d :: our resource at uint8 %d\n", filepointer[i], i);
+      SHOW(uint8_t, filepointer[i]);
     }
     for (i = offset; i < lengthofloop + offset; i += 1)
     {
-      filepointer[i] = i * 3;
-      printf("just changed value at %d to %d: changed value: %d\n", i, i * 3, filepointer[i]);
+      filepointer[i] = i + 4;
+      printf("just changed value at %d to %d: changed value: %d\n", i, i + 4, filepointer[i]);
     }
     debug("just printing the same again...");
     for (i = offset; i < lengthofloop + offset; i += 1)
     {
-      printf("%d :: our resource at uint16 %d\n", filepointer[i], i);
-      SHOW(uint16_t, filepointer[i]);
+      printf("%d :: our resource at uint8 %d\n", filepointer[i], i);
+      SHOW(uint8_t, filepointer[i]);
     }
     debug("reloading the same area to see if the change persisted");
     //pci_map_resource_js = check_err(mmap(NULL, stat2.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0), "mmap pci resource"); // we get the error Invalid Argument here
@@ -405,8 +405,8 @@ napi_value getReg(napi_env env, napi_callback_info info)
 
     for (i = offset; i < lengthofloop + offset; i += 1)
     {
-      printf("%d :: our resource at uint16 %d\n", filepointer[i], i);
-      SHOW(uint16_t, filepointer[i]);
+      printf("%d :: our resource at uint8 %d\n", filepointer[i], i);
+      SHOW(uint8_t, filepointer[i]);
     }
   }
   //void *filepointer = pci_map_resource_js;

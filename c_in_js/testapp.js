@@ -90,7 +90,7 @@ if (runEverything || runTest1) {
       littleEndian
     )}`
   );
-  dv2.setUint16(2, 200, littleEndian);
+  dv2.setUint8(2, 200, littleEndian);
   console.log('we shouldve changed the values now:');
   console.log(
     `from C: vendor id (first two bytes) of our arraybuffer: ${dataview.getUint16(
@@ -152,22 +152,22 @@ if (runEverything || runTest2) {
   const dv = new DataView(reg, 0);
   console.log(`length of dataview: ${dv.byteLength}`);
   for (let i = 0; i < 16; i++) {
-    console.log(`${i} uint16 of our reg: ${dv.getUint16(i * 2, littleEndian)}`);
+    console.log(`${i} Uint8 of our reg: ${dv.getUint8(i, littleEndian)}`);
   }
-  dv.setUint16(0, 10, littleEndian);
-  dv.setUint16(2, 10, littleEndian);
+  dv.setUint8(0, 10, littleEndian);
+  dv.setUint8(2, 10, littleEndian);
   console.log('changed values in JS:');
   for (let i = 0; i < 16; i++) {
-    console.log(`${i} uint16 of our reg: ${dv.getUint16(i * 2, littleEndian)}`);
+    console.log(`${i} Uint8 of our reg: ${dv.getUint8(i, littleEndian)}`);
   }
   for (let i = 0; i < 16; i++) {
-    dv.setUint16(i * 2, 2 + (i * 5), littleEndian);
-    const value = dv.getUint16(i * 2, littleEndian);
+    dv.setUint8(i, 2 + (i * 5), littleEndian);
+    const value = dv.getUint8(i, littleEndian);
     console.log(
-      `changing values in loop in JS: value at ${i * 2} should be ${2 +
+      `changing values in loop in JS: value at ${i} should be ${2 +
       (i * 5)}: ${value}`
     );
-    console.log(`${i} uint16 of our reg: ${dv.getUint16(i * 2, littleEndian)}`);
+    console.log(`${i} Uint8 of our reg: ${dv.getUint8(i, littleEndian)}`);
   }
   // loading the same memory again to see if we actually changed it there
   console.log('running the getReg from C again to check for validity');
@@ -177,7 +177,7 @@ if (runEverything || runTest2) {
   const dv222 = new DataView(reg2, 0);
   for (let i = 0; i < 16; i++) {
     console.log(
-      `${i} uint16 of our reg: ${dv222.getUint16(i * 2, littleEndian)}`
+      `${i} Uint8 of our reg: ${dv222.getUint8(i, littleEndian)}`
     );
   }
 }
@@ -191,7 +191,7 @@ if (runEverything || runTest3) {
   for (let i = 0; i < 8; i += 2) {
     dv4.setInt16(i, i + 1, littleEndian); // we need to use little endian!
     console.log(
-      `index ${i} of our arraybuffer: ${dv4.getUint16(i, littleEndian)}`
+      `index ${i} of our arraybuffer: ${dv4.getUint8(i, littleEndian)}`
     );
     // console.log(`oldStr (arraybuffer) as int at index ${i} : ${jstruct.Type.int16.read(oldStr, i)}`);
   }
@@ -201,20 +201,20 @@ if (runEverything || runTest3) {
   const dv6 = new DataView(newStr, 0);
   for (let i = 0; i < 8; i += 2) {
     console.log(
-      `index ${i} of our arraybuffer: ${dv4.getUint16(i, littleEndian)}`
+      `index ${i} of our arraybuffer: ${dv4.getUint8(i, littleEndian)}`
     );
     console.log(
-      `index ${i} of our ret arraybuffer: ${dv6.getUint16(i, littleEndian)}`
+      `index ${i} of our ret arraybuffer: ${dv6.getUint8(i, littleEndian)}`
     ); // returned is obviously the same
 
     // console.log(`oldStr (arraybuffer) as int : ${jstruct.Type.int16.read(oldStr, i)}`);
     // console.log(`newStr (arraybuffer) as int : ${jstruct.Type.int16.read(newStr, i)}`);
   }
   console.log('testing if we can change data via JS:');
-  dv4.setUint16(2, 100, littleEndian);
-  console.log(`byte 2 of our arraybuffer: ${dv4.getUint16(2, littleEndian)}`);
+  dv4.setUint8(2, 100, littleEndian);
+  console.log(`byte 2 of our arraybuffer: ${dv4.getUint8(2, littleEndian)}`);
   console.log(
-    `byte 2 of our ret arraybuffer: ${dv6.getUint16(2, littleEndian)}`
+    `byte 2 of our ret arraybuffer: ${dv6.getUint8(2, littleEndian)}`
   ); // returned is obviously the same
 
   console.log('\narrayTest\n');
