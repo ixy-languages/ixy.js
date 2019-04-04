@@ -374,7 +374,7 @@ napi_value getReg(napi_env env, napi_callback_info info)
   }
   if (!onlyReadPlease)
   {
-    int valueChanger = 16;
+    int valueChanger = 32;
     debug("setting byte 0 to %d .", valueChanger);
     filepointer[0] = valueChanger;
     uint8_t changedInt = filepointer[0];
@@ -382,11 +382,11 @@ napi_value getReg(napi_env env, napi_callback_info info)
     printf("the changed value directly after being changed: %d ; the uint8 value: %d\n", changedInt, changed8bitInt);
     SHOW(uint8_t, changedInt);
     printf("filepointer at 0 now : %d\n", filepointer[0]);
-    printf("testing change and instant print, without saving to another variable (i fear the compiler might be tricking me)\n");
+    debug("testing change and instant print, without saving to another variable (i fear the compiler might be tricking me)\n");
     filepointer[0] = valueChanger;
-    printf("%d", filepointer[0]);
+    debug("%d", filepointer[0]);
 
-    printf("\nbelow should look the same:\n");
+    printf("below should look the same:\n");
     for (i = offset; i < lengthofloop + offset; i += 1)
     {
       printf("%d :: our resource at uint8 %d\n", filepointer[i], i);
