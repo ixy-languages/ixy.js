@@ -137,6 +137,11 @@ napi_value getIDs(napi_env env, napi_callback_info info)
 #define IXGBE_EICR 0x00800      // RW1C (bits 0:15 interesting?) docs: 8.2.3.5.1
 #define IXGBE_LLITHRESH 0x0EC90 // RW, 8.2.3.5.14 , 0-25:0, 26-31: 000101b
 #define IXGBE_IVAR_MISC 0x00A00 // RW, 8.2.3.5.17 , 6:0 : X, 7: 0 , 14:8 : X , 15:1 , 31:16 : 0
+#define IXGBE_VLNCTRL 0x05088   // RW, 8.2.3.7.2 , 15:0 0x8100 , 27:16 reserved : ?? , 30:28 : 0 (lets try to change these) , 31: reserved
+#define IXGBE_LEDCTL 0x00200    // RW 8.2.3.1.6
+
+int regUsed = IXGBE_LEDCTL;
+
 /*int getAddress(char *reg)
 {
   switch (reg)
@@ -273,13 +278,18 @@ napi_value printBits(napi_env env, napi_callback_info info)
   uint8_t *pci_map_resource_js = check_err(mmap(NULL, stat2.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0), "mmap pci resource");
   // uint8_t *filepointer = pci_map_resource_js;
   //printf("should be 0x00800 : %x", getAddress(regi));
-  uint8_t *filepointer = get_reg(pci_map_resource_js, IXGBE_IVAR_MISC);
+  uint8_t *filepointer = get_reg(pci_map_resource_js, regUsed);
 
   //uint8_t *pauls_filepointer = pauls_pci_map_resource(pci_addr); //according to below code we get the same data
   //printf("%d ; our filepointer\n%d ; pauls filepointer\n", &filepointer, &pauls_filepointer);
   printf("%d :: our resource at %s\n", filepointer[0], regi);
+  printf("%x", filepointer[0]);
   SHOW(uint8_t, filepointer[0]);
+  printf("%x", filepointer[1]);
   SHOW(uint8_t, filepointer[1]);
+  uint16_t *bitFP = filepointer;
+  printf("%x", bitFP[0]);
+  SHOW(uint16_t, bitFP[0]);
 
   // compare to what pauls code got
   // loop vars:
@@ -344,7 +354,7 @@ napi_value getReg(napi_env env, napi_callback_info info)
   //this needs to be fixed:
   uint8_t *pci_map_resource_js = check_err(mmap(NULL, stat2.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0), "mmap pci resource");
   // uint8_t *filepointer = pci_map_resource_js;
-  uint8_t *filepointer = get_reg(pci_map_resource_js, IXGBE_IVAR_MISC);
+  uint8_t *filepointer = get_reg(pci_map_resource_js, regUsed);
   uint8_t *filepointerUint8 = filepointer;
 
   if (!onlyReadPlease)
@@ -364,14 +374,19 @@ napi_value getReg(napi_env env, napi_callback_info info)
   }
   if (!onlyReadPlease)
   {
-    int valueChanger = 27;
-    debug("setting it to %d .", valueChanger);
+    int valueChanger = 16;
+    debug("setting byte 0 to %d .", valueChanger);
     filepointer[0] = valueChanger;
     uint8_t changedInt = filepointer[0];
     uint8_t changed8bitInt = filepointerUint8[0];
     printf("the changed value directly after being changed: %d ; the uint8 value: %d\n", changedInt, changed8bitInt);
     SHOW(uint8_t, changedInt);
-    printf("below should look the same:\n");
+    printf("filepointer at 0 now : %d\n", filepointer[0]);
+    printf("testing change and instant print, without saving to another variable (i fear the compiler might be tricking me)\n");
+    filepointer[0] = valueChanger;
+    printf("%d", filepointer[0]);
+
+    printf("\nbelow should look the same:\n");
     for (i = offset; i < lengthofloop + offset; i += 1)
     {
       printf("%d :: our resource at uint8 %d\n", filepointer[i], i);
@@ -390,7 +405,7 @@ napi_value getReg(napi_env env, napi_callback_info info)
     }
     debug("reloading the same area to see if the change persisted");
     //pci_map_resource_js = check_err(mmap(NULL, stat2.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0), "mmap pci resource"); // we get the error Invalid Argument here
-    filepointer = get_reg(pci_map_resource_js, IXGBE_IVAR_MISC);
+    filepointer = get_reg(pci_map_resource_js, regUsed);
     //filepointer = pci_map_resource_js;
 
     for (i = offset; i < lengthofloop + offset; i += 1)
