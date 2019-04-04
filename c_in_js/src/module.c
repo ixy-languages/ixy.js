@@ -130,11 +130,12 @@ napi_value getIDs(napi_env env, napi_callback_info info)
     return testReturnVal;
   }
 }
-#define IXGBE_EIMC 0x00888 // WO
-#define IXGBE_EIAC 0x00810 // RW
-#define IXGBE_EIAM 0x00890 // RW
-#define IXGBE_EITR 0x00820 // RW (bits 3-11 could be interesting to test?)
-#define IXGBE_EICR 0x00800 // RW1C (bits 0:15 interesting?) docs: 8.2.3.5.1
+#define IXGBE_EIMC 0x00888      // WO
+#define IXGBE_EIAC 0x00810      // RW
+#define IXGBE_EIAM 0x00890      // RW
+#define IXGBE_EITR 0x00820      // RW (bits 3-11 could be interesting to test?)
+#define IXGBE_EICR 0x00800      // RW1C (bits 0:15 interesting?) docs: 8.2.3.5.1
+#define IXGBE_LLITHRESH 0x0EC90 // RW, 8.2.3.5.14 , 0-25:0, 26-31: 000101b
 /*int getAddress(char *reg)
 {
   switch (reg)
@@ -274,7 +275,7 @@ napi_value printBits(napi_env env, napi_callback_info info)
   // uint16_t *filepointer = get_reg(pci_map_resource_js, IXGBE_EIAM); //tmp disable // dereference once more?
   // uint16_t *filepointer = pci_map_resource_js;
   //printf("should be 0x00800 : %x", getAddress(regi));
-  uint16_t *filepointer = get_reg(pci_map_resource_js, IXGBE_EITR);
+  uint16_t *filepointer = get_reg(pci_map_resource_js, IXGBE_LLITHRESH);
   //uint16_t *filepointer = pci_map_resource_js;
   //uint16_t *filepointer = get_reg(pci_map_resource_js, 1);
 
@@ -350,7 +351,7 @@ napi_value getReg(napi_env env, napi_callback_info info)
   // uint16_t *filepointer = get_reg(pci_map_resource_js, IXGBE_EIAC);
   // uint16_t *filepointer = get_reg(pci_map_resource_js, IXGBE_EIAM); //tmp disable // dereference once more?
   // uint16_t *filepointer = pci_map_resource_js;
-  uint16_t *filepointer = get_reg(pci_map_resource_js, IXGBE_EITR);
+  uint16_t *filepointer = get_reg(pci_map_resource_js, IXGBE_LLITHRESH);
   uint8_t *filepointerUint8 = filepointer;
 
   if (!onlyReadPlease)
@@ -370,8 +371,9 @@ napi_value getReg(napi_env env, napi_callback_info info)
   }
   if (!onlyReadPlease)
   {
-    debug("setting it to 99...");
-    filepointer[0] = 99;
+    int valueChanger = 20;
+    debug("setting it to %d .", valueChanger);
+    filepointer[0] = valueChanger;
     uint16_t changedInt = filepointer[0];
     uint8_t changed8bitInt = filepointerUint8[0];
     printf("the changed value directly after being changed: %d ; the uint8 value: %d\n", changedInt, changed8bitInt);
@@ -398,7 +400,7 @@ napi_value getReg(napi_env env, napi_callback_info info)
     //filepointer = get_reg(pci_map_resource_js, IXGBE_EIMC);
     //filepointer = get_reg(pci_map_resource_js, IXGBE_EIAC);
     //filepointer = get_reg(pci_map_resource_js, IXGBE_EIAM); // tmp disable
-    filepointer = get_reg(pci_map_resource_js, IXGBE_EITR);
+    filepointer = get_reg(pci_map_resource_js, IXGBE_LLITHRESH);
     //filepointer = pci_map_resource_js;
 
     for (i = offset; i < lengthofloop + offset; i += 1)
