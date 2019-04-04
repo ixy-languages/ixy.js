@@ -135,39 +135,65 @@ napi_value getIDs(napi_env env, napi_callback_info info)
 #define IXGBE_EIAM 0x00890 // RW
 #define IXGBE_EITR 0x00820 // RW (bits 3-11 could be interesting to test?)
 #define IXGBE_EICR 0x00800 // RW1C (bits 0:15 interesting?) docs: 8.2.3.5.1
-
+/*int getAddress(char *reg)
+{
+  switch (reg)
+  {
+  case "EIMC":
+    return (int)IXGBE_EIMC;
+  case "EIAC":
+    return (int)IXGBE_EIAC;
+  case "EIAM":
+    return (int)IXGBE_EIAM;
+  case "EITR":
+    return (int)IXGBE_EITR;
+  case "EICR":
+    return (int)IXGBE_EICR;
+  default:
+    return (int)0x00000;
+  }
+}*/
 // tmp copypastas
+bool turnoffRMDr = true;
+bool turnoffEBLDMA = true;
 void remove_driver(const char *pci_addr) // for now C is fine but at some point well put this into JS
 {
-  char path[PATH_MAX];
-  snprintf(path, PATH_MAX, "/sys/bus/pci/devices/%s/driver/unbind", pci_addr);
-  int fd = open(path, O_WRONLY);
-  if (fd == -1)
+  if (!turnoffRMDr)
   {
-    debug("no driver loaded");
-    return;
+    char path[PATH_MAX];
+    snprintf(path, PATH_MAX, "/sys/bus/pci/devices/%s/driver/unbind", pci_addr);
+    int fd = open(path, O_WRONLY);
+    if (fd == -1)
+    {
+      debug("no driver loaded");
+      return;
+    }
+    if (write(fd, pci_addr, strlen(pci_addr)) != (ssize_t)strlen(pci_addr))
+    {
+      warn("failed to unload driver for device %s", pci_addr);
+    }
+    check_err(close(fd), "close");
   }
-  if (write(fd, pci_addr, strlen(pci_addr)) != (ssize_t)strlen(pci_addr))
-  {
-    warn("failed to unload driver for device %s", pci_addr);
-  }
-  check_err(close(fd), "close");
 }
 
 void enable_dma(const char *pci_addr)
 {
-  char path[PATH_MAX];
-  snprintf(path, PATH_MAX, "/sys/bus/pci/devices/%s/config", pci_addr);
-  int fd = check_err(open(path, O_RDWR), "open pci config");
-  // write to the command register (offset 4) in the PCIe config space
-  // bit 2 is "bus master enable", see PCIe 3.0 specification section 7.5.1.1
-  assert(lseek(fd, 4, SEEK_SET) == 4);
-  uint16_t dma = 0;
-  assert(read(fd, &dma, 2) == 2);
-  dma |= 1 << 2;
-  assert(lseek(fd, 4, SEEK_SET) == 4);
-  assert(write(fd, &dma, 2) == 2);
-  check_err(close(fd), "close");
+  if (!turnoffEBLDMA)
+  {
+
+    char path[PATH_MAX];
+    snprintf(path, PATH_MAX, "/sys/bus/pci/devices/%s/config", pci_addr);
+    int fd = check_err(open(path, O_RDWR), "open pci config");
+    // write to the command register (offset 4) in the PCIe config space
+    // bit 2 is "bus master enable", see PCIe 3.0 specification section 7.5.1.1
+    assert(lseek(fd, 4, SEEK_SET) == 4);
+    uint16_t dma = 0;
+    assert(read(fd, &dma, 2) == 2);
+    dma |= 1 << 2;
+    assert(lseek(fd, 4, SEEK_SET) == 4);
+    assert(write(fd, &dma, 2) == 2);
+    check_err(close(fd), "close");
+  }
 }
 //endof copypastas
 // lets try to make this work in JS:
@@ -190,6 +216,64 @@ void *get_reg(uint8_t *addr, int reg)
                    : "memory"); // i dont think we need this but lets just keep this here before changing too much
   void volatile *regPointer = (addr + reg);
   return regPointer;
+}
+
+napi_value printBits(napi_env env, napi_callback_info info)
+{
+  napi_status stat;
+  size_t argc = 2;
+  napi_value argv[2];
+
+  stat = napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+  if (stat != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Failed to parse arguments");
+  }
+  char *pci_addr = malloc(12); // "0000:03:00.0"
+  size_t size;
+  stat = napi_get_value_string_utf8(env, argv[0], pci_addr, 13, &size); // for some reason we need to use length 13 not 12, to get 12 bytes
+  if (stat != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Invalid string of length 12, the PCI adress, was passed as first argument");
+  }
+  char *regi = malloc(10); // "IXGBE_EICR"
+  size_t size2;
+  stat = napi_get_value_string_utf8(env, argv[1], regi, 11, &size);
+  if (stat != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Invalid reg input");
+  }
+
+  remove_driver(pci_addr); // we added this to see if it works now
+  enable_dma(pci_addr);    // do we need this to actually be able to write there?
+
+  //this is what we need to get the root adress
+  int fd = pci_open_resource(pci_addr, "resource0");
+  struct stat stat2;
+  check_err(fstat(fd, &stat2), "stat pci resource");
+  printf("Size of the stat: %d\n", stat2.st_size);
+
+  //this needs to be fixed:
+  uint32_t *pci_map_resource_js = check_err(mmap(NULL, stat2.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0), "mmap pci resource");
+  //void *filepointer = get_reg(pci_map_resource_js, IXGBE_EIMC);
+  // uint16_t *filepointer = get_reg(pci_map_resource_js, IXGBE_EIAC);
+  // uint16_t *filepointer = get_reg(pci_map_resource_js, IXGBE_EIAM); //tmp disable // dereference once more?
+  // uint16_t *filepointer = pci_map_resource_js;
+  //printf("should be 0x00800 : %x", getAddress(regi));
+  uint32_t *filepointer = get_reg(pci_map_resource_js, IXGBE_EICR);
+
+  printf("%d :: our resource at %s\n", filepointer[0], regi);
+  SHOW(uint16_t, filepointer[0]);
+  SHOW(uint16_t, filepointer[1]);
+
+  //void *filepointer = pci_map_resource_js;
+  napi_value testReturnVal;
+  stat = napi_create_external_arraybuffer(env, (void *)filepointer, stat2.st_size, NULL, NULL, &testReturnVal);
+  if (stat != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Failed our external buffer creation");
+  }
+  return testReturnVal;
 }
 // endof trying
 napi_value getReg(napi_env env, napi_callback_info info)
@@ -251,7 +335,7 @@ napi_value getReg(napi_env env, napi_callback_info info)
     printf("%d :: our resource at uint16 %d\n", filepointer[i], i);
     SHOW(uint16_t, filepointer[i]);
   }
-  if (!onlyReadPlease) // for some reason we get segmentation fault when this is called as true
+  if (!onlyReadPlease)
   {
     debug("setting it to 3...");
     filepointer[0] = 3;
@@ -425,6 +509,18 @@ napi_value Init(napi_env env, napi_value exports)
   }
 
   status = napi_set_named_property(env, exports, "writeString", fn);
+  if (status != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Unable to populate exports");
+  }
+  //adding my 32 bit print function
+  status = napi_create_function(env, NULL, 0, printBits, NULL, &fn);
+  if (status != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Unable to wrap native function");
+  }
+
+  status = napi_set_named_property(env, exports, "printBits", fn);
   if (status != napi_ok)
   {
     napi_throw_error(env, NULL, "Unable to populate exports");

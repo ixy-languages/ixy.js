@@ -26,10 +26,14 @@ default:
   pciAddr = null;
   pciAddr2 = null;
 }
+console.log('some accessing data tests...');
+addon.printBits(pciAddr, 'EICR');
+
+console.log('\n     first test start:\n');
+
 console.log(
   `pci addr input: ${pciAddr}, size: ${Buffer.byteLength(pciAddr, 'utf8')}`
 );
-console.log('\n     first test start:\n');
 console.log('------- c code start -------');
 const data = addon.getIDs(pciAddr, false);
 const dataRaw = addon.getIDs(pciAddr, true);
@@ -152,7 +156,10 @@ for (let i = 0; i < 16; i++) {
 for (let i = 0; i < 16; i++) {
   dv.setUint16(i * 2, 2 + (i * 5), littleEndian);
   const value = dv.getUint16(i * 2, littleEndian);
-  console.log(`changing values in loop in JS: value at ${i * 2} should be ${2 + (i * 5)}: ${value}`);
+  console.log(
+    `changing values in loop in JS: value at ${i * 2} should be ${2 +
+      (i * 5)}: ${value}`
+  );
   console.log(`${i} uint16 of our reg: ${dv.getUint16(i * 2, littleEndian)}`);
 }
 // loading the same memory again to see if we actually changed it there
@@ -162,7 +169,9 @@ const reg2 = addon.getReg(pciAddr, true);
 console.log('------- c code end -------');
 const dv222 = new DataView(reg2, 0);
 for (let i = 0; i < 16; i++) {
-  console.log(`${i} uint16 of our reg: ${dv222.getUint16(i * 2, littleEndian)}`);
+  console.log(
+    `${i} uint16 of our reg: ${dv222.getUint16(i * 2, littleEndian)}`
+  );
 }
 console.log('\n     third test start:\n');
 
