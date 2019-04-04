@@ -154,9 +154,10 @@ if (runEverything || runTest2) {
   for (let i = 0; i < 16; i++) {
     console.log(`${i} Uint8 of our reg: ${dv.getUint8(i, littleEndian)}`);
   }
-  dv.setUint8(0, 10, littleEndian);
-  dv.setUint8(2, 10, littleEndian);
-  console.log('changed values in JS:');
+  for (let i = 0; i < 16; i++) {
+    dv.setUint8(i, 27, littleEndian);
+  }
+  console.log('changed values to 27 in JS:');
   for (let i = 0; i < 16; i++) {
     console.log(`${i} Uint8 of our reg: ${dv.getUint8(i, littleEndian)}`);
   }

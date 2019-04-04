@@ -136,6 +136,7 @@ napi_value getIDs(napi_env env, napi_callback_info info)
 #define IXGBE_EITR 0x00820      // RW (bits 3-11 could be interesting to test?)
 #define IXGBE_EICR 0x00800      // RW1C (bits 0:15 interesting?) docs: 8.2.3.5.1
 #define IXGBE_LLITHRESH 0x0EC90 // RW, 8.2.3.5.14 , 0-25:0, 26-31: 000101b
+#define IXGBE_IVAR_MISC 0x00A00 // RW, 8.2.3.5.17 , 6:0 : X, 7: 0 , 14:8 : X , 15:1 , 31:16 : 0
 /*int getAddress(char *reg)
 {
   switch (reg)
@@ -270,14 +271,9 @@ napi_value printBits(napi_env env, napi_callback_info info)
   printf("Size of the stat: %d\n", stat2.st_size);
 
   uint8_t *pci_map_resource_js = check_err(mmap(NULL, stat2.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0), "mmap pci resource");
-  //void *filepointer = get_reg(pci_map_resource_js, IXGBE_EIMC);
-  // uint8_t *filepointer = get_reg(pci_map_resource_js, IXGBE_EIAC);
-  // uint8_t *filepointer = get_reg(pci_map_resource_js, IXGBE_EIAM); //tmp disable // dereference once more?
   // uint8_t *filepointer = pci_map_resource_js;
   //printf("should be 0x00800 : %x", getAddress(regi));
-  uint8_t *filepointer = get_reg(pci_map_resource_js, IXGBE_LLITHRESH);
-  //uint8_t *filepointer = pci_map_resource_js;
-  //uint8_t *filepointer = get_reg(pci_map_resource_js, 1);
+  uint8_t *filepointer = get_reg(pci_map_resource_js, IXGBE_IVAR_MISC);
 
   //uint8_t *pauls_filepointer = pauls_pci_map_resource(pci_addr); //according to below code we get the same data
   //printf("%d ; our filepointer\n%d ; pauls filepointer\n", &filepointer, &pauls_filepointer);
@@ -347,11 +343,8 @@ napi_value getReg(napi_env env, napi_callback_info info)
 
   //this needs to be fixed:
   uint8_t *pci_map_resource_js = check_err(mmap(NULL, stat2.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0), "mmap pci resource");
-  //void *filepointer = get_reg(pci_map_resource_js, IXGBE_EIMC);
-  // uint8_t *filepointer = get_reg(pci_map_resource_js, IXGBE_EIAC);
-  // uint8_t *filepointer = get_reg(pci_map_resource_js, IXGBE_EIAM); //tmp disable // dereference once more?
   // uint8_t *filepointer = pci_map_resource_js;
-  uint8_t *filepointer = get_reg(pci_map_resource_js, IXGBE_LLITHRESH);
+  uint8_t *filepointer = get_reg(pci_map_resource_js, IXGBE_IVAR_MISC);
   uint8_t *filepointerUint8 = filepointer;
 
   if (!onlyReadPlease)
@@ -397,10 +390,7 @@ napi_value getReg(napi_env env, napi_callback_info info)
     }
     debug("reloading the same area to see if the change persisted");
     //pci_map_resource_js = check_err(mmap(NULL, stat2.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0), "mmap pci resource"); // we get the error Invalid Argument here
-    //filepointer = get_reg(pci_map_resource_js, IXGBE_EIMC);
-    //filepointer = get_reg(pci_map_resource_js, IXGBE_EIAC);
-    //filepointer = get_reg(pci_map_resource_js, IXGBE_EIAM); // tmp disable
-    filepointer = get_reg(pci_map_resource_js, IXGBE_LLITHRESH);
+    filepointer = get_reg(pci_map_resource_js, IXGBE_IVAR_MISC);
     //filepointer = pci_map_resource_js;
 
     for (i = offset; i < lengthofloop + offset; i += 1)
