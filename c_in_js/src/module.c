@@ -215,6 +215,14 @@ uint8_t *pauls_pci_map_resource(const char *pci_addr)
   check_err(fstat(fd, &stat), "stat pci resource");
   return (uint8_t *)check_err(mmap(NULL, stat.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0), "mmap pci resource");
 }
+void pauls_set_reg32(uint8_t *addr, int reg, uint32_t value)
+{
+  __asm__ volatile(""
+                   :
+                   :
+                   : "memory");
+  *((volatile uint32_t *)(addr + reg)) = value;
+}
 //endof copypastas
 // lets try to make this work in JS:
 /*set_reg32(dev->addr, IXGBE_EIMC, 0x7FFFFFFF);
@@ -230,13 +238,7 @@ uint8_t *pauls_pci_map_resource(const char *pci_addr)
   */
 void *get_reg(uint8_t *addr, int reg)
 {
-  /*__asm__ volatile(""
-                   :
-                   :
-                   : "memory");*/
-  // i dont think we need this but lets just keep this here before changing too much
-  void *regPointer = (addr + reg);
-  return regPointer;
+  return (addr + reg);
 }
 
 napi_value printBits(napi_env env, napi_callback_info info)
@@ -281,8 +283,9 @@ napi_value printBits(napi_env env, napi_callback_info info)
   uint8_t *filepointer = get_reg(pci_map_resource_js, regUsed);
 
   //uint8_t *pauls_filepointer = pauls_pci_map_resource(pci_addr); //according to below code we get the same data
-  //printf("%d ; our filepointer\n%d ; pauls filepointer\n", &filepointer, &pauls_filepointer);
-  printf("%d :: our resource at %s\n", filepointer[0], regi);
+  //pauls_filepointer += regUsed;                                  //shifting pointer
+  //printf("%d ; our filepointer\n%d ; pauls filepointer\n", filepointer, pauls_filepointer);
+  printf("%d :: our resource at 0x%x\n", filepointer[0], regUsed);
   printf("%x", filepointer[0]);
   SHOW(uint8_t, filepointer[0]);
   printf("%x", filepointer[1]);
@@ -290,6 +293,8 @@ napi_value printBits(napi_env env, napi_callback_info info)
   uint16_t *bitFP = filepointer;
   printf("%x", bitFP[0]);
   SHOW(uint16_t, bitFP[0]);
+  printf("changing values with pauls function set_reg...\n");
+  pauls_set_reg32(pci_map_resource_js, regUsed, 32);
 
   // compare to what pauls code got
   // loop vars:
@@ -374,7 +379,7 @@ napi_value getReg(napi_env env, napi_callback_info info)
   }
   if (!onlyReadPlease)
   {
-    int valueChanger = 32;
+    int valueChanger = filepointer[0] + 1;
     debug("setting byte 0 to %d .", valueChanger);
     filepointer[0] = valueChanger;
     uint8_t changedInt = filepointer[0];
