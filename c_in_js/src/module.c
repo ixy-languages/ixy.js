@@ -241,35 +241,20 @@ void pauls_set_reg32(uint8_t *addr, int reg, uint32_t value)
  * Set a register
  * @param $addr
  * address of the memory we want to address, should be the root address of the ixy device
- * @param $regSize
- * size of the register we want to write to, ranging from 8, 16, 32
  * @param $reg
  * the register we want to write to, being an offset in bytes from addr
  * @param $value
  * The value we want to write into the register
  * */
-void set_reg(uint8_t *addr, int32_t regSize, int32_t reg, uint32_t value)
+void set_reg(uint8_t *addr, int32_t reg, uint32_t value)
 {
-  printf("We got input addr: %d, regSize: %d, reg: %d, value: %d\n", addr, regSize, reg, value);
+  printf("We got input addr: %d, reg: %d, value: %d\n", addr, reg, value);
   // TODO find out if we need to cast "value" to the correct size as well
-  /*__asm__ volatile(""
+  __asm__ volatile(""
                    :
                    :
-                   : "memory");*/
-  switch (regSize)
-  {
-  case 32:
-    *((volatile uint32_t *)(addr + reg)) = value;
-    break;
-  case 16:
-    *((volatile uint16_t *)(addr + reg)) = (uint16_t)value;
-    break;
-  case 8:
-    *((volatile uint8_t *)(addr + reg)) = (uint8_t)value;
-    break;
-  default:
-    *((volatile uint8_t *)(addr + reg)) = (uint8_t)value;
-  }
+                   : "memory");
+  *((volatile uint32_t *)(addr + reg)) = value;
 }
 void *get_reg(uint8_t *addr, int reg)
 {
@@ -409,8 +394,8 @@ napi_value getIXYAddr(napi_env env, napi_callback_info info)
 napi_value set_reg_js(napi_env env, napi_callback_info info)
 {
   napi_status stat;
-  size_t argc = 4;
-  napi_value argv[4];
+  size_t argc = 3;
+  napi_value argv[3];
 
   stat = napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
   if (stat != napi_ok)
@@ -425,29 +410,22 @@ napi_value set_reg_js(napi_env env, napi_callback_info info)
   {
     napi_throw_error(env, NULL, "Failed to get the arraybuffer.");
   }
-  // get second arg: regSize
-  int32_t regSize;
-  stat = napi_get_value_int32(env, argv[1], &regSize);
-  if (stat != napi_ok)
-  {
-    napi_throw_error(env, NULL, "Failed getting reg size.");
-  }
-  // get third arg: reg
+  // get second arg: reg
   int32_t reg;
-  stat = napi_get_value_int32(env, argv[2], &reg);
+  stat = napi_get_value_int32(env, argv[1], &reg);
   if (stat != napi_ok)
   {
     napi_throw_error(env, NULL, "Failed getting register offset.");
   }
-  // get fourth arg: value
+  // get third arg: value
   uint32_t value;
-  stat = napi_get_value_uint32(env, argv[3], &value);
+  stat = napi_get_value_uint32(env, argv[2], &value);
   if (stat != napi_ok)
   {
     napi_throw_error(env, NULL, "Failed getting value.");
   }
 
-  set_reg(addr, regSize, reg, value);
+  set_reg(addr, reg, value);
 
   return NULL;
 }

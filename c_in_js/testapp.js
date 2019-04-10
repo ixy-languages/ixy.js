@@ -39,7 +39,7 @@ if (runEverything || runTestCWrapper) {
   const IXYView = new DataView(IXYDevice);
   console.log(`The 32bit before changing: ${IXYView.getUint32(0x200, littleEndian)}`);
   console.log('-----------cstart------------');
-  addon.set_reg_js(IXYDevice, 32, 0x200, 2552); // seems to work with 32 bit but not with less? (maybe little endian is fucking up our byte order here)
+  addon.set_reg_js(IXYDevice, 0x200, 2542);
   console.log('-----------c--end------------');
   console.log(`The 32bit after changing: ${IXYView.getUint32(0x200, littleEndian)}`);
 }
