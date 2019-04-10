@@ -402,7 +402,7 @@ napi_value getIXYAddr(napi_env env, napi_callback_info info)
 /**
  * This makes the set_reg function available for JS
  * */
-napi_value getIXYAddr(napi_env env, napi_callback_info info)
+napi_value set_reg_JS(napi_env env, napi_callback_info info)
 {
   napi_status stat;
   size_t argc = 4;
@@ -742,6 +742,31 @@ napi_value Init(napi_env env, napi_value exports)
   }
 
   status = napi_set_named_property(env, exports, "getReg", fn);
+  if (status != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Unable to populate exports");
+  }
+  
+  //add getReg to exports
+  status = napi_create_function(env, NULL, 0, getIXYAddr, NULL, &fn);
+  if (status != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Unable to wrap native function");
+  }
+
+  status = napi_set_named_property(env, exports, "getIXYAddr", fn);
+  if (status != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Unable to populate exports");
+  }
+  //add getReg to exports
+  status = napi_create_function(env, NULL, 0, get_reg_js, NULL, &fn);
+  if (status != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Unable to wrap native function");
+  }
+
+  status = napi_set_named_property(env, exports, "get_reg_js", fn);
   if (status != napi_ok)
   {
     napi_throw_error(env, NULL, "Unable to populate exports");
