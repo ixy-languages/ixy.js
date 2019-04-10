@@ -328,8 +328,8 @@ napi_value printBits(napi_env env, napi_callback_info info)
   uint16_t *bitFP = filepointer;
   printf("%x", bitFP[0]);
   SHOW(uint16_t, bitFP[0]);
-  printf("changing values with pauls function set_reg...\n");
-  pauls_set_reg32(pci_map_resource_js, regUsed, 32);
+  //printf("changing values with pauls function set_reg...\n");
+  //pauls_set_reg32(pci_map_resource_js, regUsed, 32);
 
   // compare to what pauls code got
   // loop vars:
