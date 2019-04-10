@@ -250,6 +250,7 @@ void pauls_set_reg32(uint8_t *addr, int reg, uint32_t value)
  * */
 void set_reg(uint8_t *addr, int32_t regSize, int32_t reg, uint32_t value)
 {
+  printf("We got input addr: %d, regSize: %d, reg: %d, value: %d\n", addr, regSize, reg, value);
   // TODO find out if we need to cast "value" to the correct size as well
   __asm__ volatile(""
                    :
@@ -414,9 +415,9 @@ napi_value set_reg_js(napi_env env, napi_callback_info info)
     napi_throw_error(env, NULL, "Failed to parse arguments");
   }
   // get first arg: addr
-  uint8_t *pci_addr; // lets hope we dont need to actually allocate all that memory
+  uint8_t *addr; // lets hope we dont need to actually allocate all that memory
   size_t size;
-  stat = napi_get_arraybuffer_info(env, argv[0], &pci_addr, size);
+  stat = napi_get_arraybuffer_info(env, argv[0], &addr, size);
   if (stat != napi_ok)
   {
     napi_throw_error(env, NULL, "Failed to get the arraybuffer.");
@@ -746,7 +747,7 @@ napi_value Init(napi_env env, napi_value exports)
   {
     napi_throw_error(env, NULL, "Unable to populate exports");
   }
-  
+
   //add getReg to exports
   status = napi_create_function(env, NULL, 0, getIXYAddr, NULL, &fn);
   if (status != napi_ok)
