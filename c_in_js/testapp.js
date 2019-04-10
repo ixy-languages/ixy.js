@@ -12,6 +12,7 @@ console.log(`little endian?: ${littleEndian}`);
 
 const currentHost = 'narva'; // adjust this part before deploy on machine
 const runEverything = false;
+const runTestCWrapper = true;
 const runTest1 = false;
 const runTest2 = true;
 const runTest3 = false;
@@ -32,6 +33,14 @@ default:
 }
 console.log('some accessing data tests...');
 addon.printBits(pciAddr, 'EICR');
+
+if (runEverything || runTestCWrapper) {
+  const IXYDevice = addon.getIXYAddr(pciAddr);
+  const IXYView = new DataView(IXYDevice);
+  console.log(`The 32bit before changing: ${IXYView.getInt32(0, littleEndian)}`);
+  addon.set_reg_js(IXYDevice, 32, 0, 2795);
+  console.log(`The 32bit after changing: ${IXYView.getInt32(0, littleEndian)}`);
+}
 
 if (runEverything || runTest1) {
   console.log('\n     first test start:\n');
