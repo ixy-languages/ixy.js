@@ -262,13 +262,13 @@ void set_reg(uint8_t *addr, int32_t regSize, int32_t reg, uint32_t value)
     *((volatile uint32_t *)(addr + reg)) = value;
     break;
   case 16:
-    *((volatile uint16_t *)(addr + reg)) = value;
+    *((volatile uint16_t *)(addr + reg)) = (uint16_t)value;
     break;
   case 8:
-    *((volatile uint8_t *)(addr + reg)) = value;
+    *((volatile uint8_t *)(addr + reg)) = (uint8_t)value;
     break;
   default:
-    *((volatile uint8_t *)(addr + reg)) = value;
+    *((volatile uint8_t *)(addr + reg)) = (uint8_t)value;
   }
 }
 void *get_reg(uint8_t *addr, int reg)
@@ -328,6 +328,9 @@ napi_value printBits(napi_env env, napi_callback_info info)
   uint16_t *bitFP = filepointer;
   printf("%x", bitFP[0]);
   SHOW(uint16_t, bitFP[0]);
+  uint32_t *bitFP2 = filepointer;
+  printf("%x", bitFP2[0]);
+  SHOW(uint32_t, bitFP2[0]);
   //printf("changing values with pauls function set_reg...\n");
   //pauls_set_reg32(pci_map_resource_js, regUsed, 32);
 
