@@ -248,7 +248,7 @@ void pauls_set_reg32(uint8_t *addr, int reg, uint32_t value)
  * @param $value
  * The value we want to write into the register
  * */
-void set_reg(uint8_t *addr, int8_t regSize, int reg, uint32_t value)
+void set_reg(uint8_t *addr, int32_t regSize, int32_t reg, uint32_t value)
 {
   // TODO find out if we need to cast "value" to the correct size as well
   __asm__ volatile(""
@@ -413,16 +413,38 @@ napi_value getIXYAddr(napi_env env, napi_callback_info info)
   {
     napi_throw_error(env, NULL, "Failed to parse arguments");
   }
-  char *pci_addr = malloc(12); // "0000:03:00.0"
+  // get first arg: addr
+  uint8_t *pci_addr; // lets hope we dont need to actually allocate all that memory
   size_t size;
-  stat = napi_get_value_string_utf8(env, argv[0], pci_addr, 13, &size); // for some reason we need to use length 13 not 12, to get 12 bytes
+  stat = napi_get_arraybuffer_info(env, argv[0], &pci_addr, size);
   if (stat != napi_ok)
   {
-    napi_throw_error(env, NULL, "Invalid string of length 12, the PCI adress, was passed as first argument");
+    napi_throw_error(env, NULL, "Failed to get the arraybuffer.");
   }
-  // TODO import all these values from the args
+  // get second arg: regSize
+  int32_t regSize;
+  stat = napi_get_value_int32(env, argv[1], &regSize);
+  if (stat != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Failed getting reg size.");
+  }
+  // get third arg: reg
+  int32_t reg;
+  stat = napi_get_value_int32(env, argv[2], &reg);
+  if (stat != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Failed getting register offset.");
+  }
+  // get fourth arg: value
+  uint32_t value;
+  stat = napi_get_value_uint32(env, argv[3], &value);
+  if (stat != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Failed getting value.");
+  }
 
   set_reg(addr, regSize, reg, value);
+
   return NULL;
 }
 //endof clean code
