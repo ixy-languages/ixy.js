@@ -235,7 +235,41 @@ void pauls_set_reg32(uint8_t *addr, int reg, uint32_t value)
 					 : "memory");
 	*((volatile uint32_t *)(addr + reg)) = value;
 }
-  */
+*/
+
+/**
+ * Set a register
+ * @param $addr
+ * address of the memory we want to address, should be the root address of the ixy device
+ * @param $regSize
+ * size of the register we want to write to, ranging from 8, 16, 32
+ * @param $reg
+ * the register we want to write to, being an offset in bytes from addr
+ * @param $value
+ * The value we want to write into the register
+ * */
+void set_reg(uint8_t *addr, int8_t regSize, int reg, uint32_t value)
+{
+  // TODO find out if we need to cast "value" to the correct size as well
+  __asm__ volatile(""
+                   :
+                   :
+                   : "memory");
+  switch (regSize)
+  {
+  case 32:
+    *((volatile uint32_t *)(addr + reg)) = value;
+    break;
+  case 16:
+    *((volatile uint16_t *)(addr + reg)) = value;
+    break;
+  case 8:
+    *((volatile uint8_t *)(addr + reg)) = value;
+    break;
+  default:
+    *((volatile uint8_t *)(addr + reg)) = value;
+  }
+}
 void *get_reg(uint8_t *addr, int reg)
 {
   return (addr + reg);
