@@ -355,6 +355,77 @@ napi_value printBits(napi_env env, napi_callback_info info)
   return testReturnVal;
 }
 // endof trying
+
+// here should be clean code
+
+/**
+ * This will give us an ArrayBuffer in JS, which points to the Network Card installed in the PCI Address we provide
+ * */
+napi_value getIXYAddr(napi_env env, napi_callback_info info)
+{
+  napi_status stat;
+  size_t argc = 1;
+  napi_value argv[1];
+
+  stat = napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+  if (stat != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Failed to parse arguments");
+  }
+  char *pci_addr = malloc(12); // "0000:03:00.0"
+  size_t size;
+  stat = napi_get_value_string_utf8(env, argv[0], pci_addr, 13, &size); // for some reason we need to use length 13 not 12, to get 12 bytes
+  if (stat != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Invalid string of length 12, the PCI adress, was passed as first argument");
+  }
+
+  // let's keep both of these for now
+  remove_driver(pci_addr); // we added this to see if it works now
+  enable_dma(pci_addr);    // do we need this to actually be able to write there?
+
+  //this is what we need to get the root adress
+  int fd = pci_open_resource(pci_addr, "resource0");
+  struct stat stat2;
+  check_err(fstat(fd, &stat2), "stat pci resource");
+
+  uint8_t *pci_map_resource_js = check_err(mmap(NULL, stat2.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0), "mmap pci resource");
+
+  napi_value returnVal;
+  stat = napi_create_external_arraybuffer(env, (void *)pci_map_resource_js, stat2.st_size, NULL, NULL, &returnVal);
+  if (stat != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Failed our external buffer creation");
+  }
+  return returnVal;
+}
+/**
+ * This makes the set_reg function available for JS
+ * */
+napi_value getIXYAddr(napi_env env, napi_callback_info info)
+{
+  napi_status stat;
+  size_t argc = 4;
+  napi_value argv[4];
+
+  stat = napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+  if (stat != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Failed to parse arguments");
+  }
+  char *pci_addr = malloc(12); // "0000:03:00.0"
+  size_t size;
+  stat = napi_get_value_string_utf8(env, argv[0], pci_addr, 13, &size); // for some reason we need to use length 13 not 12, to get 12 bytes
+  if (stat != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Invalid string of length 12, the PCI adress, was passed as first argument");
+  }
+  // TODO import all these values from the args
+
+  set_reg(addr, regSize, reg, value);
+  return NULL;
+}
+//endof clean code
 napi_value getReg(napi_env env, napi_callback_info info)
 {
   napi_status stat;
