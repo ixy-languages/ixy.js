@@ -252,10 +252,10 @@ void set_reg(uint8_t *addr, int32_t regSize, int32_t reg, uint32_t value)
 {
   printf("We got input addr: %d, regSize: %d, reg: %d, value: %d\n", addr, regSize, reg, value);
   // TODO find out if we need to cast "value" to the correct size as well
-  __asm__ volatile(""
+  /*__asm__ volatile(""
                    :
                    :
-                   : "memory");
+                   : "memory");*/
   switch (regSize)
   {
   case 32:
