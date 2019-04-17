@@ -36,3 +36,9 @@ addon.set_reg_js(IXYDevice, 0x200, 2542);
 console.log('-----------c--end------------');
 console.log(`The 32bit after changing: ${IXYView.getUint32(0x200, littleEndian)}`);
 
+const dmaMem = addon.getDmaMem(20, true);
+const dmaView = new DataView(dmaMem);
+console.log(`dma at byte 0 : ${dmaView.getUint32(0, littleEndian)}`);
+const physicalAddress = addon.virtToPhys(dmaMem);
+console.log(`Physical address: ${physicalAddress}`);
+

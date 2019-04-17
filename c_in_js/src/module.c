@@ -206,7 +206,7 @@ int regUsed = IXGBE_LEDCTL;
 
 // tmp copypastas
 bool turnoffRMDr = false;
-bool turnoffEBLDMA = true;
+bool turnoffEBLDMA = false;
 void remove_driver(const char *pci_addr) // for now C is fine but at some point well put this into JS
 {
   if (!turnoffRMDr)
@@ -459,6 +459,28 @@ napi_value Init(napi_env env, napi_value exports)
   }
 
   status = napi_set_named_property(env, exports, "set_reg_js", fn);
+  if (status != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Unable to populate exports");
+  } // add getDmaMem to the export
+  status = napi_create_function(env, NULL, 0, getDmaMem, NULL, &fn);
+  if (status != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Unable to wrap native function");
+  }
+
+  status = napi_set_named_property(env, exports, "getDmaMem", fn);
+  if (status != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Unable to populate exports");
+  } // add virtToPhys to the export
+  status = napi_create_function(env, NULL, 0, virtToPhys, NULL, &fn);
+  if (status != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Unable to wrap native function");
+  }
+
+  status = napi_set_named_property(env, exports, "virtToPhys", fn);
   if (status != napi_ok)
   {
     napi_throw_error(env, NULL, "Unable to populate exports");
