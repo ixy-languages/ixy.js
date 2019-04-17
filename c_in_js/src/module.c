@@ -99,11 +99,29 @@ napi_value getDmaMem(napi_env env, napi_callback_info info)
 napi_value virtToPhys(napi_env env, napi_callback_info info)
 {
   void *virt;
-  // TODO get virt from input
+  napi_status stat;
+  size_t sizeOfArray;
+  size_t argc = 1;
+  napi_value argv[1];
+  stat = napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+  if (stat != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Failed to parse arguments");
+  }
+  stat = napi_get_arraybuffer_info(env, argv[0], &virt, &sizeOfArray);
+  if (stat != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Failed to get virtual Memory from ArrayBuffer.");
+  }
   uintptr_t physPointer = virt_to_phys(virt);
-  napi_value ret = NULL;
-  // TODO return phys pointer to node
-  return ret;
+  napi_value ret;
+  //hoping physical pointers are 64bit, else we need to handle every function that needs this value in C as well
+  stat = napi_create_bigint_uint64(env, physPointer, &ret);
+  if (stat != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Failed to get virtual Memory from ArrayBuffer.");
+  }
+  uint return ret;
 }
 napi_value getIDs(napi_env env, napi_callback_info info)
 {
