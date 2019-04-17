@@ -1,6 +1,19 @@
+// include to build into node
 #include <node_api.h>
+
+//include to use original c code
 #include "memory.h"
 #include "device.h"
+
+//including just everything so that nothings missing (for C functions added/copy pasted)
+#include <assert.h>
+#include <errno.h>
+#include <linux/limits.h>
+#include <stdio.h>
+#include <sys/file.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 int isLittleEndian()
 {
@@ -12,16 +25,6 @@ int isLittleEndian()
   else
     return 0 /*BIG_ENDIAN*/;
 }
-//function to magically map memory
-//including just everything so that nothings missing
-#include <assert.h>
-#include <errno.h>
-#include <linux/limits.h>
-#include <stdio.h>
-#include <sys/file.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
-#include <unistd.h>
 
 //functions to print bits
 //use like this:   SHOW(int, 1);
@@ -61,6 +64,26 @@ int pci_open_resource(const char *pci_addr, const char *resource)
   return fd;
 }
 //endof magic memory
+
+napi_value getDmaMem(napi_env env, napi_callback_info info)
+{
+  bool requireContigious = true;
+  size_t size;
+  // TODO read size from input
+  void *virtualAddress = memory_allocate_dma(size, requireContigious).virt; // change this function later on, to do only whats actually needed to be done in C
+  napi_value ret;
+  // TODO put virtual adress into napi value, an arraybuffer?
+  return ret;
+}
+napi_value virtToPhys(napi_env env, napi_callback_info info)
+{
+  void *virt;
+  // TODO get virt from input
+  uintptr_t physPointer = virt_to_phys(virt);
+  napi_value ret = NULL;
+  // TODO return phys pointer to node
+  return ret;
+}
 napi_value getIDs(napi_env env, napi_callback_info info)
 {
   napi_status stat;
