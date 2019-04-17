@@ -67,12 +67,33 @@ int pci_open_resource(const char *pci_addr, const char *resource)
 
 napi_value getDmaMem(napi_env env, napi_callback_info info)
 {
-  bool requireContigious = true;
+  bool requireContigious;
   size_t size;
-  // TODO read size from input
+  napi_status stat;
+  size_t argc = 2;
+  napi_value argv[2];
+  stat = napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+  if (stat != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Failed to parse arguments");
+  }
+  stat = napi_get_value_uint32(env, argv[0], &size);
+  if (stat != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Failed to get size from inputs.");
+  }
+  stat = napi_get_value_bool(env, argv[1], &requireContigious);
+  if (stat != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Failed to get requireContigious from inputs.");
+  }
   void *virtualAddress = memory_allocate_dma(size, requireContigious).virt; // change this function later on, to do only whats actually needed to be done in C
   napi_value ret;
-  // TODO put virtual adress into napi value, an arraybuffer?
+  stat = napi_create_external_arraybuffer(env, virtualAddress, size, NULL, NULL, &ret);
+  if (stat != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Failed to return virtual Adress as Arraybuffer.");
+  }
   return ret;
 }
 napi_value virtToPhys(napi_env env, napi_callback_info info)
