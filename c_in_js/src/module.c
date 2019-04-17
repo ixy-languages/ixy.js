@@ -2,8 +2,8 @@
 #include <node_api.h>
 
 //include to use original c code
-#include "memory.h"
-#include "device.h"
+#include "memory.c"
+#include "device.c"
 
 //including just everything so that nothings missing (for C functions added/copy pasted)
 #include <assert.h>
@@ -87,7 +87,8 @@ napi_value getDmaMem(napi_env env, napi_callback_info info)
   {
     napi_throw_error(env, NULL, "Failed to get requireContigious from inputs.");
   }
-  void *virtualAddress = memory_allocate_dma(size, requireContigious).virt; // change this function later on, to do only whats actually needed to be done in C
+  struct dma_memory dmaMem = memory_allocate_dma(size, requireContigious);
+  void *virtualAddress = dmaMem.virt; // change this function later on, to do only whats actually needed to be done in C
   napi_value ret;
   stat = napi_create_external_arraybuffer(env, virtualAddress, size, NULL, NULL, &ret);
   if (stat != napi_ok)
@@ -121,7 +122,7 @@ napi_value virtToPhys(napi_env env, napi_callback_info info)
   {
     napi_throw_error(env, NULL, "Failed to get virtual Memory from ArrayBuffer.");
   }
-  uint return ret;
+  return ret;
 }
 napi_value getIDs(napi_env env, napi_callback_info info)
 {
