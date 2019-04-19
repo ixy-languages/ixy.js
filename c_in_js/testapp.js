@@ -43,6 +43,9 @@ console.log(`The 32bit after JS changing: ${IXYView.getUint32(0x200, littleEndia
 const dmaMem = addon.getDmaMem(20, true);
 const dmaView = new DataView(dmaMem);
 console.log(`dma at byte 0 : ${dmaView.getUint32(0, littleEndian)}`);
+console.log('trying to change value to 20 via JS..');
+dmaView.setUint32(0, 20, littleEndian);
+console.log(`dma at byte 0 after JS change : ${dmaView.getUint32(0, littleEndian)}`);
 const physicalAddress = addon.virtToPhys(dmaMem);
 console.log(`Physical address: ${physicalAddress}`);
 
