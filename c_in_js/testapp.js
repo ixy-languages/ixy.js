@@ -35,6 +35,10 @@ console.log('-----------cstart------------');
 addon.set_reg_js(IXYDevice, 0x200, 2542);
 console.log('-----------c--end------------');
 console.log(`The 32bit after changing: ${IXYView.getUint32(0x200, littleEndian)}`);
+console.log('trying to change value to 20 via JS..');
+IXYView.setUint32(0x200, 20, littleEndian);
+console.log(`The 32bit after JS changing: ${IXYView.getUint32(0x200, littleEndian)}`);
+
 
 const dmaMem = addon.getDmaMem(20, true);
 const dmaView = new DataView(dmaMem);
