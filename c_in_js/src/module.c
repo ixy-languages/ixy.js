@@ -2,8 +2,7 @@
 #include <node_api.h>
 
 //include to use original c code
-#include "memory.c"
-#include "device.c"
+#include "original_c_src/memory.c"
 
 //including just everything so that nothings missing (for C functions added/copy pasted)
 #include <assert.h>
@@ -14,6 +13,10 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
+
+#include <stdint.h>
+
+#include "original_c_src/log.h"
 
 int isLittleEndian()
 {
