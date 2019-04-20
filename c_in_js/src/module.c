@@ -92,7 +92,7 @@ napi_value getDmaMem(napi_env env, napi_callback_info info)
   }
   struct dma_memory dmaMem = memory_allocate_dma(size, requireContigious);
   void *virtualAddress = dmaMem.virt; // change this function later on, to do only whats actually needed to be done in C
-  printf("Physical adress in C: %d", dmaMem.phy);
+  printf("Physical adress in C (when creating DMA): %d\n", dmaMem.phy);
   napi_value ret;
   stat = napi_create_external_arraybuffer(env, virtualAddress, size, NULL, NULL, &ret);
   if (stat != napi_ok)
@@ -119,6 +119,7 @@ napi_value virtToPhys(napi_env env, napi_callback_info info)
     napi_throw_error(env, NULL, "Failed to get virtual Memory from ArrayBuffer.");
   }
   uintptr_t physPointer = virt_to_phys(virt);
+  printf("Physical adress in C (when getting from arraybuffer): %d\n", physPointer);
   napi_value ret;
   //hoping physical pointers are 64bit, else we need to handle every function that needs this value in C as well
   stat = napi_create_bigint_uint64(env, physPointer, &ret);
