@@ -134,17 +134,20 @@ function init_rx(IXYDevice, num_of_queues)
     addon.set_reg_js(IXYDevice, defines.IXGBE_RDH(i), 0);
     addon.set_reg_js(IXYDevice, defines.IXGBE_RDT(i), 0);
     // private data for the driver, 0-initialized
+    /*
+TODO create this buffer (might need to call C for this?)
     struct ixgbe_rx_queue *queue = ((struct ixgbe_rx_queue *)(dev->rx_queues)) + i;
     queue->num_entries = NUM_RX_QUEUE_ENTRIES;
     queue->rx_index = 0;
     queue->descriptors = (union ixgbe_adv_rx_desc *)mem.virt;
+    */
   }
 
   // last step is to set some magic bits mentioned in the last sentence in 4.6.7
   addon.set_flags_js(IXYDevice, defines.IXGBE_CTRL_EXT, defines.IXGBE_CTRL_EXT_NS_DIS);
   // this flag probably refers to a broken feature: it's reserved and initialized as '1' but it must be set to '0'
-  // there isn't even a constant in ixgbe_types.h for this flag
-  for (uint16_t i = 0; i < dev->ixy.num_rx_queues; i++)
+  // there isn't even a constant in 'defines' for this flag
+  for (const i = 0; i < num_of_queues; i++)
   {
     addon.clear_flags_js(IXYDevice, defines.IXGBE_DCA_RXCTRL(i), 1 << 12);
   }
