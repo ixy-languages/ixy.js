@@ -92,7 +92,7 @@ napi_value getDmaMem(napi_env env, napi_callback_info info)
   }
   struct dma_memory dmaMem = memory_allocate_dma(size, requireContigious);
   void *virtualAddress = dmaMem.virt; // change this function later on, to do only whats actually needed to be done in C
-  printf("Physical adress in C: %d", dmaMem.phy);
+  printf("Physical adress in C: 0x%012lX", dmaMem.phy);
   napi_value ret;
   stat = napi_create_external_arraybuffer(env, virtualAddress, size, NULL, NULL, &ret);
   if (stat != napi_ok)

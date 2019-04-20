@@ -52,7 +52,35 @@ console.log(`Physical address: ${physicalAddress}`);
 // we want to initialize rx queues, and change functions to the JS equivalent
 // dev->addr should be our IXYDevice
 
-/* // deactivated
+const defines = {
+  IXGBE_RXCTRL: 0x03000,
+  IXGBE_RXCTRL_RXEN: 0x00000001,
+  IXGBE_RXPBSIZE_128KB: 0x00020000,
+  IXGBE_RXPBSIZE: i => 0x03C00 + (i * 4),
+  IXGBE_HLREG0: 0x04240,
+  IXGBE_HLREG0_RXCRCSTRP: 0x00000002,
+  IXGBE_RDRXCTL: 0x02F00,
+  IXGBE_RDRXCTL_CRCSTRIP: 0x00000002, IXGBE_FCTRL: 0x05080,
+  IXGBE_FCTRL_BAM: 0x00000400,
+  IXGBE_SRRCTL: i => (i <= 15 ? 0x02100 + (i * 4) : (i) < 64 ? 0x01014 + ((i) * 0x40) : 0x0D014 + (((i) - 64) * 0x40)),
+  IXGBE_SRRCTL_DESCTYPE_MASK: 0x0E000000,
+  IXGBE_SRRCTL_DESCTYPE_ADV_ONEBUF: 0x02000000,
+  IXGBE_SRRCTL_DROP_EN: 0x10000000,
+  NUM_RX_QUEUE_ENTRIES: 512,
+  IXGBE_RDBAL: i => (i < 64 ? 0x01000 + (i * 0x40) : 0x0D000 + ((i - 64) * 0x40)),
+
+  IXGBE_RDBAH: i => (i < 64 ? 0x01004 + (i * 0x40) : 0x0D004 + ((i - 64) * 0x40)),
+  IXGBE_RDLEN: i => (i < 64 ? 0x01008 + (i * 0x40) : 0x0D008 + ((i - 64) * 0x40)),
+  IXGBE_RDH: i => (i < 64 ? 0x01010 + (i * 0x40) : 0x0D010 + ((i - 64) * 0x40)),
+  IXGBE_RDT: i => (i < 64 ? 0x01018 + (i * 0x40) : 0x0D018 + ((i - 64) * 0x40)),
+  IXGBE_CTRL_EXT: 0x00018,
+  IXGBE_CTRL_EXT_NS_DIS: 0x00010000,
+  IXGBE_DCA_RXCTRL: i => (i <= 15 ? 0x02200 + (i * 4) : (i) < 64 ? 0x0100C + ((i) * 0x40) : 0x0D00C + (((i) - 64) * 0x40))
+
+};
+
+/* // remove the leftmost comment slashes to deactivate
+
 
 // see section 4.6.7
 // it looks quite complicated in the data sheet, but it's actually really easy because we don't need fancy features
@@ -60,43 +88,43 @@ function init_rx(pci_addr, num_of_queues)
 {
   // make sure that rx is disabled while re-configuring it
   // the datasheet also wants us to disable some crypto-offloading related rx paths (but we don't care about them)
-  clear_flags32(dev->addr, IXGBE_RXCTRL, IXGBE_RXCTRL_RXEN);
+  clear_flags32(IXYDevice, defines.IXGBE_RXCTRL, defines.IXGBE_RXCTRL_RXEN);
   // no fancy dcb or vt, just a single 128kb packet buffer for us
-  set_reg32(dev->addr, IXGBE_RXPBSIZE(0), IXGBE_RXPBSIZE_128KB);
-  for (int i = 1; i < 8; i++)
+  set_reg32(IXYDevice, defines.IXGBE_RXPBSIZE(0), defines.IXGBE_RXPBSIZE_128KB);
+  for (const i = 1; i < 8; i++)
   {
-    set_reg32(dev->addr, IXGBE_RXPBSIZE(i), 0);
+    set_reg32(IXYDevice, defines.IXGBE_RXPBSIZE(i), 0);
   }
 
   // always enable CRC offloading
-  set_flags32(dev->addr, IXGBE_HLREG0, IXGBE_HLREG0_RXCRCSTRP);
-  set_flags32(dev->addr, IXGBE_RDRXCTL, IXGBE_RDRXCTL_CRCSTRIP);
+  set_flags32(IXYDevice, defines.IXGBE_HLREG0, defines.IXGBE_HLREG0_RXCRCSTRP);
+  set_flags32(IXYDevice, defines.IXGBE_RDRXCTL, defines.IXGBE_RDRXCTL_CRCSTRIP);
 
   // accept broadcast packets
-  set_flags32(dev->addr, IXGBE_FCTRL, IXGBE_FCTRL_BAM);
+  set_flags32(IXYDevice, defines.IXGBE_FCTRL, defines.IXGBE_FCTRL_BAM);
 
   // per-queue config, same for all queues
-  for (uint16_t i = 0; i < dev->ixy.num_rx_queues; i++)
+  for (const i = 0; i < num_of_queues; i++)
   {
-    debug("initializing rx queue %d", i);
+    console.log(`initializing rx queue ${i}`);
     // enable advanced rx descriptors, we could also get away with legacy descriptors, but they aren't really easier
-    set_reg32(dev->addr, IXGBE_SRRCTL(i), (get_reg32(dev->addr, IXGBE_SRRCTL(i)) & ~IXGBE_SRRCTL_DESCTYPE_MASK) | IXGBE_SRRCTL_DESCTYPE_ADV_ONEBUF);
+    set_reg32(IXYDevice, defines.IXGBE_SRRCTL(i), (get_reg32(IXYDevice, defines.IXGBE_SRRCTL(i)) & ~defines.IXGBE_SRRCTL_DESCTYPE_MASK) | defines.IXGBE_SRRCTL_DESCTYPE_ADV_ONEBUF);
     // drop_en causes the nic to drop packets if no rx descriptors are available instead of buffering them
     // a single overflowing queue can fill up the whole buffer and impact operations if not setting this flag
-    set_flags32(dev->addr, IXGBE_SRRCTL(i), IXGBE_SRRCTL_DROP_EN);
+    set_flags32(IXYDevice, defines.IXGBE_SRRCTL(i), defines.IXGBE_SRRCTL_DROP_EN);
     // setup descriptor ring, see section 7.1.9
-    uint32_t ring_size_bytes = NUM_RX_QUEUE_ENTRIES * sizeof(union ixgbe_adv_rx_desc);
+    uint32_t ring_size_bytes = defines.NUM_RX_QUEUE_ENTRIES * sizeof(union ixgbe_adv_rx_desc);
     struct dma_memory mem = memory_allocate_dma(ring_size_bytes, true);
     // neat trick from Snabb: initialize to 0xFF to prevent rogue memory accesses on premature DMA activation
     memset(mem.virt, -1, ring_size_bytes);
-    set_reg32(dev->addr, IXGBE_RDBAL(i), (uint32_t)(mem.phy & 0xFFFFFFFFull));
-    set_reg32(dev->addr, IXGBE_RDBAH(i), (uint32_t)(mem.phy >> 32));
-    set_reg32(dev->addr, IXGBE_RDLEN(i), ring_size_bytes);
-    debug("rx ring %d phy addr:  0x%012lX", i, mem.phy);
-    debug("rx ring %d virt addr: 0x%012lX", i, (uintptr_t)mem.virt);
+    set_reg32(IXYDevice, defines.IXGBE_RDBAL(i), (uint32_t)(mem.phy & 0xFFFFFFFFull));
+    set_reg32(IXYDevice, defines.IXGBE_RDBAH(i), (uint32_t)(mem.phy >> 32));
+    set_reg32(IXYDevice, defines.IXGBE_RDLEN(i), ring_size_bytes);
+    console.log(`rx ring %d phy addr:  0x%012lX`, i, mem.phy);
+    console.log(`rx ring %d virt addr: 0x%012lX`, i, (uintptr_t)mem.virt);
     // set ring to empty at start
-    set_reg32(dev->addr, IXGBE_RDH(i), 0);
-    set_reg32(dev->addr, IXGBE_RDT(i), 0);
+    set_reg32(IXYDevice, defines.IXGBE_RDH(i), 0);
+    set_reg32(IXYDevice, defines.IXGBE_RDT(i), 0);
     // private data for the driver, 0-initialized
     struct ixgbe_rx_queue *queue = ((struct ixgbe_rx_queue *)(dev->rx_queues)) + i;
     queue->num_entries = NUM_RX_QUEUE_ENTRIES;
@@ -105,16 +133,16 @@ function init_rx(pci_addr, num_of_queues)
   }
 
   // last step is to set some magic bits mentioned in the last sentence in 4.6.7
-  set_flags32(dev->addr, IXGBE_CTRL_EXT, IXGBE_CTRL_EXT_NS_DIS);
+  set_flags32(IXYDevice, defines.IXGBE_CTRL_EXT, defines.IXGBE_CTRL_EXT_NS_DIS);
   // this flag probably refers to a broken feature: it's reserved and initialized as '1' but it must be set to '0'
   // there isn't even a constant in ixgbe_types.h for this flag
   for (uint16_t i = 0; i < dev->ixy.num_rx_queues; i++)
   {
-    clear_flags32(dev->addr, IXGBE_DCA_RXCTRL(i), 1 << 12);
+    clear_flags32(IXYDevice, defines.IXGBE_DCA_RXCTRL(i), 1 << 12);
   }
 
   // start RX
-  set_flags32(dev->addr, IXGBE_RXCTRL, IXGBE_RXCTRL_RXEN);
+  set_flags32(IXYDevice, defines.IXGBE_RXCTRL, defines.IXGBE_RXCTRL_RXEN);
 }
 
 
