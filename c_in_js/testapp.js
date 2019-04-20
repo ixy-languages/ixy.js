@@ -29,23 +29,33 @@ default:
 const IXYDevice = addon.getIXYAddr(pciAddr);
 // create a View on the IXY memory, which is RO
 const IXYView = new DataView(IXYDevice);
-console.log(`The 32bit before changing: ${IXYView.getUint32(0x200, littleEndian)}`);
+console.log(
+  `The 32bit before changing: ${IXYView.getUint32(0x200, littleEndian)}`
+);
 console.log('-----------cstart------------');
 // we need to call a C function to actually write to this memory
 addon.set_reg_js(IXYDevice, 0x200, 2542);
 console.log('-----------c--end------------');
-console.log(`The 32bit after changing: ${IXYView.getUint32(0x200, littleEndian)}`);
+console.log(
+  `The 32bit after changing: ${IXYView.getUint32(0x200, littleEndian)}`
+);
 console.log('trying to change value to 20 via JS..');
 IXYView.setUint32(0x200, 20, littleEndian);
-console.log(`The 32bit after JS changing: ${IXYView.getUint32(0x200, littleEndian)}`);
+console.log(
+  `The 32bit after JS changing: ${IXYView.getUint32(0x200, littleEndian)}`
+);
 
-
+console.log('-----------cstart------------');
 const dmaMem = addon.getDmaMem(20, true);
+console.log('-----------c--end------------');
 const dmaView = new DataView(dmaMem);
 console.log(`dma at byte 0 : ${dmaView.getUint32(0, littleEndian)}`);
 console.log('trying to change value to 20 via JS..');
 dmaView.setUint32(0, 20, littleEndian);
-console.log(`dma at byte 0 after JS change : ${dmaView.getUint32(0, littleEndian)}`);
+console.log(
+  `dma at byte 0 after JS change : ${dmaView.getUint32(0, littleEndian)}`
+);
+console.log('-----------cstart------------');
 const physicalAddress = addon.virtToPhys(dmaMem);
+console.log('-----------c--end------------');
 console.log(`Physical address: ${physicalAddress}`);
-
