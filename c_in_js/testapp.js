@@ -58,9 +58,6 @@ function set_flags_js(addr, reg, flags) {
   addon.set_reg_js(addr, reg, addon.get_reg_js(addr, reg) | flags);
 }
 
-
-// dev->addr should be our IXYDevice
-
 const defines = {
   IXGBE_RXCTRL: 0x03000,
   IXGBE_RXCTRL_RXEN: 0x00000001,
@@ -77,7 +74,6 @@ const defines = {
   IXGBE_SRRCTL_DROP_EN: 0x10000000,
   NUM_RX_QUEUE_ENTRIES: 512,
   IXGBE_RDBAL: i => (i < 64 ? 0x01000 + (i * 0x40) : 0x0D000 + ((i - 64) * 0x40)),
-
   IXGBE_RDBAH: i => (i < 64 ? 0x01004 + (i * 0x40) : 0x0D004 + ((i - 64) * 0x40)),
   IXGBE_RDLEN: i => (i < 64 ? 0x01008 + (i * 0x40) : 0x0D008 + ((i - 64) * 0x40)),
   IXGBE_RDH: i => (i < 64 ? 0x01010 + (i * 0x40) : 0x0D010 + ((i - 64) * 0x40)),
@@ -85,15 +81,14 @@ const defines = {
   IXGBE_CTRL_EXT: 0x00018,
   IXGBE_CTRL_EXT_NS_DIS: 0x00010000,
   IXGBE_DCA_RXCTRL: i => (i <= 15 ? 0x02200 + (i * 4) : (i) < 64 ? 0x0100C + ((i) * 0x40) : 0x0D00C + (((i) - 64) * 0x40))
-
 };
 
-/* // remove the leftmost comment slashes to deactivate
+///* // remove the leftmost comment slashes to deactivate
 
 
 // see section 4.6.7
 // it looks quite complicated in the data sheet, but it's actually really easy because we don't need fancy features
-function init_rx(pci_addr, num_of_queues)
+function init_rx(IXYDevice, num_of_queues)
 {
   // make sure that rx is disabled while re-configuring it
   // the datasheet also wants us to disable some crypto-offloading related rx paths (but we don't care about them)
@@ -121,15 +116,20 @@ function init_rx(pci_addr, num_of_queues)
     // a single overflowing queue can fill up the whole buffer and impact operations if not setting this flag
     addon.set_flags_js(IXYDevice, defines.IXGBE_SRRCTL(i), defines.IXGBE_SRRCTL_DROP_EN);
     // setup descriptor ring, see section 7.1.9
+    /* TODO get ringsize
     uint32_t ring_size_bytes = defines.NUM_RX_QUEUE_ENTRIES * sizeof(union ixgbe_adv_rx_desc);
-    struct dma_memory mem = memory_allocate_dma(ring_size_bytes, true);
+    */
+    const ring_size_bytes = defines.NUM_RX_QUEUE_ENTRIES * (128 / 8); //128bit headers?
+    const mem = {};
+    mem.virt = addon.getDmaMem(ring_size_bytes, true);
+    mem.phy = addon.virtToPhys(mem.virt);
     // neat trick from Snabb: initialize to 0xFF to prevent rogue memory accesses on premature DMA activation
     memset(mem.virt, -1, ring_size_bytes);
-    addon.set_reg_js(IXYDevice, defines.IXGBE_RDBAL(i), (uint32_t)(mem.phy & 0xFFFFFFFFull));
-    addon.set_reg_js(IXYDevice, defines.IXGBE_RDBAH(i), (uint32_t)(mem.phy >> 32));
+    addon.set_reg_js(IXYDevice, defines.IXGBE_RDBAL(i), (mem.phy & 0xFFFFFFFFull));
+    addon.set_reg_js(IXYDevice, defines.IXGBE_RDBAH(i), (mem.phy >> 32));
     addon.set_reg_js(IXYDevice, defines.IXGBE_RDLEN(i), ring_size_bytes);
-    console.log(`rx ring %d phy addr:  0x%012lX`, i, mem.phy);
-    console.log(`rx ring %d virt addr: 0x%012lX`, i, (uintptr_t)mem.virt);
+    console.log(`rx ring ${i} phy addr: ${mem.phy}`);
+    console.log(`rx ring ${i} virt addr: ${mem.virt}`);
     // set ring to empty at start
     addon.set_reg_js(IXYDevice, defines.IXGBE_RDH(i), 0);
     addon.set_reg_js(IXYDevice, defines.IXGBE_RDT(i), 0);

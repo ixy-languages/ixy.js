@@ -174,6 +174,13 @@ napi_value get_reg_js(napi_env env, napi_callback_info info)
   uint32_t gotReg = get_reg32(addr, reg);
 
   // TODO return gotReg
+  napi_value ret;
+  stat = napi_create_uint32(env, gotReg, &ret);
+  if (stat != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Failed to create the register value.");
+  }
+  return ret;
 }
 
 // endof receiving packages
