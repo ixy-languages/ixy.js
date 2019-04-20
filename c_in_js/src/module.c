@@ -80,7 +80,7 @@ napi_value getDmaMem(napi_env env, napi_callback_info info)
   {
     napi_throw_error(env, NULL, "Failed to parse arguments");
   }
-  stat = napi_get_value_uint32(env, argv[0], (uint32_t *)&size);
+  stat = napi_get_value_uint32(env, argv[0], &size);
   if (stat != napi_ok)
   {
     napi_throw_error(env, NULL, "Failed to get size from inputs.");
@@ -92,7 +92,7 @@ napi_value getDmaMem(napi_env env, napi_callback_info info)
   }
   struct dma_memory dmaMem = memory_allocate_dma(size, requireContigious);
   void *virtualAddress = dmaMem.virt; // change this function later on, to do only whats actually needed to be done in C
-  printf("Physical address in C (when creating DMA): %u\n", dmaMem.phy);
+  printf("Physical adress in C: %d", dmaMem.phy);
   napi_value ret;
   stat = napi_create_external_arraybuffer(env, virtualAddress, size, NULL, NULL, &ret);
   if (stat != napi_ok)
@@ -119,19 +119,31 @@ napi_value virtToPhys(napi_env env, napi_callback_info info)
     napi_throw_error(env, NULL, "Failed to get virtual Memory from ArrayBuffer.");
   }
   uintptr_t physPointer = virt_to_phys(virt);
-  printf("Physical address in C (when getting from arraybuffer): %u\n", physPointer);
-  printf("Physical address in C (when getting from arraybuffer, as uint64): %u\n", (uint64_t)physPointer);
-  SHOW(uintptr_t, physPointer);
-  SHOW(uintptr_t, 15751708672);
   napi_value ret;
   //hoping physical pointers are 64bit, else we need to handle every function that needs this value in C as well
-  stat = napi_create_bigint_int64(env, physPointer, &ret);
+  stat = napi_create_bigint_uint64(env, physPointer, &ret);
   if (stat != napi_ok)
   {
-    napi_throw_error(env, NULL, "Failed to write physical address to bigint.");
+    napi_throw_error(env, NULL, "Failed to get virtual Memory from ArrayBuffer.");
   }
   return ret;
 }
+// start receiving things
+
+napi_value create_rx_queue(napi_env env, napi_callback_info info)
+{
+  uint16_t num_of_rx_queues = 1; //default to 1, make this changeable later
+  // this should be done in JS as soon as we know what exactly of it needs to be done in C:
+  void *rx_queues = calloc(num_of_rx_queues, sizeof(struct ixgbe_rx_queue) + sizeof(void *) * MAX_RX_QUEUE_ENTRIES);
+  // return our buffer
+}
+
+// what we want to implement to use in JS:
+//set_reg32 DONE: set_reg_JS
+//clear_flags32
+//set_flags32
+
+// endof receiving packages
 napi_value getIDs(napi_env env, napi_callback_info info)
 {
   napi_status stat;
@@ -258,7 +270,7 @@ void enable_dma(const char *pci_addr)
 
 //endof copypastas
 
-void set_reg(uint8_t *addr, int32_t reg, uint32_t value)
+void set_reg32(uint8_t *addr, int32_t reg, uint32_t value)
 {
   printf("We got input addr: %d, reg: %d, value: %d\n", addr, reg, value);
   // TODO find out if we need to cast "value" to the correct size as well
@@ -414,7 +426,7 @@ napi_value set_reg_js(napi_env env, napi_callback_info info)
     napi_throw_error(env, NULL, "Failed getting value.");
   }
 
-  set_reg(addr, reg, value);
+  set_reg32(addr, reg, value);
 
   return NULL;
 }
