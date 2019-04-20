@@ -119,7 +119,7 @@ function init_rx(IXYDevice, num_of_queues)
     /* TODO get ringsize
     uint32_t ring_size_bytes = defines.NUM_RX_QUEUE_ENTRIES * sizeof(union ixgbe_adv_rx_desc);
     */
-    const ring_size_bytes = defines.NUM_RX_QUEUE_ENTRIES * (128 / 8); //128bit headers?
+    const ring_size_bytes = defines.NUM_RX_QUEUE_ENTRIES * (16); //128bit headers? -> 128/8 bytes
     const mem = {};
     mem.virt = addon.getDmaMem(ring_size_bytes, true);
     mem.phy = addon.virtToPhys(mem.virt);
