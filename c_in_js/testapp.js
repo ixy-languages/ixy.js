@@ -1,4 +1,5 @@
 const addon = require('./build/Release/exported_module');
+const Long = require('long');
 // const jstruct = require('js-struct');
 
 // check if little or big endian
@@ -83,20 +84,18 @@ const defines = {
   IXGBE_DCA_RXCTRL: i => (i <= 15 ? 0x02200 + (i * 4) : (i) < 64 ? 0x0100C + ((i) * 0x40) : 0x0D00C + (((i) - 64) * 0x40))
 };
 
-///* // remove the leftmost comment slashes to deactivate
+// /* // remove the leftmost comment slashes to deactivate
 
 
 // see section 4.6.7
 // it looks quite complicated in the data sheet, but it's actually really easy because we don't need fancy features
-function init_rx(IXYDevice, num_of_queues)
-{
+function init_rx(IXYDevice, num_of_queues) {
   // make sure that rx is disabled while re-configuring it
   // the datasheet also wants us to disable some crypto-offloading related rx paths (but we don't care about them)
   addon.clear_flags_js(IXYDevice, defines.IXGBE_RXCTRL, defines.IXGBE_RXCTRL_RXEN);
   // no fancy dcb or vt, just a single 128kb packet buffer for us
   addon.set_reg_js(IXYDevice, defines.IXGBE_RXPBSIZE(0), defines.IXGBE_RXPBSIZE_128KB);
-  for (const i = 1; i < 8; i++)
-  {
+  for (let i = 1; i < 8; i++) {
     addon.set_reg_js(IXYDevice, defines.IXGBE_RXPBSIZE(i), 0);
   }
   // always enable CRC offloading
@@ -107,11 +106,10 @@ function init_rx(IXYDevice, num_of_queues)
   addon.set_flags_js(IXYDevice, defines.IXGBE_FCTRL, defines.IXGBE_FCTRL_BAM);
 
   // per-queue config, same for all queues
-  for (const i = 0; i < num_of_queues; i++)
-  {
+  for (let i = 0; i < num_of_queues; i++) {
     console.log(`initializing rx queue ${i}`);
     // enable advanced rx descriptors, we could also get away with legacy descriptors, but they aren't really easier
-    addon.set_reg_js(IXYDevice, defines.IXGBE_SRRCTL(i), (get_reg32(IXYDevice, defines.IXGBE_SRRCTL(i)) & ~defines.IXGBE_SRRCTL_DESCTYPE_MASK) | defines.IXGBE_SRRCTL_DESCTYPE_ADV_ONEBUF);
+    addon.set_reg_js(IXYDevice, defines.IXGBE_SRRCTL(i), (addon.get_reg_js(IXYDevice, defines.IXGBE_SRRCTL(i)) & ~defines.IXGBE_SRRCTL_DESCTYPE_MASK) | defines.IXGBE_SRRCTL_DESCTYPE_ADV_ONEBUF);
     // drop_en causes the nic to drop packets if no rx descriptors are available instead of buffering them
     // a single overflowing queue can fill up the whole buffer and impact operations if not setting this flag
     addon.set_flags_js(IXYDevice, defines.IXGBE_SRRCTL(i), defines.IXGBE_SRRCTL_DROP_EN);
@@ -119,14 +117,21 @@ function init_rx(IXYDevice, num_of_queues)
     /* TODO get ringsize
     uint32_t ring_size_bytes = defines.NUM_RX_QUEUE_ENTRIES * sizeof(union ixgbe_adv_rx_desc);
     */
-    const ring_size_bytes = defines.NUM_RX_QUEUE_ENTRIES * (16); //128bit headers? -> 128/8 bytes
+    const ring_size_bytes = defines.NUM_RX_QUEUE_ENTRIES * 16; // 128bit headers? -> 128/8 bytes
     const mem = {};
     mem.virt = addon.getDmaMem(ring_size_bytes, true);
     mem.phy = addon.virtToPhys(mem.virt);
     // neat trick from Snabb: initialize to 0xFF to prevent rogue memory accesses on premature DMA activation
+    /*
+    TODO memset
     memset(mem.virt, -1, ring_size_bytes);
-    addon.set_reg_js(IXYDevice, defines.IXGBE_RDBAL(i), (mem.phy & 0xFFFFFFFFull));
-    addon.set_reg_js(IXYDevice, defines.IXGBE_RDBAH(i), (mem.phy >> 32));
+    */
+    /*
+    TODO implement correctly:
+    set_reg32(dev->addr, IXGBE_RDBAL(i), (uint32_t) (mem.phy & 0xFFFFFFFFull));
+    */
+    addon.set_reg_js(IXYDevice, defines.IXGBE_RDBAL(i), new Long(mem.phy) & new Long(0xFFFFFFFF)); // this is most likely not correct for now
+    addon.set_reg_js(IXYDevice, defines.IXGBE_RDBAH(i), mem.phy >> 32);
     addon.set_reg_js(IXYDevice, defines.IXGBE_RDLEN(i), ring_size_bytes);
     console.log(`rx ring ${i} phy addr: ${mem.phy}`);
     console.log(`rx ring ${i} virt addr: ${mem.virt}`);
@@ -147,8 +152,7 @@ TODO create this buffer (might need to call C for this?)
   addon.set_flags_js(IXYDevice, defines.IXGBE_CTRL_EXT, defines.IXGBE_CTRL_EXT_NS_DIS);
   // this flag probably refers to a broken feature: it's reserved and initialized as '1' but it must be set to '0'
   // there isn't even a constant in 'defines' for this flag
-  for (const i = 0; i < num_of_queues; i++)
-  {
+  for (let i = 0; i < num_of_queues; i++) {
     addon.clear_flags_js(IXYDevice, defines.IXGBE_DCA_RXCTRL(i), 1 << 12);
   }
 
