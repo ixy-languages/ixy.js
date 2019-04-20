@@ -139,9 +139,89 @@ napi_value create_rx_queue(napi_env env, napi_callback_info info)
 }
 
 // what we want to implement to use in JS:
-//set_reg32 DONE: set_reg_JS
+//set_reg32 DONE: set_reg_js
 //clear_flags32
+/**
+ * This makes the clear_flags32 function available for JS
+ * */
+napi_value clear_flags_js(napi_env env, napi_callback_info info)
+{
+  napi_status stat;
+  size_t argc = 3;
+  napi_value argv[3];
+
+  stat = napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+  if (stat != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Failed to parse arguments");
+  }
+  // get first arg: addr
+  uint8_t *addr; // lets hope we dont need to actually allocate all that memory
+  size_t size;
+  stat = napi_get_arraybuffer_info(env, argv[0], &addr, size);
+  if (stat != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Failed to get the arraybuffer.");
+  }
+  // get second arg: reg
+  int32_t reg;
+  stat = napi_get_value_int32(env, argv[1], &reg);
+  if (stat != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Failed getting register offset.");
+  }
+  // get third arg: value
+  uint32_t value;
+  stat = napi_get_value_uint32(env, argv[2], &value);
+  if (stat != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Failed getting value.");
+  }
+
+  clear_flags32(addr, reg, value);
+  return NULL;
+}
 //set_flags32
+/**
+ * This makes the set_flags32 function available for JS
+ * */
+napi_value set_flags_js(napi_env env, napi_callback_info info)
+{
+  napi_status stat;
+  size_t argc = 3;
+  napi_value argv[3];
+
+  stat = napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+  if (stat != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Failed to parse arguments");
+  }
+  // get first arg: addr
+  uint8_t *addr; // lets hope we dont need to actually allocate all that memory
+  size_t size;
+  stat = napi_get_arraybuffer_info(env, argv[0], &addr, size);
+  if (stat != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Failed to get the arraybuffer.");
+  }
+  // get second arg: reg
+  int32_t reg;
+  stat = napi_get_value_int32(env, argv[1], &reg);
+  if (stat != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Failed getting register offset.");
+  }
+  // get third arg: value
+  uint32_t value;
+  stat = napi_get_value_uint32(env, argv[2], &value);
+  if (stat != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Failed getting value.");
+  }
+
+  set_flags32(addr, reg, value);
+  return NULL;
+}
 
 // endof receiving packages
 napi_value getIDs(napi_env env, napi_callback_info info)
@@ -280,9 +360,17 @@ void set_reg32(uint8_t *addr, int32_t reg, uint32_t value)
                    : "memory");
   *((volatile uint32_t *)(addr + reg)) = value;
 }
-void *get_reg(uint8_t *addr, int reg)
+void clear_flags32(uint8_t *addr, int reg, uint32_t flags)
 {
-  return (addr + reg);
+  set_reg32(addr, reg, get_reg32(addr, reg) & ~flags);
+}
+uint32_t get_reg32(const uint8_t *addr, int reg)
+{
+  __asm__ volatile(""
+                   :
+                   :
+                   : "memory");
+  return *((volatile uint32_t *)(addr + reg));
 }
 
 // let's keep this for debugging purposes
@@ -324,7 +412,7 @@ napi_value printBits(napi_env env, napi_callback_info info)
 
   uint8_t *pci_map_resource_js = check_err(mmap(NULL, stat2.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0), "mmap pci resource");
   //printf("should be 0x00800 : %x", getAddress(regi));
-  uint8_t *filepointer = get_reg(pci_map_resource_js, regUsed);
+  uint8_t *filepointer = get_reg32(pci_map_resource_js, regUsed);
 
   printf("%d :: our resource at 0x%x\n", filepointer[0], regUsed);
   printf("%x", filepointer[0]);
@@ -427,7 +515,6 @@ napi_value set_reg_js(napi_env env, napi_callback_info info)
   }
 
   set_reg32(addr, reg, value);
-
   return NULL;
 }
 
@@ -483,7 +570,32 @@ napi_value Init(napi_env env, napi_value exports)
   if (status != napi_ok)
   {
     napi_throw_error(env, NULL, "Unable to populate exports");
-  } // add getDmaMem to the export
+  }
+  // add clear_flags to the export
+  status = napi_create_function(env, NULL, 0, clear_flags_js, NULL, &fn);
+  if (status != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Unable to wrap native function");
+  }
+
+  status = napi_set_named_property(env, exports, "clear_flags_js", fn);
+  if (status != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Unable to populate exports");
+  }
+  // add set_flags_js to the export
+  status = napi_create_function(env, NULL, 0, set_flags_js, NULL, &fn);
+  if (status != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Unable to wrap native function");
+  }
+
+  status = napi_set_named_property(env, exports, "set_flags_js", fn);
+  if (status != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Unable to populate exports");
+  }
+  // add getDmaMem to the export
   status = napi_create_function(env, NULL, 0, getDmaMem, NULL, &fn);
   if (status != napi_ok)
   {

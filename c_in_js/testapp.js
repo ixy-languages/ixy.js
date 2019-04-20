@@ -50,7 +50,9 @@ const physicalAddress = addon.virtToPhys(dmaMem);
 console.log(`Physical address: ${physicalAddress}`);
 
 // we want to initialize rx queues, and change functions to the JS equivalent
-// dev->addr is the pci address
+// dev->addr should be our IXYDevice
+
+/* // deactivated
 
 // see section 4.6.7
 // it looks quite complicated in the data sheet, but it's actually really easy because we don't need fancy features
@@ -114,3 +116,7 @@ function init_rx(pci_addr, num_of_queues)
   // start RX
   set_flags32(dev->addr, IXGBE_RXCTRL, IXGBE_RXCTRL_RXEN);
 }
+
+
+/*
+*/
