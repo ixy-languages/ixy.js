@@ -50,6 +50,15 @@ const physicalAddress = addon.virtToPhys(dmaMem);
 console.log(`Physical address: ${physicalAddress}`);
 
 // we want to initialize rx queues, and change functions to the JS equivalent
+
+function clear_flags_js(addr, reg, flags) {
+  addon.set_reg_js(addr, reg, addon.get_reg_js(addr, reg) & ~flags);
+}
+function set_flags_js(addr, reg, flags) {
+  addon.set_reg_js(addr, reg, addon.get_reg_js(addr, reg) | flags);
+}
+
+
 // dev->addr should be our IXYDevice
 
 const defines = {
