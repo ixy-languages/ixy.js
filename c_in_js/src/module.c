@@ -139,8 +139,6 @@ napi_value create_rx_queue(napi_env env, napi_callback_info info)
 }
 
 // what we want to implement to use in JS:
-//set_reg32 DONE: set_reg_js
-//get_reg32
 
 /**
  * This makes the get_reg32 function available for JS
@@ -171,7 +169,7 @@ napi_value get_reg_js(napi_env env, napi_callback_info info)
   {
     napi_throw_error(env, NULL, "Failed getting register offset.");
   }
-  uint32_t gotReg = get_reg32(addr, reg);
+  uint32_t gotReg = getReg32(addr, reg);
 
   napi_value ret;
   stat = napi_create_uint32(env, gotReg, &ret);
@@ -309,7 +307,7 @@ void enable_dma(const char *pci_addr)
 
 //endof copypastas
 
-void set_reg32(uint8_t *addr, int32_t reg, uint32_t value)
+void setReg32(uint8_t *addr, int32_t reg, uint32_t value)
 {
   __asm__ volatile(""
                    :
@@ -317,7 +315,7 @@ void set_reg32(uint8_t *addr, int32_t reg, uint32_t value)
                    : "memory");
   *((volatile uint32_t *)(addr + reg)) = value;
 }
-uint32_t get_reg32(const uint8_t *addr, int reg)
+uint32_t getReg32(const uint8_t *addr, int reg)
 {
   __asm__ volatile(""
                    :
@@ -365,7 +363,7 @@ napi_value printBits(napi_env env, napi_callback_info info)
 
   uint8_t *pci_map_resource_js = check_err(mmap(NULL, stat2.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0), "mmap pci resource");
   //printf("should be 0x00800 : %x", getAddress(regi));
-  uint8_t *filepointer = get_reg32(pci_map_resource_js, regUsed);
+  uint32_t *filepointer = getReg32(pci_map_resource_js, regUsed);
 
   printf("%d :: our resource at 0x%x\n", filepointer[0], regUsed);
   printf("%x", filepointer[0]);
@@ -467,7 +465,7 @@ napi_value set_reg_js(napi_env env, napi_callback_info info)
     napi_throw_error(env, NULL, "Failed getting value.");
   }
 
-  set_reg32(addr, reg, value);
+  setReg32(addr, reg, value);
   return NULL;
 }
 
