@@ -92,7 +92,7 @@ napi_value getDmaMem(napi_env env, napi_callback_info info)
   }
   struct dma_memory dmaMem = memory_allocate_dma(size, requireContigious);
   void *virtualAddress = dmaMem.virt; // change this function later on, to do only whats actually needed to be done in C
-  printf("Physical adress in C: 0x%012lX", dmaMem.phy);
+  printf("Physical adress in C: 0x%012lX\n", dmaMem.phy);
   napi_value ret;
   stat = napi_create_external_arraybuffer(env, virtualAddress, size, NULL, NULL, &ret);
   if (stat != napi_ok)
@@ -128,17 +128,167 @@ napi_value virtToPhys(napi_env env, napi_callback_info info)
   }
   return ret;
 }
+napi_value shortenPhys(napi_env env, napi_callback_info info)
+{
+  uint64_t phys;
+  napi_status stat;
+  bool lossless;
+  size_t argc = 1;
+  napi_value argv[1];
+  stat = napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+  if (stat != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Failed to parse arguments");
+  }
+  stat = napi_get_value_bigint_uint64(env, argv[0], &phys, &lossless);
+  if (stat != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Failed to get virtual Memory from ArrayBuffer.");
+  }
+  uint32_t shortPhys = (uint32_t)(phys & 0xFFFFFFFFull);
+  napi_value ret;
+  //hoping physical pointers are 64bit, else we need to handle every function that needs this value in C as well
+  stat = napi_create_uint32(env, shortPhys, &ret);
+  if (stat != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Failed to get virtual Memory from ArrayBuffer.");
+  }
+  return ret;
+}
+napi_value shortenPhysLatter(napi_env env, napi_callback_info info)
+{
+  uint64_t phys;
+  napi_status stat;
+  bool lossless;
+  size_t argc = 1;
+  napi_value argv[1];
+  stat = napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+  if (stat != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Failed to parse arguments");
+  }
+  stat = napi_get_value_bigint_uint64(env, argv[0], &phys, &lossless);
+  if (stat != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Failed to get virtual Memory from ArrayBuffer.");
+  }
+  uint32_t shortPhys = (uint32_t)(phys >> 32);
+  napi_value ret;
+  //hoping physical pointers are 64bit, else we need to handle every function that needs this value in C as well
+  stat = napi_create_uint32(env, shortPhys, &ret);
+  if (stat != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Failed to get virtual Memory from ArrayBuffer.");
+  }
+  return ret;
+}
 // start receiving things
+
+// this is stuff we need for the function create_rx_queue to work
+const int MAX_RX_QUEUE_ENTRIES = 4096;
+// stuff to make it compile without dpdk and ixgbe_osdep.h
+#include <stdbool.h>
+typedef uint8_t u8;
+typedef int8_t s8;
+typedef uint16_t u16;
+typedef int16_t s16;
+typedef uint32_t u32;
+typedef int32_t s32;
+typedef uint64_t u64;
+typedef int64_t s64;
+/* Little Endian defines */
+#ifndef __le16
+#define __le16 u16
+#endif
+#ifndef __le32
+#define __le32 u32
+#endif
+#ifndef __le64
+#define __le64 u64
+
+#endif
+#ifndef __be16
+/* Big Endian defines */
+#define __be16 u16
+#define __be32 u32
+#define __be64 u64
+#endif
+
+/* Receive Descriptor - Advanced */
+union ixgbe_adv_rx_desc {
+  struct
+  {
+    __le64 pkt_addr; /* Packet buffer address */
+    __le64 hdr_addr; /* Header buffer address */
+  } read;
+  struct
+  {
+    struct
+    {
+      union {
+        __le32 data;
+        struct
+        {
+          __le16 pkt_info; /* RSS, Pkt type */
+          __le16 hdr_info; /* Splithdr, hdrlen */
+        } hs_rss;
+      } lo_dword;
+      union {
+        __le32 rss; /* RSS Hash */
+        struct
+        {
+          __le16 ip_id; /* IP id */
+          __le16 csum;  /* Packet Checksum */
+        } csum_ip;
+      } hi_dword;
+    } lower;
+    struct
+    {
+      __le32 status_error; /* ext status/error */
+      __le16 length;       /* Packet length */
+      __le16 vlan;         /* VLAN tag */
+    } upper;
+  } wb; /* writeback */
+};
+
+// this will be changed to JS as well
+// allocated for each rx queue, keeps state for the receive function
+struct ixgbe_rx_queue
+{
+  volatile union ixgbe_adv_rx_desc *descriptors;
+  struct mempool *mempool;
+  uint16_t num_entries;
+  // position we are reading from
+  uint16_t rx_index;
+  // virtual addresses to map descriptors back to their mbuf for freeing
+  void *virtual_addresses[];
+};
 
 napi_value create_rx_queue(napi_env env, napi_callback_info info)
 {
   uint16_t num_of_rx_queues = 1; //default to 1, make this changeable later
-  // this should be done in JS as soon as we know what exactly of it needs to be done in C:
+  // this should be done in JS as soon as we know what exactly of the struct needs to be done in C:
   void *rx_queues = calloc(num_of_rx_queues, sizeof(struct ixgbe_rx_queue) + sizeof(void *) * MAX_RX_QUEUE_ENTRIES);
   // return our buffer
 }
 
 // what we want to implement to use in JS:
+void setReg32(uint8_t *addr, int32_t reg, uint32_t value)
+{
+  __asm__ volatile(""
+                   :
+                   :
+                   : "memory");
+  *((volatile uint32_t *)(addr + reg)) = value;
+}
+uint32_t getReg32(const uint8_t *addr, int reg)
+{
+  __asm__ volatile(""
+                   :
+                   :
+                   : "memory");
+  return *((volatile uint32_t *)(addr + reg));
+}
 
 /**
  * This makes the get_reg32 function available for JS
@@ -307,23 +457,6 @@ void enable_dma(const char *pci_addr)
 
 //endof copypastas
 
-void setReg32(uint8_t *addr, int32_t reg, uint32_t value)
-{
-  __asm__ volatile(""
-                   :
-                   :
-                   : "memory");
-  *((volatile uint32_t *)(addr + reg)) = value;
-}
-uint32_t getReg32(const uint8_t *addr, int reg)
-{
-  __asm__ volatile(""
-                   :
-                   :
-                   : "memory");
-  return *((volatile uint32_t *)(addr + reg));
-}
-
 // let's keep this for debugging purposes
 napi_value printBits(napi_env env, napi_callback_info info)
 {
@@ -482,6 +615,30 @@ napi_value Init(napi_env env, napi_value exports)
   }
 
   status = napi_set_named_property(env, exports, "printBits", fn);
+  if (status != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Unable to populate exports");
+  }
+  //adding my shorten Physical Adress function
+  status = napi_create_function(env, NULL, 0, shortenPhys, NULL, &fn);
+  if (status != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Unable to wrap native function");
+  }
+
+  status = napi_set_named_property(env, exports, "shortenPhys", fn);
+  if (status != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Unable to populate exports");
+  }
+  //adding my shorten Physical Adress function for the other part of the phys addr
+  status = napi_create_function(env, NULL, 0, shortenPhysLatter, NULL, &fn);
+  if (status != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Unable to wrap native function");
+  }
+
+  status = napi_set_named_property(env, exports, "shortenPhysLatter", fn);
   if (status != napi_ok)
   {
     napi_throw_error(env, NULL, "Unable to populate exports");

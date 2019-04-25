@@ -4,7 +4,7 @@
   "description": "Node.js implementation of ixy, a userspace network driver",
   "main": "testapp.js",
   "scripts": {
-    "start": "node-gyp configure build && node testapp.js",
+    "start": "npm i && node-gyp configure build && node testapp.js",
     "all": "npm i --unsafe perm && sudo ./setup-hugetlbfs.sh && npm run start ",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

@@ -92,18 +92,18 @@ const defines = {
 function init_rx(IXYDevice, num_of_queues) {
   // make sure that rx is disabled while re-configuring it
   // the datasheet also wants us to disable some crypto-offloading related rx paths (but we don't care about them)
-  addon.clear_flags_js(IXYDevice, defines.IXGBE_RXCTRL, defines.IXGBE_RXCTRL_RXEN);
+  clear_flags_js(IXYDevice, defines.IXGBE_RXCTRL, defines.IXGBE_RXCTRL_RXEN);
   // no fancy dcb or vt, just a single 128kb packet buffer for us
   addon.set_reg_js(IXYDevice, defines.IXGBE_RXPBSIZE(0), defines.IXGBE_RXPBSIZE_128KB);
   for (let i = 1; i < 8; i++) {
     addon.set_reg_js(IXYDevice, defines.IXGBE_RXPBSIZE(i), 0);
   }
   // always enable CRC offloading
-  addon.set_flags_js(IXYDevice, defines.IXGBE_HLREG0, defines.IXGBE_HLREG0_RXCRCSTRP);
-  addon.set_flags_js(IXYDevice, defines.IXGBE_RDRXCTL, defines.IXGBE_RDRXCTL_CRCSTRIP);
+  set_flags_js(IXYDevice, defines.IXGBE_HLREG0, defines.IXGBE_HLREG0_RXCRCSTRP);
+  set_flags_js(IXYDevice, defines.IXGBE_RDRXCTL, defines.IXGBE_RDRXCTL_CRCSTRIP);
 
   // accept broadcast packets
-  addon.set_flags_js(IXYDevice, defines.IXGBE_FCTRL, defines.IXGBE_FCTRL_BAM);
+  set_flags_js(IXYDevice, defines.IXGBE_FCTRL, defines.IXGBE_FCTRL_BAM);
 
   // per-queue config, same for all queues
   for (let i = 0; i < num_of_queues; i++) {
@@ -112,7 +112,7 @@ function init_rx(IXYDevice, num_of_queues) {
     addon.set_reg_js(IXYDevice, defines.IXGBE_SRRCTL(i), (addon.get_reg_js(IXYDevice, defines.IXGBE_SRRCTL(i)) & ~defines.IXGBE_SRRCTL_DESCTYPE_MASK) | defines.IXGBE_SRRCTL_DESCTYPE_ADV_ONEBUF);
     // drop_en causes the nic to drop packets if no rx descriptors are available instead of buffering them
     // a single overflowing queue can fill up the whole buffer and impact operations if not setting this flag
-    addon.set_flags_js(IXYDevice, defines.IXGBE_SRRCTL(i), defines.IXGBE_SRRCTL_DROP_EN);
+    set_flags_js(IXYDevice, defines.IXGBE_SRRCTL(i), defines.IXGBE_SRRCTL_DROP_EN);
     // setup descriptor ring, see section 7.1.9
     /* TODO get ringsize
     uint32_t ring_size_bytes = defines.NUM_RX_QUEUE_ENTRIES * sizeof(union ixgbe_adv_rx_desc);
@@ -126,12 +126,12 @@ function init_rx(IXYDevice, num_of_queues) {
     TODO memset
     memset(mem.virt, -1, ring_size_bytes);
     */
-    /*
-    TODO implement correctly:
-    set_reg32(dev->addr, IXGBE_RDBAL(i), (uint32_t) (mem.phy & 0xFFFFFFFFull));
-    */
-    addon.set_reg_js(IXYDevice, defines.IXGBE_RDBAL(i), new Long(mem.phy) & new Long(0xFFFFFFFF)); // this is most likely not correct for now
-    addon.set_reg_js(IXYDevice, defines.IXGBE_RDBAH(i), mem.phy >> 32);
+
+    // for now there is no obvious way to use bigint in a smart way, even within the long library
+    const shortenedPhys = addon.shortenPhys(mem.phy);
+    const shortenedPhysLatter = addon.shortenPhysLatter(mem.phy);
+    addon.set_reg_js(IXYDevice, defines.IXGBE_RDBAL(i), shortenedPhys);
+    addon.set_reg_js(IXYDevice, defines.IXGBE_RDBAH(i), shortenedPhysLatter);
     addon.set_reg_js(IXYDevice, defines.IXGBE_RDLEN(i), ring_size_bytes);
     console.log(`rx ring ${i} phy addr: ${mem.phy}`);
     console.log(`rx ring ${i} virt addr: ${mem.virt}`);
@@ -149,17 +149,19 @@ TODO create this buffer (might need to call C for this?)
   }
 
   // last step is to set some magic bits mentioned in the last sentence in 4.6.7
-  addon.set_flags_js(IXYDevice, defines.IXGBE_CTRL_EXT, defines.IXGBE_CTRL_EXT_NS_DIS);
+  set_flags_js(IXYDevice, defines.IXGBE_CTRL_EXT, defines.IXGBE_CTRL_EXT_NS_DIS);
   // this flag probably refers to a broken feature: it's reserved and initialized as '1' but it must be set to '0'
   // there isn't even a constant in 'defines' for this flag
   for (let i = 0; i < num_of_queues; i++) {
-    addon.clear_flags_js(IXYDevice, defines.IXGBE_DCA_RXCTRL(i), 1 << 12);
+    clear_flags_js(IXYDevice, defines.IXGBE_DCA_RXCTRL(i), 1 << 12);
   }
 
   // start RX
-  addon.set_flags_js(IXYDevice, defines.IXGBE_RXCTRL, defines.IXGBE_RXCTRL_RXEN);
+  set_flags_js(IXYDevice, defines.IXGBE_RXCTRL, defines.IXGBE_RXCTRL_RXEN);
 }
 
+console.log('running init_rx...');
+init_rx(IXYDevice, 20);
 
 /*
 */
