@@ -126,7 +126,7 @@ function init_rx(IXYDevice, num_of_queues) {
     // neat trick from Snabb: initialize to 0xFF to prevent rogue memory accesses on premature DMA activation
     const virtMemView = new DataView(mem.virt);
     for (let count = 0; count < ring_size_bytes; count++) {
-      virtMemView.setUint32(0, 0xFF, littleEndian);
+      virtMemView.setUint32(count, 0xFF, littleEndian);
     }
     // for now there is no obvious way to use bigint in a smart way, even within the long library
     const shortenedPhys = addon.shortenPhys(mem.phy);
