@@ -59,15 +59,19 @@ const ixgbe_device = {
     set_promisc: () => { },
     get_link_speed: () => { }
   },
-  addr: 0,
+  addr: null,
+  dataView: null,
+  phAddr: null,
   rx_queues: {},
   tx_queues: { }
 };
 
 // get IXY memory
-const IXYDevice = addon.getIXYAddr(pciAddr);
+ixgbe_device.addr = addon.getIXYAddr(ixgbe_device.ixy.pci_addr);
+const IXYDevice = ixgbe_device.addr;
 // create a View on the IXY memory, which is RO
-const IXYView = new DataView(IXYDevice);
+ixgbe_device.dataView = new DataView(IXYDevice);
+const IXYView = ixgbe_device.dataView;
 console.log(`The 32bit before changing: ${IXYView.getUint32(0x200, littleEndian)}`);
 console.log('-----------cstart------------');
 // we need to call a C function to actually write to this memory
@@ -127,7 +131,9 @@ const defines = {
 
 // see section 4.6.7
 // it looks quite complicated in the data sheet, but it's actually really easy because we don't need fancy features
-function init_rx(IXYDevice, num_of_queues) {
+function init_rx(ixgbe_device) {
+  const IXYDevice = ixgbe_device.addr;
+  const num_of_queues = ixgbe_device.ixy.num_rx_queues;
   // make sure that rx is disabled while re-configuring it
   // the datasheet also wants us to disable some crypto-offloading related rx paths (but we don't care about them)
   clear_flags_js(IXYDevice, defines.IXGBE_RXCTRL, defines.IXGBE_RXCTRL_RXEN);
@@ -200,7 +206,7 @@ function init_rx(IXYDevice, num_of_queues) {
 }
 
 console.log('running init_rx...');
-init_rx(IXYDevice, 2);
+init_rx(ixgbe_device);
 
 /*
 */
