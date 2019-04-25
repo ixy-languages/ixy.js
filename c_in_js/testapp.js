@@ -26,6 +26,44 @@ default:
   pciAddr = null;
   pciAddr2 = null;
 }
+
+/*
+lets build following in JS:
+struct ixgbe_device {
+    struct ixy_device ixy;
+    uint8_t* addr;
+    void* rx_queues;
+    void* tx_queues;
+};
+struct ixy_device {
+	const char* pci_addr;
+	const char* driver_name;
+	uint16_t num_rx_queues;
+	uint16_t num_tx_queues;
+	uint32_t (*rx_batch) (struct ixy_device* dev, uint16_t queue_id, struct pkt_buf* bufs[], uint32_t num_bufs);
+	uint32_t (*tx_batch) (struct ixy_device* dev, uint16_t queue_id, struct pkt_buf* bufs[], uint32_t num_bufs);
+	void (*read_stats) (struct ixy_device* dev, struct device_stats* stats);
+	void (*set_promisc) (struct ixy_device* dev, bool enabled);
+	uint32_t (*get_link_speed) (const struct ixy_device* dev);
+};
+*/
+const ixgbe_device = {
+  ixy: {
+    pci_addr: pciAddr,
+    driver_name: 'ixy.js',
+    num_rx_queues: 4,
+    num_tx_queues: 4,
+    rx_batch: () => { },
+    tx_batch: () => { },
+    read_stats: () => { },
+    set_promisc: () => { },
+    get_link_speed: () => { }
+  },
+  addr: 0,
+  rx_queues: {},
+  tx_queues: { }
+};
+
 // get IXY memory
 const IXYDevice = addon.getIXYAddr(pciAddr);
 // create a View on the IXY memory, which is RO

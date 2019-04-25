@@ -254,7 +254,7 @@ union ixgbe_adv_rx_desc {
 
 // this will be changed to JS as well
 // allocated for each rx queue, keeps state for the receive function
-struct ixgbe_rx_queue
+struct ixgbe_rx_queue // 24 byte big
 {
   volatile union ixgbe_adv_rx_desc *descriptors;
   struct mempool *mempool;
