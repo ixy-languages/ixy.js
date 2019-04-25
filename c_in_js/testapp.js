@@ -119,14 +119,15 @@ function init_rx(IXYDevice, num_of_queues) {
     */
     const ring_size_bytes = defines.NUM_RX_QUEUE_ENTRIES * 16; // 128bit headers? -> 128/8 bytes
     const mem = {};
+    console.log('-----------cstart------------');
     mem.virt = addon.getDmaMem(ring_size_bytes, true);
     mem.phy = addon.virtToPhys(mem.virt);
+    console.log('-----------c--end------------');
     // neat trick from Snabb: initialize to 0xFF to prevent rogue memory accesses on premature DMA activation
-    /*
-    TODO memset
-    memset(mem.virt, -1, ring_size_bytes);
-    */
-
+    const virtMemView = new DataView(mem.virt);
+    for (let count = 0; count < ring_size_bytes; count++) {
+      virtMemView.setUint32(0, 0xFF, littleEndian);
+    }
     // for now there is no obvious way to use bigint in a smart way, even within the long library
     const shortenedPhys = addon.shortenPhys(mem.phy);
     const shortenedPhysLatter = addon.shortenPhysLatter(mem.phy);
