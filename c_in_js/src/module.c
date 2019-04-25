@@ -71,7 +71,7 @@ int pci_open_resource(const char *pci_addr, const char *resource)
 napi_value getDmaMem(napi_env env, napi_callback_info info)
 {
   bool requireContigious;
-  size_t size;
+  int32_t size32;
   napi_status stat;
   size_t argc = 2;
   napi_value argv[2];
@@ -80,7 +80,7 @@ napi_value getDmaMem(napi_env env, napi_callback_info info)
   {
     napi_throw_error(env, NULL, "Failed to parse arguments");
   }
-  stat = napi_get_value_uint32(env, argv[0], &size);
+  stat = napi_get_value_int32(env, argv[0], &size32);
   if (stat != napi_ok)
   {
     napi_throw_error(env, NULL, "Failed to get size from inputs.");
@@ -90,7 +90,8 @@ napi_value getDmaMem(napi_env env, napi_callback_info info)
   {
     napi_throw_error(env, NULL, "Failed to get requireContigious from inputs.");
   }
-  printf("trying to allocate dma in size of %d, contigious? %d\n", size, requireContigious);
+  size_t size = (size_t)size32;
+  printf("trying to allocate dma in size of %zd, contigious? %d\n", size, requireContigious);
   struct dma_memory dmaMem = memory_allocate_dma(size, requireContigious);
   void *virtualAddress = dmaMem.virt; // change this function later on, to do only whats actually needed to be done in C
   printf("Physical adress in C: 0x%012lX\n", dmaMem.phy);

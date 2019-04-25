@@ -31,17 +31,12 @@ static uint32_t huge_pg_id;
 // not using anonymous hugepages because hugetlbfs can give us multiple pages with contiguous virtual addresses
 // allocating anonymous pages would require manual remapping which is more annoying than handling files
 struct dma_memory memory_allocate_dma(size_t size, bool require_contiguous) {
-	printf("size input is: %d\n", size);
 	// round up to multiples of 2 MB if necessary, this is the wasteful part
 	// this could be fixed by co-locating allocations on the same page until a request would be too large
 	// when fixing this: make sure to align on 128 byte boundaries (82599 dma requirement)
 	if (size % HUGE_PAGE_SIZE) {
 		size = ((size >> HUGE_PAGE_BITS) + 1) << HUGE_PAGE_BITS;
 	}
-	printf("%d : huge page size\n%d : our size\n", HUGE_PAGE_SIZE, size);
-	printf("do we require contigious?: %d\n", require_contiguous );
-	printf("is our size bigger than pagesize?: %d\n", (size > HUGE_PAGE_SIZE));
-	printf("should we have an error?: %d\n", (require_contiguous && size > HUGE_PAGE_SIZE));
 	if (require_contiguous && size > HUGE_PAGE_SIZE)
 	{
 		// this is the place to implement larger contiguous physical mappings if that's ever needed
