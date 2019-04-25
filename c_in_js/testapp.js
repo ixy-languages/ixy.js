@@ -188,9 +188,6 @@ union ixgbe_adv_rx_desc {
   return descriptor;
 };
 
-// /* // remove the leftmost comment slashes to deactivate
-
-
 // see section 4.6.7
 // it looks quite complicated in the data sheet, but it's actually really easy because we don't need fancy features
 function init_rx(ixgbe_device) {
@@ -285,4 +282,76 @@ for (const index in ixgbe_device.rx_queues) {
 }
 
 /*
+now lets port this:
 */
+/* // remove the leftmost comment slashes to deactivate
+
+static void start_rx_queue(struct ixgbe_device* dev, int queue_id) {
+	debug("starting rx queue %d", queue_id);
+	struct ixgbe_rx_queue* queue = ((struct ixgbe_rx_queue*)(dev->rx_queues)) + queue_id;
+	// 2048 as pktbuf size is strictly speaking incorrect:
+	// we need a few headers (1 cacheline), so there's only 1984 bytes left for the device
+	// but the 82599 can only handle sizes in increments of 1 kb; but this is fine since our max packet size
+	// is the default MTU of 1518
+	// this has to be fixed if jumbo frames are to be supported
+	// mempool should be >= the number of rx and tx descriptors for a forwarding application
+	uint32_t mempool_size = NUM_RX_QUEUE_ENTRIES + NUM_TX_QUEUE_ENTRIES;
+	queue->mempool = memory_allocate_mempool(mempool_size < 4096 ? 4096 : mempool_size, 2048);
+	if (queue->num_entries & (queue->num_entries - 1)) {
+		error("number of queue entries must be a power of 2");
+	}
+	for (int i = 0; i < queue->num_entries; i++) {
+		volatile union ixgbe_adv_rx_desc* rxd = queue->descriptors + i;
+		struct pkt_buf* buf = pkt_buf_alloc(queue->mempool);
+		if (!buf) {
+			error("failed to allocate rx descriptor");
+		}
+		rxd->read.pkt_addr = buf->buf_addr_phy + offsetof(struct pkt_buf, data);
+		rxd->read.hdr_addr = 0;
+		// we need to return the virtual address in the rx function which the descriptor doesn't know by default
+		queue->virtual_addresses[i] = buf;
+	}
+	// enable queue and wait if necessary
+	set_flags32(dev->addr, IXGBE_RXDCTL(queue_id), IXGBE_RXDCTL_ENABLE);
+	wait_set_reg32(dev->addr, IXGBE_RXDCTL(queue_id), IXGBE_RXDCTL_ENABLE);
+	// rx queue starts out full
+	set_reg32(dev->addr, IXGBE_RDH(queue_id), 0);
+	// was set to 0 before in the init function
+	set_reg32(dev->addr, IXGBE_RDT(queue_id), queue->num_entries - 1);
+}
+/**/
+
+/*
+let`s also port this:
+*/
+/* // remove the leftmost comment slashes to deactivate
+
+// allocate a memory pool from which DMA'able packet buffers can be allocated
+// this is currently not yet thread-safe, i.e., a pool can only be used by one thread,
+// this means a packet can only be sent/received by a single thread
+// entry_size can be 0 to use the default
+struct mempool* memory_allocate_mempool(uint32_t num_entries, uint32_t entry_size) {
+	entry_size = entry_size ? entry_size : 2048;
+	// require entries that neatly fit into the page size, this makes the memory pool much easier
+	// otherwise our base_addr + index * size formula would be wrong because we can't cross a page-boundary
+	if (HUGE_PAGE_SIZE % entry_size) {
+		error("entry size must be a divisor of the huge page size (%d)", HUGE_PAGE_SIZE);
+	}
+	struct mempool* mempool = (struct mempool*) malloc(sizeof(struct mempool) + num_entries * sizeof(uint32_t));
+	struct dma_memory mem = memory_allocate_dma(num_entries * entry_size, false);
+	mempool->num_entries = num_entries;
+	mempool->buf_size = entry_size;
+	mempool->base_addr = mem.virt;
+	mempool->free_stack_top = num_entries;
+	for (uint32_t i = 0; i < num_entries; i++) {
+		mempool->free_stack[i] = i;
+		struct pkt_buf* buf = (struct pkt_buf*) (((uint8_t*) mempool->base_addr) + i * entry_size);
+		// physical addresses are not contiguous within a pool, we need to get the mapping
+		// minor optimization opportunity: this only needs to be done once per page
+		buf->buf_addr_phy = virt_to_phys(buf);
+		buf->mempool_idx = i;
+		buf->mempool = mempool;
+		buf->size = 0;
+	}
+	return mempool;
+}/**/
