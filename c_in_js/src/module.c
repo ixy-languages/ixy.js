@@ -268,6 +268,7 @@ struct ixgbe_rx_queue // 24 byte big
 
 napi_value create_rx_queue(napi_env env, napi_callback_info info)
 {
+  // were doing this whole thing in JS with ixgbe_device.rx_queues = []; but were missing the mempool
   uint16_t num_of_rx_queues = 1; //default to 1, make this changeable later
   // this should be done in JS as soon as we know what exactly of the struct needs to be done in C:
   void *rx_queues = calloc(num_of_rx_queues, sizeof(struct ixgbe_rx_queue) + sizeof(void *) * MAX_RX_QUEUE_ENTRIES);

@@ -1,5 +1,6 @@
 const addon = require('./build/Release/exported_module');
 const Long = require('long'); // bigint is annoying http://thecodebarbarian.com/an-overview-of-bigint-in-node-js.html
+const util = require('util');
 // const jstruct = require('js-struct');
 
 // check if little or big endian
@@ -62,8 +63,8 @@ const ixgbe_device = {
   addr: null,
   dataView: null,
   phAddr: null,
-  rx_queues: {},
-  tx_queues: { }
+  rx_queues: [],
+  tx_queues: []
 };
 
 // get IXY memory
@@ -126,6 +127,67 @@ const defines = {
   IXGBE_DCA_RXCTRL: i => (i <= 15 ? 0x02200 + (i * 4) : (i) < 64 ? 0x0100C + ((i) * 0x40) : 0x0D00C + (((i) - 64) * 0x40))
 };
 
+const getDescriptorFromVirt = virtMem => {
+  const descriptor = {};
+  const dataView = new DataView(virtMem);
+  /* ixgbe_adv_rx_desc:
+union ixgbe_adv_rx_desc {
+  struct
+  {
+    __le64 pkt_addr; // Packet buffer address
+    __le64 hdr_addr; // Header buffer address
+  } read;
+  struct
+  {
+    struct
+    {
+      union {
+        __le32 data;
+        struct
+        {
+          __le16 pkt_info; // RSS, Pkt type
+          __le16 hdr_info; // Splithdr, hdrlen
+        } hs_rss;
+      } lo_dword;
+      union {
+        __le32 rss; // RSS Hash
+        struct
+        {
+          __le16 ip_id; // IP id
+          __le16 csum;  // Packet Checksum
+        } csum_ip;
+      } hi_dword;
+    } lower;
+    struct
+    {
+      __le32 status_error; // ext status/error
+      __le16 length;       // Packet length
+      __le16 vlan;         // VLAN tag
+    } upper;
+  } wb; // writeback
+};
+  */
+  descriptor.pkt_addr = dataView.getFloat64(0, littleEndian);
+  descriptor.hdr_addr = dataView.getFloat64(8, littleEndian);
+  descriptor.lower = {};
+  descriptor.lower.data = dataView.getUint32(0, littleEndian);
+  descriptor.lower.hs_rss = {};
+  descriptor.lower.hs_rss.pkt_info = dataView.getUint16(0, littleEndian);
+  descriptor.lower.hs_rss.hdr_info = dataView.getUint16(2, littleEndian);
+  descriptor.lower.hi_dword = {};
+  descriptor.lower.hi_dword.rss = dataView.getUint32(4, littleEndian);
+  descriptor.lower.hi_dword.ip_id = dataView.getUint16(4, littleEndian);
+  descriptor.lower.hi_dword.csum = dataView.getUint16(6, littleEndian);
+  descriptor.upper = {};
+  descriptor.upper.status_error = dataView.getUint32(8, littleEndian);
+  descriptor.upper.length = dataView.getUint16(12, littleEndian);
+  descriptor.upper.vlan = dataView.getUint16(14, littleEndian);
+
+  // TODO check if upper/lower is wrong because we supply the littleEndian when reading (so double-correct lE)
+
+  return descriptor;
+};
+
 // /* // remove the leftmost comment slashes to deactivate
 
 
@@ -185,12 +247,19 @@ function init_rx(ixgbe_device) {
     addon.set_reg_js(IXYDevice, defines.IXGBE_RDT(i), 0);
     // private data for the driver, 0-initialized
     /*
-    TODO create this buffer (might need to call C for this?)
+    TODO: check if we need this to be readable for hardware, because then just reading the values
+    TODO: this might be enough and we dont need create_rx_queue in module.c
     struct ixgbe_rx_queue *queue = ((struct ixgbe_rx_queue *)(dev->rx_queues)) + i;
     queue->num_entries = NUM_RX_QUEUE_ENTRIES;
     queue->rx_index = 0;
     queue->descriptors = (union ixgbe_adv_rx_desc *)mem.virt;
     */
+    const queue = {
+      num_entries: defines.NUM_RX_QUEUE_ENTRIES,
+      rx_index: 0,
+      descriptors: mem.virt
+    };
+    ixgbe_device.rx_queues.push(queue);
   }
 
   // last step is to set some magic bits mentioned in the last sentence in 4.6.7
@@ -207,6 +276,13 @@ function init_rx(ixgbe_device) {
 
 console.log('running init_rx...');
 init_rx(ixgbe_device);
+
+console.log(util.inspect(ixgbe_device, false, null, true /* enable colors */));
+console.log('printing rx_queues read from buffer we saved:');
+for (const index in ixgbe_device.rx_queues) {
+  const queueDescriptor = getDescriptorFromVirt(ixgbe_device.rx_queues[index].descriptors);
+  console.log(util.inspect(queueDescriptor, false, null, true /* enable colors */));
+}
 
 /*
 */
