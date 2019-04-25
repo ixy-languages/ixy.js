@@ -38,7 +38,10 @@ struct dma_memory memory_allocate_dma(size_t size, bool require_contiguous) {
 	if (size % HUGE_PAGE_SIZE) {
 		size = ((size >> HUGE_PAGE_BITS) + 1) << HUGE_PAGE_BITS;
 	}
-	printf("huge page size is : %d, our size is: %d\n", HUGE_PAGE_SIZE, size);
+	printf("%d : huge page size\n%d : our size\n", HUGE_PAGE_SIZE, size);
+	printf("do we require contigious?: %d\n", require_contiguous );
+	printf("is our size bigger than pagesize?: %d\n", (size > HUGE_PAGE_SIZE));
+	printf("should we have an error?: %d\n", (require_contiguous && size > HUGE_PAGE_SIZE));
 	if (require_contiguous && size > HUGE_PAGE_SIZE)
 	{
 		// this is the place to implement larger contiguous physical mappings if that's ever needed

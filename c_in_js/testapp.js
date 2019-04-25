@@ -161,7 +161,7 @@ function init_rx(IXYDevice, num_of_queues) {
 }
 
 console.log('running init_rx...');
-init_rx(IXYDevice, 20);
+init_rx(IXYDevice, 2);
 
 /*
 */
