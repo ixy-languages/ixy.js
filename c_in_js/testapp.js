@@ -117,6 +117,7 @@ const defines = {
   IXGBE_SRRCTL_DESCTYPE_ADV_ONEBUF: 0x02000000,
   IXGBE_SRRCTL_DROP_EN: 0x10000000,
   NUM_RX_QUEUE_ENTRIES: 512,
+  NUM_TX_QUEUE_ENTRIES: 512,  
   IXGBE_RDBAL: i => (i < 64 ? 0x01000 + (i * 0x40) : 0x0D000 + ((i - 64) * 0x40)),
   IXGBE_RDBAH: i => (i < 64 ? 0x01004 + (i * 0x40) : 0x0D004 + ((i - 64) * 0x40)),
   IXGBE_RDLEN: i => (i < 64 ? 0x01008 + (i * 0x40) : 0x0D008 + ((i - 64) * 0x40)),
@@ -286,19 +287,19 @@ now lets port this:
 */
 /* // remove the leftmost comment slashes to deactivate
 
-static void start_rx_queue(struct ixgbe_device* dev, int queue_id) {
-	debug("starting rx queue %d", queue_id);
-	struct ixgbe_rx_queue* queue = ((struct ixgbe_rx_queue*)(dev->rx_queues)) + queue_id;
-	// 2048 as pktbuf size is strictly speaking incorrect:
+function start_rx_queue( ixgbe_device ,  queue_id) {
+	console.log("starting rx queue "+ queue_id);
+  queue = ixgbe_device.rx_queues[queue_id];
+  	// 2048 as pktbuf size is strictly speaking incorrect:
 	// we need a few headers (1 cacheline), so there's only 1984 bytes left for the device
 	// but the 82599 can only handle sizes in increments of 1 kb; but this is fine since our max packet size
 	// is the default MTU of 1518
 	// this has to be fixed if jumbo frames are to be supported
 	// mempool should be >= the number of rx and tx descriptors for a forwarding application
-	uint32_t mempool_size = NUM_RX_QUEUE_ENTRIES + NUM_TX_QUEUE_ENTRIES;
-	queue->mempool = memory_allocate_mempool(mempool_size < 4096 ? 4096 : mempool_size, 2048);
-	if (queue->num_entries & (queue->num_entries - 1)) {
-		error("number of queue entries must be a power of 2");
+	const mempool_size = defines.NUM_RX_QUEUE_ENTRIES + defines.NUM_TX_QUEUE_ENTRIES;
+	mempool = addon.memory_allocate_mempool_js(mempool_size < 4096 ? 4096 : mempool_size, 2048);
+	if (queue.num_entries & (queue.num_entries - 1)) {
+		throw new Error("number of queue entries must be a power of 2");
 	}
 	for (int i = 0; i < queue->num_entries; i++) {
 		volatile union ixgbe_adv_rx_desc* rxd = queue->descriptors + i;
