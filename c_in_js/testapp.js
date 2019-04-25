@@ -1,5 +1,5 @@
 const addon = require('./build/Release/exported_module');
-const Long = require('long');
+const Long = require('long'); // bigint is annoying http://thecodebarbarian.com/an-overview-of-bigint-in-node-js.html
 // const jstruct = require('js-struct');
 
 // check if little or big endian
@@ -140,7 +140,7 @@ function init_rx(IXYDevice, num_of_queues) {
     addon.set_reg_js(IXYDevice, defines.IXGBE_RDT(i), 0);
     // private data for the driver, 0-initialized
     /*
-TODO create this buffer (might need to call C for this?)
+    TODO create this buffer (might need to call C for this?)
     struct ixgbe_rx_queue *queue = ((struct ixgbe_rx_queue *)(dev->rx_queues)) + i;
     queue->num_entries = NUM_RX_QUEUE_ENTRIES;
     queue->rx_index = 0;
