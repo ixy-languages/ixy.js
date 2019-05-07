@@ -173,10 +173,11 @@ union ixgbe_adv_rx_desc {
   descriptor.pkt_addr = dataView.getFloat64(0+offset, littleEndian);
   descriptor.hdr_addr = dataView.getFloat64(8+offset, littleEndian);
   descriptor.lower = {};
-  descriptor.lower.data = dataView.getUint32(0+offset, littleEndian);
-  descriptor.lower.hs_rss = {};
-  descriptor.lower.hs_rss.pkt_info = dataView.getUint16(0+offset, littleEndian);
-  descriptor.lower.hs_rss.hdr_info = dataView.getUint16(2+offset, littleEndian);
+  descriptor.lower.lo_dword = {};
+  descriptor.lower.lo_dword.data = dataView.getUint32(0+offset, littleEndian);
+  descriptor.lower.lo_dword.hs_rss = {};
+  descriptor.lower.lo_dword.hs_rss.pkt_info = dataView.getUint16(0+offset, littleEndian);
+  descriptor.lower.lo_dword.hs_rss.hdr_info = dataView.getUint16(2+offset, littleEndian);
   descriptor.lower.hi_dword = {};
   descriptor.lower.hi_dword.rss = dataView.getUint32(4+offset, littleEndian);
   descriptor.lower.hi_dword.ip_id = dataView.getUint16(4+offset, littleEndian);
@@ -361,7 +362,7 @@ function pkt_buf_alloc_batch_js(mempool, num_bufs) {
   return bufs;
 }
 
-function pkt_buf_alloc(mempool) {
+function pkt_buf_alloc_js(mempool) {
 	const buf = pkt_buf_alloc_batch_js(mempool, 1);
 	return buf;
 }
@@ -381,18 +382,18 @@ function start_rx_queue( ixgbe_device ,  queue_id) {
 	// this has to be fixed if jumbo frames are to be supported
 	// mempool should be >= the number of rx and tx descriptors for a forwarding application
 	const mempool_size = defines.NUM_RX_QUEUE_ENTRIES + defines.NUM_TX_QUEUE_ENTRIES;
-	mempool = memory_allocate_mempool_js(mempool_size < 4096 ? 4096 : mempool_size, 2048);
+	const mempool = memory_allocate_mempool_js(mempool_size < 4096 ? 4096 : mempool_size, 2048);
 	if (queue.num_entries && (queue.num_entries - 1)) {
 		throw new Error("number of queue entries must be a power of 2");
 	}
 	for (let i = 0; i < queue.num_entries; i++) {
 		const rxd =getDescriptorFromVirt( queue.descriptors , i);
-		struct pkt_buf* buf = pkt_buf_alloc(queue->mempool);
+		const buf = pkt_buf_alloc_js(queue.mempool);
 		if (!buf) {
 			error("failed to allocate rx descriptor");
 		}
-		rxd->read.pkt_addr = buf->buf_addr_phy + offsetof(struct pkt_buf, data);
-		rxd->read.hdr_addr = 0;
+		rxd.read.pkt_addr = buf->buf_addr_phy + offsetof(struct pkt_buf, data);
+		rxd.read.hdr_addr = 0;
 		// we need to return the virtual address in the rx function which the descriptor doesn't know by default
 		queue->virtual_addresses[i] = buf;
 	}
