@@ -117,7 +117,7 @@ const defines = {
   IXGBE_SRRCTL_DESCTYPE_ADV_ONEBUF: 0x02000000,
   IXGBE_SRRCTL_DROP_EN: 0x10000000,
   NUM_RX_QUEUE_ENTRIES: 512,
-  NUM_TX_QUEUE_ENTRIES: 512,  
+  NUM_TX_QUEUE_ENTRIES: 512,
   IXGBE_RDBAL: i => (i < 64 ? 0x01000 + (i * 0x40) : 0x0D000 + ((i - 64) * 0x40)),
   IXGBE_RDBAH: i => (i < 64 ? 0x01004 + (i * 0x40) : 0x0D004 + ((i - 64) * 0x40)),
   IXGBE_RDLEN: i => (i < 64 ? 0x01008 + (i * 0x40) : 0x0D008 + ((i - 64) * 0x40)),
@@ -126,7 +126,7 @@ const defines = {
   IXGBE_CTRL_EXT: 0x00018,
   IXGBE_CTRL_EXT_NS_DIS: 0x00010000,
   IXGBE_DCA_RXCTRL: i => (i <= 15 ? 0x02200 + (i * 4) : (i) < 64 ? 0x0100C + ((i) * 0x40) : 0x0D00C + (((i) - 64) * 0x40)),
-  SIZE_PKT_BUF_HEADROOM:40
+  SIZE_PKT_BUF_HEADROOM: 40
 };
 
 const getDescriptorFromVirt = (virtMem, index = 0) => {
@@ -170,22 +170,23 @@ union ixgbe_adv_rx_desc {
   } wb; // writeback
 };
   */
-  descriptor.pkt_addr = dataView.getFloat64(0+offset, littleEndian);
-  descriptor.hdr_addr = dataView.getFloat64(8+offset, littleEndian);
+  descriptor.pkt_addr = dataView.getFloat64(0 + offset, littleEndian);
+  descriptor.hdr_addr = dataView.getFloat64(8 + offset, littleEndian);
   descriptor.lower = {};
   descriptor.lower.lo_dword = {};
-  descriptor.lower.lo_dword.data = dataView.getUint32(0+offset, littleEndian);
+  descriptor.lower.lo_dword.data = dataView.getUint32(0 + offset, littleEndian);
   descriptor.lower.lo_dword.hs_rss = {};
-  descriptor.lower.lo_dword.hs_rss.pkt_info = dataView.getUint16(0+offset, littleEndian);
-  descriptor.lower.lo_dword.hs_rss.hdr_info = dataView.getUint16(2+offset, littleEndian);
+  descriptor.lower.lo_dword.hs_rss.pkt_info = dataView.getUint16(0 + offset, littleEndian);
+  descriptor.lower.lo_dword.hs_rss.hdr_info = dataView.getUint16(2 + offset, littleEndian);
   descriptor.lower.hi_dword = {};
-  descriptor.lower.hi_dword.rss = dataView.getUint32(4+offset, littleEndian);
-  descriptor.lower.hi_dword.ip_id = dataView.getUint16(4+offset, littleEndian);
-  descriptor.lower.hi_dword.csum = dataView.getUint16(6+offset, littleEndian);
+  descriptor.lower.hi_dword.rss = dataView.getUint32(4 + offset, littleEndian);
+  descriptor.lower.hi_dword.ip_id = dataView.getUint16(4 + offset, littleEndian);
+  descriptor.lower.hi_dword.csum = dataView.getUint16(6 + offset, littleEndian);
   descriptor.upper = {};
-  descriptor.upper.status_error = dataView.getUint32(8+offset, littleEndian);
-  descriptor.upper.length = dataView.getUint16(12+offset, littleEndian);
-  descriptor.upper.vlan = dataView.getUint16(14+offset, littleEndian);
+  descriptor.upper.status_error = dataView.getUint32(8 + offset, littleEndian);
+  descriptor.upper.length = dataView.getUint16(12 + offset, littleEndian);
+  descriptor.upper.vlan = dataView.getUint16(14 + offset, littleEndian);
+  descriptor.memView = dataView;
 
   // TODO check if upper/lower is wrong because we supply the littleEndian when reading (so double-correct lE)
 
@@ -289,24 +290,24 @@ for (const index in ixgbe_device.rx_queues) {
 /* let's port mempool allocation first:
 */
 
-function memory_allocate_mempool_js(num_entries, entry_size) { 
+function memory_allocate_mempool_js(num_entries, entry_size) {
   entry_size = entry_size ? entry_size : 2048;
-	// require entries that neatly fit into the page size, this makes the memory pool much easier
-	// otherwise our base_addr + index * size formula would be wrong because we can't cross a page-boundary
-	if (HUGE_PAGE_SIZE % entry_size) {
-		error("entry size must be a divisor of the huge page size (%d)", HUGE_PAGE_SIZE);
-	}
+  // require entries that neatly fit into the page size, this makes the memory pool much easier
+  // otherwise our base_addr + index * size formula would be wrong because we can't cross a page-boundary
+  if (HUGE_PAGE_SIZE % entry_size) {
+    error('entry size must be a divisor of the huge page size (%d)', HUGE_PAGE_SIZE);
+  }
   const mem = addon.getDmaMem(num_entries * entry_size, false);
   const mempool = {};
-	mempool.num_entries = num_entries;
-	mempool.buf_size = entry_size;
-	mempool.base_addr = mem; // buffer that holds mempool
+  mempool.num_entries = num_entries;
+  mempool.buf_size = entry_size;
+  mempool.base_addr = mem; // buffer that holds mempool
   mempool.free_stack_top = num_entries;
   mempool.free_stack = [];
-  
-	for (let i = 0; i < num_entries; i++) {
+
+  for (let i = 0; i < num_entries; i++) {
     mempool.free_stack.push(i);
-    const buf = new DataView(mem,i*entry_size); // this should do the trick?
+    const buf = new DataView(mem, i * entry_size); // this should do the trick?
     // TODO get buffer correctly!
     /*
     struct pkt_buf * buf = (struct pkt_buf *) (((uint8_t *) mempool -> base_addr) + i * entry_size);
@@ -322,19 +323,19 @@ function memory_allocate_mempool_js(num_entries, entry_size) {
     };
     // end of buf
 */
-		// physical addresses are not contiguous within a pool, we need to get the mapping
+    // physical addresses are not contiguous within a pool, we need to get the mapping
     // minor optimization opportunity: this only needs to be done once per page
-    
+
     // i think these should be done on the view, not variables /sighs
     const buff = {};
     buff.buf_addr_phy = addon.virtToPhys(buf.buffer); // this should get the correct physical adress to the part of the mem of the mempool the buffer should be in
-		buff.mempool_idx = i;
-		buff.mempool = mempool;
+    buff.mempool_idx = i;
+    buff.mempool = mempool;
     buff.size = 0;
-        
+
     buf.setBigUint64(0, buff.buf_addr_phy, littleEndian);
     // let's skip mempool 8 bytes for now?
-    buf.setBigUint64(8, "mempool TODO", littleEndian);
+    buf.setBigUint64(8, 'mempool TODO', littleEndian);
     buf.setUint32(16, buff.mempool_idx);
     buf.setUint32(20, buff.size, littleEndian);
     buf.setBigUint64(24, 0, littleEndian);
@@ -345,8 +346,8 @@ function memory_allocate_mempool_js(num_entries, entry_size) {
     // now we filled the first 64 bytes
 
     // the rest can be data, but we dont give access via a variable
-	}
-	return mempool;
+  }
+  return mempool;
 }
 // another function to port
 function pkt_buf_alloc_batch_js(mempool, num_bufs) {
@@ -357,52 +358,55 @@ function pkt_buf_alloc_batch_js(mempool, num_bufs) {
   }
   for (let i = 0; i < num_bufs; i++) {
     const entry_id = mempool.free_stack[--mempool.free_stack_top];
-    bufs.push(new DataView(mempool.base_addr,entry_id * mempool.buf_size,mempool.buf_size));
+    bufs.push(new DataView(mempool.base_addr, entry_id * mempool.buf_size, mempool.buf_size));
   }
   return bufs;
 }
 
 function pkt_buf_alloc_js(mempool) {
-	const buf = pkt_buf_alloc_batch_js(mempool, 1);
-	return buf;
+  const buf = pkt_buf_alloc_batch_js(mempool, 1);
+  return buf;
 }
 
 /*
 now lets port this:
 */
-///* // remove the leftmost comment slashes to deactivate
+// /* // remove the leftmost comment slashes to deactivate
 
-function start_rx_queue( ixgbe_device ,  queue_id) {
-	console.log("starting rx queue "+ queue_id);
-  queue = ixgbe_device.rx_queues[queue_id];
+function start_rx_queue(ixgbe_device, queue_id) {
+  console.log(`starting rx queue ${queue_id}`);
+  const queue = ixgbe_device.rx_queues[queue_id];
   	// 2048 as pktbuf size is strictly speaking incorrect:
-	// we need a few headers (1 cacheline), so there's only 1984 bytes left for the device
-	// but the 82599 can only handle sizes in increments of 1 kb; but this is fine since our max packet size
-	// is the default MTU of 1518
-	// this has to be fixed if jumbo frames are to be supported
-	// mempool should be >= the number of rx and tx descriptors for a forwarding application
-	const mempool_size = defines.NUM_RX_QUEUE_ENTRIES + defines.NUM_TX_QUEUE_ENTRIES;
-	const mempool = memory_allocate_mempool_js(mempool_size < 4096 ? 4096 : mempool_size, 2048);
-	if (queue.num_entries && (queue.num_entries - 1)) {
-		throw new Error("number of queue entries must be a power of 2");
-	}
-	for (let i = 0; i < queue.num_entries; i++) {
-		const rxd =getDescriptorFromVirt( queue.descriptors , i);
-		const buf = pkt_buf_alloc_js(queue.mempool);
-		if (!buf) {
-			error("failed to allocate rx descriptor");
-		}
-		rxd.read.pkt_addr = buf->buf_addr_phy + offsetof(struct pkt_buf, data);
-		rxd.read.hdr_addr = 0;
-		// we need to return the virtual address in the rx function which the descriptor doesn't know by default
-		queue->virtual_addresses[i] = buf;
-	}
-	// enable queue and wait if necessary
-	set_flags32(dev->addr, IXGBE_RXDCTL(queue_id), IXGBE_RXDCTL_ENABLE);
-	wait_set_reg32(dev->addr, IXGBE_RXDCTL(queue_id), IXGBE_RXDCTL_ENABLE);
-	// rx queue starts out full
-	set_reg32(dev->addr, IXGBE_RDH(queue_id), 0);
-	// was set to 0 before in the init function
-	set_reg32(dev->addr, IXGBE_RDT(queue_id), queue->num_entries - 1);
+  // we need a few headers (1 cacheline), so there's only 1984 bytes left for the device
+  // but the 82599 can only handle sizes in increments of 1 kb; but this is fine since our max packet size
+  // is the default MTU of 1518
+  // this has to be fixed if jumbo frames are to be supported
+  // mempool should be >= the number of rx and tx descriptors for a forwarding application
+  const mempool_size = defines.NUM_RX_QUEUE_ENTRIES + defines.NUM_TX_QUEUE_ENTRIES;
+  const mempool = memory_allocate_mempool_js(mempool_size < 4096 ? 4096 : mempool_size, 2048);
+  if (queue.num_entries && (queue.num_entries - 1)) {
+    throw new Error('number of queue entries must be a power of 2');
+  }
+  for (let i = 0; i < queue.num_entries; i++) {
+    const rxd = getDescriptorFromVirt(queue.descriptors, i);
+    const buf = pkt_buf_alloc_js(queue.mempool);
+    if (!buf) {
+      console.error('failed to allocate rx descriptor');
+    }
+    // missing the offset value of this, would it be 64 bytes?
+    // set pkt addr
+    rxd.memView.setBigUint64(0, buf.buf_addr_phy + 64/* offsetof(struct pkt_buf, data)*/, littleEndian);
+    // set hdr addr
+    rxd.memView.setBigUint64(8, 0, littleEndian);
+    // we need to return the virtual address in the rx function which the descriptor doesn't know by default
+    queue.virtual_addresses[i] = buf;
+  }
+  // enable queue and wait if necessary
+  set_flags_js(ixgbe_device.addr, defines.IXGBE_RXDCTL(queue_id), defines.IXGBE_RXDCTL_ENABLE);
+  wait_set_reg32(ixgbe_device.addr, defines.IXGBE_RXDCTL(queue_id), defines.IXGBE_RXDCTL_ENABLE); // TODO add this function
+  // rx queue starts out full
+  addon.set_reg_js(ixgbe_device.addr, defines.IXGBE_RDH(queue_id), 0);
+  // was set to 0 before in the init function
+  addon.set_reg_js(ixgbe_device.addr, defines.IXGBE_RDT(queue_id), queue.num_entries - 1);
 }
 /**/
