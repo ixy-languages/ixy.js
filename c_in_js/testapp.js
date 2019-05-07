@@ -125,7 +125,8 @@ const defines = {
   IXGBE_RDT: i => (i < 64 ? 0x01018 + (i * 0x40) : 0x0D018 + ((i - 64) * 0x40)),
   IXGBE_CTRL_EXT: 0x00018,
   IXGBE_CTRL_EXT_NS_DIS: 0x00010000,
-  IXGBE_DCA_RXCTRL: i => (i <= 15 ? 0x02200 + (i * 4) : (i) < 64 ? 0x0100C + ((i) * 0x40) : 0x0D00C + (((i) - 64) * 0x40))
+  IXGBE_DCA_RXCTRL: i => (i <= 15 ? 0x02200 + (i * 4) : (i) < 64 ? 0x0100C + ((i) * 0x40) : 0x0D00C + (((i) - 64) * 0x40)),
+  SIZE_PKT_BUF_HEADROOM:40
 };
 
 const getDescriptorFromVirt = (virtMem, index = 0) => {
@@ -311,12 +312,12 @@ function memory_allocate_mempool_js(num_entries, entry_size) {
     // this is what a pkt buff has saved:
     struct pkt_buf {
       // physical address to pass a buffer to a nic
-      uintptr_t buf_addr_phy;
-      struct mempool* mempool;
-      uint32_t mempool_idx;
-      uint32_t size;
-      uint8_t head_room[SIZE_PKT_BUF_HEADROOM];
-      uint8_t data[] __attribute__((aligned(64)));
+      uintptr_t buf_addr_phy; // 8 bytes
+      struct mempool* mempool; // 8 bytes????
+      uint32_t mempool_idx; // 4 bytes
+      uint32_t size; //4 bytes
+      uint8_t head_room[SIZE_PKT_BUF_HEADROOM]; // 40 bytes, does this mean the rest above is 24 bytes?
+      uint8_t data[] __attribute__((aligned(64))); // min size of 64 bytes
     };
     // end of buf
 */
@@ -324,14 +325,27 @@ function memory_allocate_mempool_js(num_entries, entry_size) {
     // minor optimization opportunity: this only needs to be done once per page
     
     // i think these should be done on the view, not variables /sighs
-    buf.buf_addr_phy = addon.virtToPhys(buf.buffer); // this should get the correct physical adress to the part of the mem of the mempool the buffer should be in
-		buf.mempool_idx = i;
-		buf.mempool = mempool;
-    buf.size = 0;
-    
-    // both of these creating the phys addr?
-    buf.setUint32();
-    buf.setUint32();
+    const buff = {};
+    buff.buf_addr_phy = addon.virtToPhys(buf.buffer); // this should get the correct physical adress to the part of the mem of the mempool the buffer should be in
+		buff.mempool_idx = i;
+		buff.mempool = mempool;
+    buff.size = 0;
+        
+    buf.setBigUint64(0, buff.buf_addr_phy, littleEndian);
+    // let's skip mempool 8 bytes for now?
+    buf.setBigUint64(8, "mempool TODO", littleEndian);
+    buf.setUint32(16, buff.mempool_idx);
+    buf.setUint32(20, buff.size, littleEndian);
+    buf.setBigUint64(24, 0, littleEndian);
+    buf.setBigUint64(32, 0, littleEndian);
+    buf.setBigUint64(40, 0, littleEndian);
+    buf.setBigUint64(48, 0, littleEndian);
+    buf.setBigUint64(56, 0, littleEndian);
+    // now we filles the first 64 bytes
+
+
+
+
 
 	}
 	return mempool;
