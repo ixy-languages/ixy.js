@@ -344,12 +344,26 @@ function memory_allocate_mempool_js(num_entries, entry_size) {
     // now we filled the first 64 bytes
 
     // the rest can be data, but we dont give access via a variable
-
-
-
-
 	}
 	return mempool;
+}
+// another function to port
+function pkt_buf_alloc_batch_js(mempool, num_bufs) {
+  const bufs = [];
+  if (mempool.free_stack_top < num_bufs) {
+    console.warn(`memory pool ${mempool} only has ${mempool.free_stack_top} free bufs, requested ${num_bufs}`);
+    num_bufs = mempool.free_stack_top;
+  }
+  for (let i = 0; i < num_bufs; i++) {
+    const entry_id = mempool.free_stack[--mempool.free_stack_top];
+    bufs.push( (struct pkt_buf *) (((uint8_t *) mempool -> base_addr) + entry_id * mempool -> buf_size));
+  }
+  return bufs;
+}
+
+function pkt_buf_alloc(mempool) {
+	const buf = pkt_buf_alloc_batch_js(mempool, 1);
+	return buf;
 }
 
 /*
