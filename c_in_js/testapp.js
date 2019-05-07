@@ -128,7 +128,8 @@ const defines = {
   IXGBE_DCA_RXCTRL: i => (i <= 15 ? 0x02200 + (i * 4) : (i) < 64 ? 0x0100C + ((i) * 0x40) : 0x0D00C + (((i) - 64) * 0x40))
 };
 
-const getDescriptorFromVirt = virtMem => {
+const getDescriptorFromVirt = (virtMem, index = 0) => {
+  const offset = index * 16; // offset in bytes, depending on index
   const descriptor = {};
   const dataView = new DataView(virtMem);
   /* ixgbe_adv_rx_desc:
@@ -168,21 +169,21 @@ union ixgbe_adv_rx_desc {
   } wb; // writeback
 };
   */
-  descriptor.pkt_addr = dataView.getFloat64(0, littleEndian);
-  descriptor.hdr_addr = dataView.getFloat64(8, littleEndian);
+  descriptor.pkt_addr = dataView.getFloat64(0+offset, littleEndian);
+  descriptor.hdr_addr = dataView.getFloat64(8+offset, littleEndian);
   descriptor.lower = {};
-  descriptor.lower.data = dataView.getUint32(0, littleEndian);
+  descriptor.lower.data = dataView.getUint32(0+offset, littleEndian);
   descriptor.lower.hs_rss = {};
-  descriptor.lower.hs_rss.pkt_info = dataView.getUint16(0, littleEndian);
-  descriptor.lower.hs_rss.hdr_info = dataView.getUint16(2, littleEndian);
+  descriptor.lower.hs_rss.pkt_info = dataView.getUint16(0+offset, littleEndian);
+  descriptor.lower.hs_rss.hdr_info = dataView.getUint16(2+offset, littleEndian);
   descriptor.lower.hi_dword = {};
-  descriptor.lower.hi_dword.rss = dataView.getUint32(4, littleEndian);
-  descriptor.lower.hi_dword.ip_id = dataView.getUint16(4, littleEndian);
-  descriptor.lower.hi_dword.csum = dataView.getUint16(6, littleEndian);
+  descriptor.lower.hi_dword.rss = dataView.getUint32(4+offset, littleEndian);
+  descriptor.lower.hi_dword.ip_id = dataView.getUint16(4+offset, littleEndian);
+  descriptor.lower.hi_dword.csum = dataView.getUint16(6+offset, littleEndian);
   descriptor.upper = {};
-  descriptor.upper.status_error = dataView.getUint32(8, littleEndian);
-  descriptor.upper.length = dataView.getUint16(12, littleEndian);
-  descriptor.upper.vlan = dataView.getUint16(14, littleEndian);
+  descriptor.upper.status_error = dataView.getUint32(8+offset, littleEndian);
+  descriptor.upper.length = dataView.getUint16(12+offset, littleEndian);
+  descriptor.upper.vlan = dataView.getUint16(14+offset, littleEndian);
 
   // TODO check if upper/lower is wrong because we supply the littleEndian when reading (so double-correct lE)
 
@@ -282,10 +283,64 @@ for (const index in ixgbe_device.rx_queues) {
   console.log(util.inspect(queueDescriptor, false, null, true /* enable colors */));
 }
 
+
+/* let's port mempool allocation first:
+*/
+
+function memory_allocate_mempool_js(num_entries, entry_size) { 
+  entry_size = entry_size ? entry_size : 2048;
+	// require entries that neatly fit into the page size, this makes the memory pool much easier
+	// otherwise our base_addr + index * size formula would be wrong because we can't cross a page-boundary
+	if (HUGE_PAGE_SIZE % entry_size) {
+		error("entry size must be a divisor of the huge page size (%d)", HUGE_PAGE_SIZE);
+	}
+  const mem = addon.getDmaMem(num_entries * entry_size, false);
+  const mempool = {};
+	mempool.num_entries = num_entries;
+	mempool.buf_size = entry_size;
+	mempool.base_addr = mem; // buffer that holds mempool
+  mempool.free_stack_top = num_entries;
+  mempool.free_stack = [];
+  
+	for (let i = 0; i < num_entries; i++) {
+    mempool.free_stack.push(i);
+    const buf = new DataView(mem,i*entry_size); // this should do the trick?
+    // TODO get buffer correctly!
+    /*
+    struct pkt_buf * buf = (struct pkt_buf *) (((uint8_t *) mempool -> base_addr) + i * entry_size);
+    // this is what a pkt buff has saved:
+    struct pkt_buf {
+      // physical address to pass a buffer to a nic
+      uintptr_t buf_addr_phy;
+      struct mempool* mempool;
+      uint32_t mempool_idx;
+      uint32_t size;
+      uint8_t head_room[SIZE_PKT_BUF_HEADROOM];
+      uint8_t data[] __attribute__((aligned(64)));
+    };
+    // end of buf
+*/
+		// physical addresses are not contiguous within a pool, we need to get the mapping
+    // minor optimization opportunity: this only needs to be done once per page
+    
+    // i think these should be done on the view, not variables /sighs
+    buf.buf_addr_phy = addon.virtToPhys(buf.buffer); // this should get the correct physical adress to the part of the mem of the mempool the buffer should be in
+		buf.mempool_idx = i;
+		buf.mempool = mempool;
+    buf.size = 0;
+    
+    // both of these creating the phys addr?
+    buf.setUint32();
+    buf.setUint32();
+
+	}
+	return mempool;
+}
+
 /*
 now lets port this:
 */
-/* // remove the leftmost comment slashes to deactivate
+///* // remove the leftmost comment slashes to deactivate
 
 function start_rx_queue( ixgbe_device ,  queue_id) {
 	console.log("starting rx queue "+ queue_id);
@@ -297,12 +352,12 @@ function start_rx_queue( ixgbe_device ,  queue_id) {
 	// this has to be fixed if jumbo frames are to be supported
 	// mempool should be >= the number of rx and tx descriptors for a forwarding application
 	const mempool_size = defines.NUM_RX_QUEUE_ENTRIES + defines.NUM_TX_QUEUE_ENTRIES;
-	mempool = addon.memory_allocate_mempool_js(mempool_size < 4096 ? 4096 : mempool_size, 2048);
-	if (queue.num_entries & (queue.num_entries - 1)) {
+	mempool = memory_allocate_mempool_js(mempool_size < 4096 ? 4096 : mempool_size, 2048);
+	if (queue.num_entries && (queue.num_entries - 1)) {
 		throw new Error("number of queue entries must be a power of 2");
 	}
-	for (int i = 0; i < queue->num_entries; i++) {
-		volatile union ixgbe_adv_rx_desc* rxd = queue->descriptors + i;
+	for (let i = 0; i < queue.num_entries; i++) {
+		const rxd =getDescriptorFromVirt( queue.descriptors , i);
 		struct pkt_buf* buf = pkt_buf_alloc(queue->mempool);
 		if (!buf) {
 			error("failed to allocate rx descriptor");
@@ -321,38 +376,3 @@ function start_rx_queue( ixgbe_device ,  queue_id) {
 	set_reg32(dev->addr, IXGBE_RDT(queue_id), queue->num_entries - 1);
 }
 /**/
-
-/*
-let`s also port this:
-*/
-/* // remove the leftmost comment slashes to deactivate
-
-// allocate a memory pool from which DMA'able packet buffers can be allocated
-// this is currently not yet thread-safe, i.e., a pool can only be used by one thread,
-// this means a packet can only be sent/received by a single thread
-// entry_size can be 0 to use the default
-struct mempool* memory_allocate_mempool(uint32_t num_entries, uint32_t entry_size) {
-	entry_size = entry_size ? entry_size : 2048;
-	// require entries that neatly fit into the page size, this makes the memory pool much easier
-	// otherwise our base_addr + index * size formula would be wrong because we can't cross a page-boundary
-	if (HUGE_PAGE_SIZE % entry_size) {
-		error("entry size must be a divisor of the huge page size (%d)", HUGE_PAGE_SIZE);
-	}
-	struct mempool* mempool = (struct mempool*) malloc(sizeof(struct mempool) + num_entries * sizeof(uint32_t));
-	struct dma_memory mem = memory_allocate_dma(num_entries * entry_size, false);
-	mempool->num_entries = num_entries;
-	mempool->buf_size = entry_size;
-	mempool->base_addr = mem.virt;
-	mempool->free_stack_top = num_entries;
-	for (uint32_t i = 0; i < num_entries; i++) {
-		mempool->free_stack[i] = i;
-		struct pkt_buf* buf = (struct pkt_buf*) (((uint8_t*) mempool->base_addr) + i * entry_size);
-		// physical addresses are not contiguous within a pool, we need to get the mapping
-		// minor optimization opportunity: this only needs to be done once per page
-		buf->buf_addr_phy = virt_to_phys(buf);
-		buf->mempool_idx = i;
-		buf->mempool = mempool;
-		buf->size = 0;
-	}
-	return mempool;
-}/**/
