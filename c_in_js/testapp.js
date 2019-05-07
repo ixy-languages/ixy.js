@@ -341,8 +341,9 @@ function memory_allocate_mempool_js(num_entries, entry_size) {
     buf.setBigUint64(40, 0, littleEndian);
     buf.setBigUint64(48, 0, littleEndian);
     buf.setBigUint64(56, 0, littleEndian);
-    // now we filles the first 64 bytes
+    // now we filled the first 64 bytes
 
+    // the rest can be data, but we dont give access via a variable
 
 
 
