@@ -135,8 +135,8 @@ const defines = {
   SIZE_PKT_BUF_HEADROOM: 40,
   IXGBE_RXDCTL: i => (i < 64 ? 0x01028 + (i * 0x40) : 0x0D028 + ((i - 64) * 0x40)),
   IXGBE_RXDCTL_ENABLE: 0x02000000,
-  IXGBE_RXDADV_STAT_DD: 0x01 /*Done*/,
-  IXGBE_RXDADV_STAT_EOP:0x02 /*End of Packet*/
+  IXGBE_RXDADV_STAT_DD: 0x01 /* Done*/,
+  IXGBE_RXDADV_STAT_EOP: 0x02 /* End of Packet*/
 
 };
 
@@ -427,7 +427,7 @@ function start_rx_queue(ixgbe_device, queue_id) {
     }
     // missing the offset value of this, would it be 64 bytes?
     // set pkt addr
-    rxd.memView.setBigUint64(0, addon.addBigInts(buf.buf_addr_phy, 64)/* offsetof(struct pkt_buf, data)*/, littleEndian);
+    rxd.memView.setBigUint64(0, addon.addBigInts(buf.buf_addr_phy, 64)/* offsetof(struct pkt_buf, data)*/, littleEndian); // TODO double check offset
     // set hdr addr
     // because of bigint
     // rxd.memView.setBigUint64(8, 0, littleEndian);
@@ -456,60 +456,68 @@ for (const i in ixgbe_device.rx_queues) {
 console.log('ixgbe_device now:');
 console.log(util.inspect(ixgbe_device, false, null, true));
 
-function wrap_ring (index, ring_size){ return ((index + 1) %ring_size )}; // our version of wrapper, not sure if bitwise would work exactly as in C
+function wrap_ring(index, ring_size) {
+  return (index + 1) % ring_size;
+} // our version of wrapper, not sure if bitwise would work exactly as in C
 
 
- // /* // Now we want this to get ported:
+// /* // Now we want this to get ported:
 // section 1.8.2 and 7.1
 // try to receive a single packet if one is available, non-blocking
 // see datasheet section 7.1.9 for an explanation of the rx ring structure
 // tl;dr: we control the tail of the queue, the hardware the head
-function ixgbe_rx_batch(dev /*ixgbe device*/,  queue_id,  bufs /*array, not sure we want this*/,  num_bufs) { //returns number
-	const queue = dev.rx_queues[queue_id];
-	const rx_index = queue.rx_index; // rx index we checked in the last run of this function
-	const last_rx_index = rx_index; // index of the descriptor we checked in the last iteration of the loop
-	let buf_index;
-	for (buf_index = 0; buf_index < num_bufs; buf_index++) {
-		// rx descriptors are explained in 7.1.5
-		const desc_ptr =     getDescriptorFromVirt(queue.descriptors, rx_index);
-		const status = desc_ptr.upper.status_error;
-		if (status & defines.IXGBE_RXDADV_STAT_DD) {
-			if (!(status & defines.IXGBE_RXDADV_STAT_EOP)) {
-				throw new Error("multi-segment packets are not supported - increase buffer size or decrease MTU");
-			}
-			// got a packet, read and copy the whole descriptor
-			union ixgbe_adv_rx_desc desc = *desc_ptr;
-			struct pkt_buf* buf = (struct pkt_buf*) queue->virtual_addresses[rx_index];
-			buf->size = desc.wb.upper.length;
-			// this would be the place to implement RX offloading by translating the device-specific flags
-			// to an independent representation in the buf (similiar to how DPDK works)
-			// need a new mbuf for the descriptor
-			struct pkt_buf* new_buf = pkt_buf_alloc(queue->mempool);
-			if (!new_buf) {
-				// we could handle empty mempools more gracefully here, but it would be quite messy...
-				// make your mempools large enough
-				error("failed to allocate new mbuf for rx, you are either leaking memory or your mempool is too small");
-			}
-			// reset the descriptor
-			desc_ptr->read.pkt_addr = new_buf->buf_addr_phy + offsetof(struct pkt_buf, data);
-			desc_ptr->read.hdr_addr = 0; // this resets the flags
-			queue->virtual_addresses[rx_index] = new_buf;
-			bufs[buf_index] = buf;
-			// want to read the next one in the next iteration, but we still need the last/current to update RDT later
-			last_rx_index = rx_index;
-			rx_index = wrap_ring(rx_index, queue->num_entries);
-		} else {
-			break;
-		}
-	}
-	if (rx_index != last_rx_index) {
-		// tell hardware that we are done
-		// this is intentionally off by one, otherwise we'd set RDT=RDH if we are receiving faster than packets are coming in
-		// RDT=RDH means queue is full
-		set_reg32(dev->addr, IXGBE_RDT(queue_id), last_rx_index);
-		queue->rx_index = rx_index;
-	}
-	return buf_index; // number of packets stored in bufs; buf_index points to the next index
+function ixgbe_rx_batch(dev /* ixgbe device*/, queue_id, bufs /* array, not sure we want this*/, num_bufs) { // returns number
+  const queue = dev.rx_queues[queue_id];
+  let { rx_index } = queue; // rx index we checked in the last run of this function
+  let last_rx_index = rx_index; // index of the descriptor we checked in the last iteration of the loop
+  let buf_index;
+  for (buf_index = 0; buf_index < num_bufs; buf_index++) {
+    // rx descriptors are explained in 7.1.5
+    const desc_ptr = getDescriptorFromVirt(queue.descriptors, rx_index);
+    const status = desc_ptr.upper.status_error;
+    if (status & defines.IXGBE_RXDADV_STAT_DD) {
+      if (!(status & defines.IXGBE_RXDADV_STAT_EOP)) {
+        throw new Error('multi-segment packets are not supported - increase buffer size or decrease MTU');
+      }
+      // got a packet, read and copy the whole descriptor
+      const desc = desc_ptr;
+      const buf = queue.virtual_addresses[rx_index];
+      buf.mem.size = desc.wb.upper.length; // check how we can get size of dataView TODO
+      // this would be the place to implement RX offloading by translating the device-specific flags
+      // to an independent representation in the buf (similiar to how DPDK works)
+      // need a new mbuf for the descriptor
+      const new_buf = pkt_buf_alloc_js(queue.mempool); // this should work, but is a critical point
+      if (!new_buf) {
+        // we could handle empty mempools more gracefully here, but it would be quite messy...
+        // make your mempools large enough
+        throw new Error('failed to allocate new mbuf for rx, you are either leaking memory or your mempool is too small');
+      }
+      // reset the descriptor
+      // TODO add the set functions
+      desc_ptr.memView.setBigUint64(0, addon.addBigInts(buf.buf_addr_phy, 64)/* offsetof(struct pkt_buf, data)*/, littleEndian); // TODO double check offset
+      // this resets the flags
+      desc_ptr.memView.setUint32(8, 0, littleEndian);
+      desc_ptr.memView.setUint32(12, 0, littleEndian);
+
+      queue.virtual_addresses[rx_index] = new_buf;
+      bufs[buf_index] = buf;
+      // want to read the next one in the next iteration, but we still need the last/current to update RDT later
+      last_rx_index = rx_index;
+      rx_index = wrap_ring(rx_index, queue.num_entries);
+    } else {
+      break;
+    }
+  }
+  if (rx_index !== last_rx_index) {
+    // tell hardware that we are done
+    // this is intentionally off by one, otherwise we'd set RDT=RDH if we are receiving faster than packets are coming in
+    // RDT=RDH means queue is full
+    addon.set_reg_js(dev.addr, defines.IXGBE_RDT(queue_id), last_rx_index);
+    queue.rx_index = rx_index;
+
+    console.log(`RDT register: ${addon.get_reg_js(dev.addr, defines.IXGBE_RDT(queue_id))}/nRDH register: ${addon.get_reg_js(dev.addr, defines.IXGBE_RDH(queue_id))}`);
+  }
+  return buf_index; // number of packets stored in bufs; buf_index points to the next index
 }
 
 /**/
