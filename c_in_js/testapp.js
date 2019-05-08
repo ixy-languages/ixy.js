@@ -525,3 +525,11 @@ for (const i in ixgbe_device.rx_queues) {
 
 console.log('ixgbe_device now:');
 console.log(util.inspect(ixgbe_device, false, null, true));
+
+const bufferArrayLength = 512;
+const bufferArray = new Array(bufferArrayLength);
+ixgbe_device.ixy.rx_batch(ixgbe_device, 0, bufferArray, bufferArrayLength);
+
+console.log('buffer array, should be packages we got:');
+console.log(util.inspect(bufferArray, false, null, true));
+
