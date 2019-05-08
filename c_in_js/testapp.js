@@ -294,8 +294,8 @@ function memory_allocate_mempool_js(num_entries, entry_size) {
   entry_size = entry_size ? entry_size : 2048;
   // require entries that neatly fit into the page size, this makes the memory pool much easier
   // otherwise our base_addr + index * size formula would be wrong because we can't cross a page-boundary
-  if (HUGE_PAGE_SIZE % entry_size) {
-    error('entry size must be a divisor of the huge page size (%d)', HUGE_PAGE_SIZE);
+  if (defines.HUGE_PAGE_SIZE % entry_size) {
+    console.error(`entry size must be a divisor of the huge page size ${defines.HUGE_PAGE_SIZE}`);
   }
   const mem = addon.getDmaMem(num_entries * entry_size, false);
   const mempool = {};
@@ -383,7 +383,7 @@ function start_rx_queue(ixgbe_device, queue_id) {
   // this has to be fixed if jumbo frames are to be supported
   // mempool should be >= the number of rx and tx descriptors for a forwarding application
   const mempool_size = defines.NUM_RX_QUEUE_ENTRIES + defines.NUM_TX_QUEUE_ENTRIES;
-  const mempool = memory_allocate_mempool_js(mempool_size < 4096 ? 4096 : mempool_size, 2048);
+  queue.mempool = memory_allocate_mempool_js(mempool_size < 4096 ? 4096 : mempool_size, 2048);
   if (queue.num_entries && (queue.num_entries - 1)) {
     throw new Error('number of queue entries must be a power of 2');
   }
@@ -403,7 +403,7 @@ function start_rx_queue(ixgbe_device, queue_id) {
   }
   // enable queue and wait if necessary
   set_flags_js(ixgbe_device.addr, defines.IXGBE_RXDCTL(queue_id), defines.IXGBE_RXDCTL_ENABLE);
-  wait_set_reg32(ixgbe_device.addr, defines.IXGBE_RXDCTL(queue_id), defines.IXGBE_RXDCTL_ENABLE); // TODO add this function
+  addon.wait_set_reg32(ixgbe_device.addr, defines.IXGBE_RXDCTL(queue_id), defines.IXGBE_RXDCTL_ENABLE);
   // rx queue starts out full
   addon.set_reg_js(ixgbe_device.addr, defines.IXGBE_RDH(queue_id), 0);
   // was set to 0 before in the init function

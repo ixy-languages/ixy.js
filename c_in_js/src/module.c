@@ -276,13 +276,30 @@ napi_value create_rx_queue(napi_env env, napi_callback_info info)
 }
 
 // what we want to implement to use in JS:
-void setReg32(uint8_t *addr, int32_t reg, uint32_t value)
+void setReg32(const uint8_t *addr, int32_t reg, uint32_t value)
 {
   __asm__ volatile(""
                    :
                    :
                    : "memory");
   *((volatile uint32_t *)(addr + reg)) = value;
+}
+void waitSetReg32(const uint8_t *addr, int32_t reg, uint32_t mask)
+{ // maybe we can make this better with async in JS, but probably not
+  __asm__ volatile(""
+                   :
+                   :
+                   : "memory");
+  uint32_t cur = 0;
+  while (cur = *((volatile uint32_t *)(addr + reg)), (cur & mask) != mask)
+  {
+    debug("waiting for flags 0x%08X in register 0x%05X, current value 0x%08X", mask, reg, cur);
+    usleep(10000);
+    __asm__ volatile(""
+                     :
+                     :
+                     : "memory");
+  }
 }
 uint32_t getReg32(const uint8_t *addr, int reg)
 {
@@ -605,6 +622,47 @@ napi_value set_reg_js(napi_env env, napi_callback_info info)
   return NULL;
 }
 
+/**
+ * This makes the set_reg function available for JS
+ * */
+napi_value wait_set_reg_js(napi_env env, napi_callback_info info)
+{
+  napi_status stat;
+  size_t argc = 3;
+  napi_value argv[3];
+
+  stat = napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+  if (stat != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Failed to parse arguments");
+  }
+  // get first arg: addr
+  uint8_t *addr; // lets hope we dont need to actually allocate all that memory
+  size_t size;
+  stat = napi_get_arraybuffer_info(env, argv[0], &addr, size);
+  if (stat != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Failed to get the arraybuffer.");
+  }
+  // get second arg: reg
+  int32_t reg;
+  stat = napi_get_value_int32(env, argv[1], &reg);
+  if (stat != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Failed getting register offset.");
+  }
+  // get third arg: value
+  uint32_t value;
+  stat = napi_get_value_uint32(env, argv[2], &value);
+  if (stat != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Failed getting value.");
+  }
+
+  waitSetReg32(addr, reg, value);
+  return NULL;
+}
+
 napi_value Init(napi_env env, napi_value exports)
 {
   napi_status status;
@@ -678,6 +736,18 @@ napi_value Init(napi_env env, napi_value exports)
   }
 
   status = napi_set_named_property(env, exports, "set_reg_js", fn);
+  if (status != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Unable to populate exports");
+  }
+  // add wait_set_reg to the export
+  status = napi_create_function(env, NULL, 0, wait_set_reg_js, NULL, &fn);
+  if (status != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Unable to wrap native function");
+  }
+
+  status = napi_set_named_property(env, exports, "wait_set_reg_js", fn);
   if (status != napi_ok)
   {
     napi_throw_error(env, NULL, "Unable to populate exports");
