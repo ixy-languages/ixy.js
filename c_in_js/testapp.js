@@ -1,6 +1,8 @@
 const addon = require('./build/Release/exported_module');
 const Long = require('long'); // bigint is annoying http://thecodebarbarian.com/an-overview-of-bigint-in-node-js.html
 const util = require('util');
+const bigInt = require('big-integer');
+
 // const jstruct = require('js-struct');
 
 // check if little or big endian
@@ -335,14 +337,31 @@ function memory_allocate_mempool_js(num_entries, entry_size) {
 
     buf.setBigUint64(0, buff.buf_addr_phy, littleEndian);
     // let's skip mempool 8 bytes for now?
-    buf.setBigUint64(8, 'mempool TODO', littleEndian);
-    buf.setUint32(16, buff.mempool_idx);
+    // buf.setBigUint64(8, bigInt(), littleEndian); // without a real bigint we cant write a bigint
+    buf.setUint32(8, 0);
+    buf.setUint32(12, 0);
+
+    buf.setUint32(16, buff.mempool_idx, littleEndian);
     buf.setUint32(20, buff.size, littleEndian);
-    buf.setBigUint64(24, 0, littleEndian);
-    buf.setBigUint64(32, 0, littleEndian);
-    buf.setBigUint64(40, 0, littleEndian);
-    buf.setBigUint64(48, 0, littleEndian);
-    buf.setBigUint64(56, 0, littleEndian);
+    // same problem as above, cannot write bigint without real bigint input
+    /*
+    buf.setBigUint64(24, bigInt(), littleEndian);
+    buf.setBigUint64(32, bigInt(), littleEndian);
+    buf.setBigUint64(40, bigInt(), littleEndian);
+    buf.setBigUint64(48, bigInt(), littleEndian);
+    buf.setBigUint64(56, bigInt(), littleEndian);
+    */
+    buf.setUint32(24, 0);
+    buf.setUint32(28, 0);
+    buf.setUint32(32, 0);
+    buf.setUint32(36, 0);
+    buf.setUint32(40, 0);
+    buf.setUint32(44, 0);
+    buf.setUint32(48, 0);
+    buf.setUint32(52, 0);
+    buf.setUint32(56, 0);
+    buf.setUint32(60, 0);
+
     // now we filled the first 64 bytes
 
     // the rest can be data, but we dont give access via a variable
@@ -365,7 +384,7 @@ function pkt_buf_alloc_batch_js(mempool, num_bufs) {
 
 function pkt_buf_alloc_js(mempool) {
   const buf = pkt_buf_alloc_batch_js(mempool, 1);
-  return buf;
+  return buf/* [0]*/;
 }
 
 /*
@@ -376,7 +395,7 @@ now lets port this:
 function start_rx_queue(ixgbe_device, queue_id) {
   console.log(`starting rx queue ${queue_id}`);
   const queue = ixgbe_device.rx_queues[queue_id];
-  	// 2048 as pktbuf size is strictly speaking incorrect:
+  // 2048 as pktbuf size is strictly speaking incorrect:
   // we need a few headers (1 cacheline), so there's only 1984 bytes left for the device
   // but the 82599 can only handle sizes in increments of 1 kb; but this is fine since our max packet size
   // is the default MTU of 1518
@@ -384,7 +403,7 @@ function start_rx_queue(ixgbe_device, queue_id) {
   // mempool should be >= the number of rx and tx descriptors for a forwarding application
   const mempool_size = defines.NUM_RX_QUEUE_ENTRIES + defines.NUM_TX_QUEUE_ENTRIES;
   queue.mempool = memory_allocate_mempool_js(mempool_size < 4096 ? 4096 : mempool_size, 2048);
-  if (queue.num_entries && (queue.num_entries - 1)) {
+  if (queue.num_entries % 2 !== 0) {
     throw new Error('number of queue entries must be a power of 2');
   }
   for (let i = 0; i < queue.num_entries; i++) {
@@ -393,9 +412,11 @@ function start_rx_queue(ixgbe_device, queue_id) {
     if (!buf) {
       console.error('failed to allocate rx descriptor');
     }
+    console.log(util.inspect(buf, false, null, true /* enable colors */));
     // missing the offset value of this, would it be 64 bytes?
     // set pkt addr
-    rxd.memView.setBigUint64(0, buf.buf_addr_phy + 64/* offsetof(struct pkt_buf, data)*/, littleEndian);
+    console.log(`type of mem phy addr: ${typeof buf.buf_addr_phy}`);
+    rxd.memView.setBigUint64(0, addon.addBigInts(buf.buf_addr_phy, 64)/* offsetof(struct pkt_buf, data)*/, littleEndian);
     // set hdr addr
     rxd.memView.setBigUint64(8, 0, littleEndian);
     // we need to return the virtual address in the rx function which the descriptor doesn't know by default
@@ -410,3 +431,8 @@ function start_rx_queue(ixgbe_device, queue_id) {
   addon.set_reg_js(ixgbe_device.addr, defines.IXGBE_RDT(queue_id), queue.num_entries - 1);
 }
 /**/
+
+console.log('starting rx_queue....');
+for (const i in ixgbe_device.rx_queues) {
+  start_rx_queue(ixgbe_device, i);
+}

@@ -184,6 +184,40 @@ napi_value shortenPhysLatter(napi_env env, napi_callback_info info)
   }
   return ret;
 }
+napi_value addBigInts(napi_env env, napi_callback_info info)
+{
+  uint64_t num1;
+  int num2asInt;
+  napi_status stat;
+  bool lossless;
+  size_t argc = 1;
+  napi_value argv[1];
+  stat = napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+  if (stat != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Failed to parse arguments");
+  }
+  stat = napi_get_value_bigint_uint64(env, argv[0], &num1, &lossless);
+  if (stat != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Failed to get bigint.");
+  }
+  stat = napi_get_value_uint32(env, argv[1], &num2asInt);
+  if (stat != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Failed to get number.");
+  }
+  uint64_t num2 = (uint64_t)num2asInt;
+  uint64_t addedBigints = num1 + num2;
+  napi_value ret;
+  //hoping physical pointers are 64bit, else we need to handle every function that needs this value in C as well
+  stat = napi_create_bigint_uint64(env, addedBigints, &ret);
+  if (stat != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Failed to return sum of bigint and number.");
+  }
+  return ret;
+}
 // start receiving things
 
 // this is stuff we need for the function create_rx_queue to work
@@ -700,6 +734,18 @@ napi_value Init(napi_env env, napi_value exports)
   }
 
   status = napi_set_named_property(env, exports, "shortenPhysLatter", fn);
+  if (status != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Unable to populate exports");
+  }
+  //adding my add bigints function for the other part of the phys addr
+  status = napi_create_function(env, NULL, 0, addBigInts, NULL, &fn);
+  if (status != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Unable to wrap native function");
+  }
+
+  status = napi_set_named_property(env, exports, "addBigInts", fn);
   if (status != napi_ok)
   {
     napi_throw_error(env, NULL, "Unable to populate exports");
