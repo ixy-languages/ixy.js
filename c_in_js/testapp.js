@@ -128,7 +128,10 @@ const defines = {
   IXGBE_CTRL_EXT: 0x00018,
   IXGBE_CTRL_EXT_NS_DIS: 0x00010000,
   IXGBE_DCA_RXCTRL: i => (i <= 15 ? 0x02200 + (i * 4) : (i) < 64 ? 0x0100C + ((i) * 0x40) : 0x0D00C + (((i) - 64) * 0x40)),
-  SIZE_PKT_BUF_HEADROOM: 40
+  SIZE_PKT_BUF_HEADROOM: 40,
+  IXGBE_RXDCTL: i => (i < 64 ? 0x01028 + (i * 0x40) : 0x0D028 + ((i - 64) * 0x40)),
+  IXGBE_RXDCTL_ENABLE: 0x02000000
+
 };
 
 const getDescriptorFromVirt = (virtMem, index = 0) => {
@@ -172,8 +175,8 @@ union ixgbe_adv_rx_desc {
   } wb; // writeback
 };
   */
-  descriptor.pkt_addr = dataView.getFloat64(0 + offset, littleEndian);
-  descriptor.hdr_addr = dataView.getFloat64(8 + offset, littleEndian);
+  descriptor.pkt_addr = dataView.getBigUint64(0 + offset, littleEndian);
+  descriptor.hdr_addr = dataView.getBigUint64(8 + offset, littleEndian);
   descriptor.lower = {};
   descriptor.lower.lo_dword = {};
   descriptor.lower.lo_dword.data = dataView.getUint32(0 + offset, littleEndian);
@@ -261,7 +264,8 @@ function init_rx(ixgbe_device) {
     const queue = {
       num_entries: defines.NUM_RX_QUEUE_ENTRIES,
       rx_index: 0,
-      descriptors: mem.virt
+      descriptors: mem.virt,
+      virtual_addresses: []
     };
     ixgbe_device.rx_queues.push(queue);
   }
@@ -282,7 +286,7 @@ console.log('running init_rx...');
 init_rx(ixgbe_device);
 
 console.log(util.inspect(ixgbe_device, false, null, true /* enable colors */));
-console.log('printing rx_queues read from buffer we saved:');
+console.log('printing rx_queue descriptors read from buffer we saved:');
 for (const index in ixgbe_device.rx_queues) {
   const queueDescriptor = getDescriptorFromVirt(ixgbe_device.rx_queues[index].descriptors);
   console.log(util.inspect(queueDescriptor, false, null, true /* enable colors */));
@@ -377,14 +381,17 @@ function pkt_buf_alloc_batch_js(mempool, num_bufs) {
   }
   for (let i = 0; i < num_bufs; i++) {
     const entry_id = mempool.free_stack[--mempool.free_stack_top];
-    bufs.push(new DataView(mempool.base_addr, entry_id * mempool.buf_size, mempool.buf_size));
+    const buf = {};
+    buf.mem = new DataView(mempool.base_addr, entry_id * mempool.buf_size, mempool.buf_size);
+    buf.buf_addr_phy = addon.dataviewToPhys(buf.mem);
+    bufs.push(buf);
   }
   return bufs;
 }
 
 function pkt_buf_alloc_js(mempool) {
   const buf = pkt_buf_alloc_batch_js(mempool, 1);
-  return buf/* [0]*/;
+  return buf[0];
 }
 
 /*
@@ -412,19 +419,21 @@ function start_rx_queue(ixgbe_device, queue_id) {
     if (!buf) {
       console.error('failed to allocate rx descriptor');
     }
-    console.log(util.inspect(buf, false, null, true /* enable colors */));
     // missing the offset value of this, would it be 64 bytes?
     // set pkt addr
-    console.log(`type of mem phy addr: ${typeof buf.buf_addr_phy}`);
     rxd.memView.setBigUint64(0, addon.addBigInts(buf.buf_addr_phy, 64)/* offsetof(struct pkt_buf, data)*/, littleEndian);
     // set hdr addr
-    rxd.memView.setBigUint64(8, 0, littleEndian);
+    // because of bigint
+    // rxd.memView.setBigUint64(8, 0, littleEndian);
+    rxd.memView.setUint32(8, 0, littleEndian);
+    rxd.memView.setUint32(12, 0, littleEndian);
+
     // we need to return the virtual address in the rx function which the descriptor doesn't know by default
-    queue.virtual_addresses[i] = buf;
+    queue.virtual_addresses.push(buf);
   }
   // enable queue and wait if necessary
   set_flags_js(ixgbe_device.addr, defines.IXGBE_RXDCTL(queue_id), defines.IXGBE_RXDCTL_ENABLE);
-  addon.wait_set_reg32(ixgbe_device.addr, defines.IXGBE_RXDCTL(queue_id), defines.IXGBE_RXDCTL_ENABLE);
+  addon.wait_set_reg_js(ixgbe_device.addr, defines.IXGBE_RXDCTL(queue_id), defines.IXGBE_RXDCTL_ENABLE);
   // rx queue starts out full
   addon.set_reg_js(ixgbe_device.addr, defines.IXGBE_RDH(queue_id), 0);
   // was set to 0 before in the init function
@@ -436,3 +445,7 @@ console.log('starting rx_queue....');
 for (const i in ixgbe_device.rx_queues) {
   start_rx_queue(ixgbe_device, i);
 }
+
+
+console.log('ixgbe_device now:');
+console.log(util.inspect(ixgbe_device, false, null, true /* enable colors */));

@@ -126,7 +126,41 @@ napi_value virtToPhys(napi_env env, napi_callback_info info)
   stat = napi_create_bigint_uint64(env, physPointer, &ret);
   if (stat != napi_ok)
   {
-    napi_throw_error(env, NULL, "Failed to get virtual Memory from ArrayBuffer.");
+    napi_throw_error(env, NULL, "Failed to write PhysAddr into bigint.");
+  }
+  return ret;
+}
+napi_value dataviewToPhys(napi_env env, napi_callback_info info)
+{
+  void *virt;
+  napi_status stat;
+  size_t sizeOfArray;
+  size_t argc = 1;
+  size_t byteOffset;
+  napi_value argv[1];
+  napi_value arrayBuffer;
+  stat = napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+  if (stat != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Failed to parse arguments");
+  }
+  stat = napi_get_dataview_info(env,
+                                argv[0],
+                                &sizeOfArray,
+                                &virt,
+                                &arrayBuffer,
+                                &byteOffset);
+  if (stat != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Failed to get virtual Memory from Dataview.");
+  }
+  uintptr_t physPointer = virt_to_phys(virt) + byteOffset; // TODO check if we need to multiply with 8 or so to get to bytes
+  napi_value ret;
+  //hoping physical pointers are 64bit, else we need to handle every function that needs this value in C as well
+  stat = napi_create_bigint_uint64(env, physPointer, &ret);
+  if (stat != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Failed to write PhysAddr into bigint.");
   }
   return ret;
 }
@@ -187,11 +221,11 @@ napi_value shortenPhysLatter(napi_env env, napi_callback_info info)
 napi_value addBigInts(napi_env env, napi_callback_info info)
 {
   uint64_t num1;
-  int num2asInt;
+  uint32_t num2asInt;
   napi_status stat;
   bool lossless;
-  size_t argc = 1;
-  napi_value argv[1];
+  size_t argc = 2;
+  napi_value argv[2];
   stat = napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
   if (stat != napi_ok)
   {
@@ -829,6 +863,18 @@ napi_value Init(napi_env env, napi_value exports)
   }
 
   status = napi_set_named_property(env, exports, "virtToPhys", fn);
+  if (status != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Unable to populate exports");
+  }
+   // add virtToPhys to the export
+  status = napi_create_function(env, NULL, 0, dataviewToPhys, NULL, &fn);
+  if (status != napi_ok)
+  {
+    napi_throw_error(env, NULL, "Unable to wrap native function");
+  }
+
+  status = napi_set_named_property(env, exports, "dataviewToPhys", fn);
   if (status != napi_ok)
   {
     napi_throw_error(env, NULL, "Unable to populate exports");
