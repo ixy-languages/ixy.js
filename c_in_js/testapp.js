@@ -54,8 +54,8 @@ const ixgbe_device = {
   ixy: {
     pci_addr: pciAddr,
     driver_name: 'ixy.js',
-    num_rx_queues: 4,
-    num_tx_queues: 4,
+    num_rx_queues: 2,
+    num_tx_queues: 2,
     rx_batch: () => { },
     tx_batch: () => { },
     read_stats: () => { },
@@ -68,6 +68,10 @@ const ixgbe_device = {
   rx_queues: [],
   tx_queues: []
 };
+
+ixgbe_device.rx_queues = new Array(ixgbe_device.ixy.num_rx_queues);
+ixgbe_device.tx_queues = new Array(ixgbe_device.ixy.num_rx_queues);
+
 
 // get IXY memory
 ixgbe_device.addr = addon.getIXYAddr(ixgbe_device.ixy.pci_addr);
@@ -265,9 +269,9 @@ function init_rx(ixgbe_device) {
       num_entries: defines.NUM_RX_QUEUE_ENTRIES,
       rx_index: 0,
       descriptors: mem.virt,
-      virtual_addresses: []
+      virtual_addresses: new Array(defines.NUM_RX_QUEUE_ENTRIES)
     };
-    ixgbe_device.rx_queues.push(queue);
+    ixgbe_device.rx_queues[i] = queue;
   }
 
   // last step is to set some magic bits mentioned in the last sentence in 4.6.7
@@ -309,10 +313,10 @@ function memory_allocate_mempool_js(num_entries, entry_size) {
   mempool.buf_size = entry_size;
   mempool.base_addr = mem; // buffer that holds mempool
   mempool.free_stack_top = num_entries;
-  mempool.free_stack = [];
+  mempool.free_stack = new Array(num_entries);
 
   for (let i = 0; i < num_entries; i++) {
-    mempool.free_stack.push(i);
+    mempool.free_stack[i] = i;
     const buf = new DataView(mem, i * entry_size); // this should do the trick?
     // TODO get buffer correctly!
     /*
@@ -374,7 +378,7 @@ function memory_allocate_mempool_js(num_entries, entry_size) {
 }
 // another function to port
 function pkt_buf_alloc_batch_js(mempool, num_bufs) {
-  const bufs = [];
+  const bufs = new Array(num_bufs);
   if (mempool.free_stack_top < num_bufs) {
     console.warn(`memory pool ${mempool} only has ${mempool.free_stack_top} free bufs, requested ${num_bufs}`);
     num_bufs = mempool.free_stack_top;
@@ -384,7 +388,7 @@ function pkt_buf_alloc_batch_js(mempool, num_bufs) {
     const buf = {};
     buf.mem = new DataView(mempool.base_addr, entry_id * mempool.buf_size, mempool.buf_size);
     buf.buf_addr_phy = addon.dataviewToPhys(buf.mem);
-    bufs.push(buf);
+    bufs[i] = buf;
   }
   return bufs;
 }
@@ -429,7 +433,7 @@ function start_rx_queue(ixgbe_device, queue_id) {
     rxd.memView.setUint32(12, 0, littleEndian);
 
     // we need to return the virtual address in the rx function which the descriptor doesn't know by default
-    queue.virtual_addresses.push(buf);
+    queue.virtual_addresses[i] = buf;
   }
   // enable queue and wait if necessary
   set_flags_js(ixgbe_device.addr, defines.IXGBE_RXDCTL(queue_id), defines.IXGBE_RXDCTL_ENABLE);
@@ -448,4 +452,4 @@ for (const i in ixgbe_device.rx_queues) {
 
 
 console.log('ixgbe_device now:');
-console.log(util.inspect(ixgbe_device, false, null, true /* enable colors */));
+console.log(util.inspect(ixgbe_device, false, null, true));
