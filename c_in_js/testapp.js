@@ -453,3 +453,59 @@ for (const i in ixgbe_device.rx_queues) {
 
 console.log('ixgbe_device now:');
 console.log(util.inspect(ixgbe_device, false, null, true));
+
+/* // Now we want this to get ported:
+// section 1.8.2 and 7.1
+// try to receive a single packet if one is available, non-blocking
+// see datasheet section 7.1.9 for an explanation of the rx ring structure
+// tl;dr: we control the tail of the queue, the hardware the head
+uint32_t ixgbe_rx_batch(struct ixy_device* ixy, uint16_t queue_id, struct pkt_buf* bufs[], uint32_t num_bufs) {
+	struct ixgbe_device* dev = IXY_TO_IXGBE(ixy);
+	struct ixgbe_rx_queue* queue = ((struct ixgbe_rx_queue*)(dev->rx_queues)) + queue_id;
+	uint16_t rx_index = queue->rx_index; // rx index we checked in the last run of this function
+	uint16_t last_rx_index = rx_index; // index of the descriptor we checked in the last iteration of the loop
+	uint32_t buf_index;
+	for (buf_index = 0; buf_index < num_bufs; buf_index++) {
+		// rx descriptors are explained in 7.1.5
+		volatile union ixgbe_adv_rx_desc* desc_ptr = queue->descriptors + rx_index;
+		uint32_t status = desc_ptr->wb.upper.status_error;
+		if (status & IXGBE_RXDADV_STAT_DD) {
+			if (!(status & IXGBE_RXDADV_STAT_EOP)) {
+				error("multi-segment packets are not supported - increase buffer size or decrease MTU");
+			}
+			// got a packet, read and copy the whole descriptor
+			union ixgbe_adv_rx_desc desc = *desc_ptr;
+			struct pkt_buf* buf = (struct pkt_buf*) queue->virtual_addresses[rx_index];
+			buf->size = desc.wb.upper.length;
+			// this would be the place to implement RX offloading by translating the device-specific flags
+			// to an independent representation in the buf (similiar to how DPDK works)
+			// need a new mbuf for the descriptor
+			struct pkt_buf* new_buf = pkt_buf_alloc(queue->mempool);
+			if (!new_buf) {
+				// we could handle empty mempools more gracefully here, but it would be quite messy...
+				// make your mempools large enough
+				error("failed to allocate new mbuf for rx, you are either leaking memory or your mempool is too small");
+			}
+			// reset the descriptor
+			desc_ptr->read.pkt_addr = new_buf->buf_addr_phy + offsetof(struct pkt_buf, data);
+			desc_ptr->read.hdr_addr = 0; // this resets the flags
+			queue->virtual_addresses[rx_index] = new_buf;
+			bufs[buf_index] = buf;
+			// want to read the next one in the next iteration, but we still need the last/current to update RDT later
+			last_rx_index = rx_index;
+			rx_index = wrap_ring(rx_index, queue->num_entries);
+		} else {
+			break;
+		}
+	}
+	if (rx_index != last_rx_index) {
+		// tell hardware that we are done
+		// this is intentionally off by one, otherwise we'd set RDT=RDH if we are receiving faster than packets are coming in
+		// RDT=RDH means queue is full
+		set_reg32(dev->addr, IXGBE_RDT(queue_id), last_rx_index);
+		queue->rx_index = rx_index;
+	}
+	return buf_index; // number of packets stored in bufs; buf_index points to the next index
+}
+
+*/
