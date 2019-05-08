@@ -134,7 +134,9 @@ const defines = {
   IXGBE_DCA_RXCTRL: i => (i <= 15 ? 0x02200 + (i * 4) : (i) < 64 ? 0x0100C + ((i) * 0x40) : 0x0D00C + (((i) - 64) * 0x40)),
   SIZE_PKT_BUF_HEADROOM: 40,
   IXGBE_RXDCTL: i => (i < 64 ? 0x01028 + (i * 0x40) : 0x0D028 + ((i - 64) * 0x40)),
-  IXGBE_RXDCTL_ENABLE: 0x02000000
+  IXGBE_RXDCTL_ENABLE: 0x02000000,
+  IXGBE_RXDADV_STAT_DD: 0x01 /*Done*/,
+  IXGBE_RXDADV_STAT_EOP:0x02 /*End of Packet*/
 
 };
 
@@ -421,7 +423,7 @@ function start_rx_queue(ixgbe_device, queue_id) {
     const rxd = getDescriptorFromVirt(queue.descriptors, i);
     const buf = pkt_buf_alloc_js(queue.mempool);
     if (!buf) {
-      console.error('failed to allocate rx descriptor');
+      throw new Error('failed to allocate rx descriptor');
     }
     // missing the offset value of this, would it be 64 bytes?
     // set pkt addr
@@ -454,24 +456,26 @@ for (const i in ixgbe_device.rx_queues) {
 console.log('ixgbe_device now:');
 console.log(util.inspect(ixgbe_device, false, null, true));
 
-/* // Now we want this to get ported:
+function wrap_ring (index, ring_size){ return ((index + 1) %ring_size )}; // our version of wrapper, not sure if bitwise would work exactly as in C
+
+
+ // /* // Now we want this to get ported:
 // section 1.8.2 and 7.1
 // try to receive a single packet if one is available, non-blocking
 // see datasheet section 7.1.9 for an explanation of the rx ring structure
 // tl;dr: we control the tail of the queue, the hardware the head
-uint32_t ixgbe_rx_batch(struct ixy_device* ixy, uint16_t queue_id, struct pkt_buf* bufs[], uint32_t num_bufs) {
-	struct ixgbe_device* dev = IXY_TO_IXGBE(ixy);
-	struct ixgbe_rx_queue* queue = ((struct ixgbe_rx_queue*)(dev->rx_queues)) + queue_id;
-	uint16_t rx_index = queue->rx_index; // rx index we checked in the last run of this function
-	uint16_t last_rx_index = rx_index; // index of the descriptor we checked in the last iteration of the loop
-	uint32_t buf_index;
+function ixgbe_rx_batch(dev /*ixgbe device*/,  queue_id,  bufs /*array, not sure we want this*/,  num_bufs) { //returns number
+	const queue = dev.rx_queues[queue_id];
+	const rx_index = queue.rx_index; // rx index we checked in the last run of this function
+	const last_rx_index = rx_index; // index of the descriptor we checked in the last iteration of the loop
+	let buf_index;
 	for (buf_index = 0; buf_index < num_bufs; buf_index++) {
 		// rx descriptors are explained in 7.1.5
-		volatile union ixgbe_adv_rx_desc* desc_ptr = queue->descriptors + rx_index;
-		uint32_t status = desc_ptr->wb.upper.status_error;
-		if (status & IXGBE_RXDADV_STAT_DD) {
-			if (!(status & IXGBE_RXDADV_STAT_EOP)) {
-				error("multi-segment packets are not supported - increase buffer size or decrease MTU");
+		const desc_ptr =     getDescriptorFromVirt(queue.descriptors, rx_index);
+		const status = desc_ptr.upper.status_error;
+		if (status & defines.IXGBE_RXDADV_STAT_DD) {
+			if (!(status & defines.IXGBE_RXDADV_STAT_EOP)) {
+				throw new Error("multi-segment packets are not supported - increase buffer size or decrease MTU");
 			}
 			// got a packet, read and copy the whole descriptor
 			union ixgbe_adv_rx_desc desc = *desc_ptr;
@@ -508,6 +512,6 @@ uint32_t ixgbe_rx_batch(struct ixy_device* ixy, uint16_t queue_id, struct pkt_bu
 	return buf_index; // number of packets stored in bufs; buf_index points to the next index
 }
 
-*/
+/**/
 
 // TODO port ixy-fwd-c as well, then we should be able to get the receive packet part running?
