@@ -30,75 +30,6 @@ default:
   pciAddr2 = null;
 }
 
-/*
-lets build following in JS:
-struct ixgbe_device {
-    struct ixy_device ixy;
-    uint8_t* addr;
-    void* rx_queues;
-    void* tx_queues;
-};
-struct ixy_device {
-	const char* pci_addr;
-	const char* driver_name;
-	uint16_t num_rx_queues;
-	uint16_t num_tx_queues;
-	uint32_t (*rx_batch) (struct ixy_device* dev, uint16_t queue_id, struct pkt_buf* bufs[], uint32_t num_bufs);
-	uint32_t (*tx_batch) (struct ixy_device* dev, uint16_t queue_id, struct pkt_buf* bufs[], uint32_t num_bufs);
-	void (*read_stats) (struct ixy_device* dev, struct device_stats* stats);
-	void (*set_promisc) (struct ixy_device* dev, bool enabled);
-	uint32_t (*get_link_speed) (const struct ixy_device* dev);
-};
-*/
-const ixgbe_device = {
-  ixy: {
-    pci_addr: pciAddr,
-    driver_name: 'ixy.js',
-    num_rx_queues: 2,
-    num_tx_queues: 2,
-    rx_batch: () => { },
-    tx_batch: () => { },
-    read_stats: () => { },
-    set_promisc: () => { },
-    get_link_speed: () => { }
-  },
-  addr: null,
-  dataView: null,
-  phAddr: null,
-  rx_queues: [],
-  tx_queues: []
-};
-
-ixgbe_device.rx_queues = new Array(ixgbe_device.ixy.num_rx_queues);
-ixgbe_device.tx_queues = new Array(ixgbe_device.ixy.num_rx_queues);
-
-
-// get IXY memory
-ixgbe_device.addr = addon.getIXYAddr(ixgbe_device.ixy.pci_addr);
-const IXYDevice = ixgbe_device.addr;
-// create a View on the IXY memory, which is RO
-ixgbe_device.dataView = new DataView(IXYDevice);
-const IXYView = ixgbe_device.dataView;
-console.log(`The 32bit before changing: ${IXYView.getUint32(0x200, littleEndian)}`);
-console.log('-----------cstart------------');
-// we need to call a C function to actually write to this memory
-addon.set_reg_js(IXYDevice, 0x200, 2542);
-console.log('-----------c--end------------');
-console.log(`The 32bit after changing: ${IXYView.getUint32(0x200, littleEndian)}`);
-console.log('trying to change value to 20 via JS..');
-IXYView.setUint32(0x200, 20, littleEndian);
-console.log(`The 32bit after JS changing: ${IXYView.getUint32(0x200, littleEndian)}`);
-
-
-const dmaMem = addon.getDmaMem(20, true);
-const dmaView = new DataView(dmaMem);
-console.log(`dma at byte 0 : ${dmaView.getUint32(0, littleEndian)}`);
-console.log('trying to change value to 20 via JS..');
-dmaView.setUint32(0, 20, littleEndian);
-console.log(`dma at byte 0 after JS change : ${dmaView.getUint32(0, littleEndian)}`);
-const physicalAddress = addon.virtToPhys(dmaMem);
-console.log(`Physical address: ${physicalAddress}`);
-
 // we want to initialize rx queues, and change functions to the JS equivalent
 
 function clear_flags_js(addr, reg, flags) {
@@ -288,17 +219,6 @@ function init_rx(ixgbe_device) {
   set_flags_js(IXYDevice, defines.IXGBE_RXCTRL, defines.IXGBE_RXCTRL_RXEN);
 }
 
-console.log('running init_rx...');
-init_rx(ixgbe_device);
-
-console.log(util.inspect(ixgbe_device, false, null, true /* enable colors */));
-console.log('printing rx_queue descriptors read from buffer we saved:');
-for (const index in ixgbe_device.rx_queues) {
-  const queueDescriptor = getDescriptorFromVirt(ixgbe_device.rx_queues[index].descriptors);
-  console.log(util.inspect(queueDescriptor, false, null, true /* enable colors */));
-}
-
-
 /* let's port mempool allocation first:
 */
 
@@ -445,23 +365,12 @@ function start_rx_queue(ixgbe_device, queue_id) {
   // was set to 0 before in the init function
   addon.set_reg_js(ixgbe_device.addr, defines.IXGBE_RDT(queue_id), queue.num_entries - 1);
 }
-/**/
-
-console.log('starting rx_queue....');
-for (const i in ixgbe_device.rx_queues) {
-  start_rx_queue(ixgbe_device, i);
-}
-
-
-console.log('ixgbe_device now:');
-console.log(util.inspect(ixgbe_device, false, null, true));
 
 function wrap_ring(index, ring_size) {
   return (index + 1) % ring_size;
 } // our version of wrapper, not sure if bitwise would work exactly as in C
 
 
-// /* // Now we want this to get ported:
 // section 1.8.2 and 7.1
 // try to receive a single packet if one is available, non-blocking
 // see datasheet section 7.1.9 for an explanation of the rx ring structure
@@ -523,3 +432,96 @@ function ixgbe_rx_batch(dev /* ixgbe device*/, queue_id, bufs /* array, not sure
 /**/
 
 // TODO port ixy-fwd-c as well, then we should be able to get the receive packet part running?
+
+
+// -------------------------------------starting the actual code:--------------------------
+
+
+/*
+struct ixgbe_device {
+    struct ixy_device ixy;
+    uint8_t* addr;
+    void* rx_queues;
+    void* tx_queues;
+};
+struct ixy_device {
+	const char* pci_addr;
+	const char* driver_name;
+	uint16_t num_rx_queues;
+	uint16_t num_tx_queues;
+	uint32_t (*rx_batch) (struct ixy_device* dev, uint16_t queue_id, struct pkt_buf* bufs[], uint32_t num_bufs);
+	uint32_t (*tx_batch) (struct ixy_device* dev, uint16_t queue_id, struct pkt_buf* bufs[], uint32_t num_bufs);
+	void (*read_stats) (struct ixy_device* dev, struct device_stats* stats);
+	void (*set_promisc) (struct ixy_device* dev, bool enabled);
+	uint32_t (*get_link_speed) (const struct ixy_device* dev);
+};
+*/
+const ixgbe_device = {
+  ixy: {
+    pci_addr: pciAddr,
+    driver_name: 'ixy.js',
+    num_rx_queues: 2,
+    num_tx_queues: 2,
+    rx_batch: ixgbe_rx_batch,
+    tx_batch: () => { },
+    read_stats: () => { },
+    set_promisc: () => { },
+    get_link_speed: () => { }
+  },
+  addr: null,
+  dataView: null,
+  phAddr: null,
+  rx_queues: [],
+  tx_queues: []
+};
+
+ixgbe_device.rx_queues = new Array(ixgbe_device.ixy.num_rx_queues);
+ixgbe_device.tx_queues = new Array(ixgbe_device.ixy.num_rx_queues);
+
+
+// get IXY memory
+ixgbe_device.addr = addon.getIXYAddr(ixgbe_device.ixy.pci_addr);
+const IXYDevice = ixgbe_device.addr;
+// create a View on the IXY memory, which is RO
+ixgbe_device.dataView = new DataView(IXYDevice);
+const IXYView = ixgbe_device.dataView;
+console.log(`The 32bit before changing: ${IXYView.getUint32(0x200, littleEndian)}`);
+console.log('-----------cstart------------');
+// we need to call a C function to actually write to this memory
+addon.set_reg_js(IXYDevice, 0x200, 2542);
+console.log('-----------c--end------------');
+console.log(`The 32bit after changing: ${IXYView.getUint32(0x200, littleEndian)}`);
+console.log('trying to change value to 20 via JS..');
+IXYView.setUint32(0x200, 20, littleEndian);
+console.log(`The 32bit after JS changing: ${IXYView.getUint32(0x200, littleEndian)}`);
+
+
+const dmaMem = addon.getDmaMem(20, true);
+const dmaView = new DataView(dmaMem);
+console.log(`dma at byte 0 : ${dmaView.getUint32(0, littleEndian)}`);
+console.log('trying to change value to 20 via JS..');
+dmaView.setUint32(0, 20, littleEndian);
+console.log(`dma at byte 0 after JS change : ${dmaView.getUint32(0, littleEndian)}`);
+const physicalAddress = addon.virtToPhys(dmaMem);
+console.log(`Physical address: ${physicalAddress}`);
+
+
+console.log('running init_rx...');
+init_rx(ixgbe_device);
+
+console.log(util.inspect(ixgbe_device, false, null, true /* enable colors */));
+console.log('printing rx_queue descriptors read from buffer we saved:');
+for (const index in ixgbe_device.rx_queues) {
+  const queueDescriptor = getDescriptorFromVirt(ixgbe_device.rx_queues[index].descriptors);
+  console.log(util.inspect(queueDescriptor, false, null, true /* enable colors */));
+}
+
+
+console.log('starting rx_queue....');
+for (const i in ixgbe_device.rx_queues) {
+  start_rx_queue(ixgbe_device, i);
+}
+
+
+console.log('ixgbe_device now:');
+console.log(util.inspect(ixgbe_device, false, null, true));
