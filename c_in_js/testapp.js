@@ -530,6 +530,10 @@ const bufferArrayLength = 512;
 const bufferArray = new Array(bufferArrayLength);
 ixgbe_device.ixy.rx_batch(ixgbe_device, 0, bufferArray, bufferArrayLength);
 
-console.log('buffer array, should be packages we got:');
-console.log(util.inspect(bufferArray, false, null, true));
+function printOurPackages() {
+  console.log('buffer array, should be packages we got:');
+  console.log(util.inspect(bufferArray, false, null, true));
+}
+
+setInterval(printOurPackages, 5000);
 
