@@ -4,6 +4,7 @@
 //include to use original c code
 #include "original_c_src/memory.c"
 
+#include <inttypes.h>
 //including just everything so that nothings missing (for C functions added/copy pasted)
 #include <assert.h>
 #include <errno.h>
@@ -121,6 +122,7 @@ napi_value virtToPhys(napi_env env, napi_callback_info info)
     napi_throw_error(env, NULL, "Failed to get virtual Memory from ArrayBuffer.");
   }
   uintptr_t physPointer = virt_to_phys(virt);
+  //printf("Phys addr we computed: %016" PRIxPTR "\n", physPointer);
   napi_value ret;
   //hoping physical pointers are 64bit, else we need to handle every function that needs this value in C as well
   stat = napi_create_bigint_uint64(env, physPointer, &ret);
@@ -154,10 +156,12 @@ napi_value dataviewToPhys(napi_env env, napi_callback_info info)
   {
     napi_throw_error(env, NULL, "Failed to get virtual Memory from Dataview.");
   }
+  uintptr_t oldPhysPointer = virt_to_phys(virt);
   uintptr_t physPointer = virt_to_phys(virt) + byteOffset; // TODO check if we need to multiply with 8 or so to get to bytes
+  //printf("Byte offset: %d\nOriginal phys addr: %016" PRIxPTR "\n-----New Phys Addr: %016" PRIxPTR "\n", byteOffset, oldPhysPointer, physPointer);
   napi_value ret;
   //hoping physical pointers are 64bit, else we need to handle every function that needs this value in C as well
-  stat = napi_create_bigint_uint64(env, physPointer, &ret);
+  stat = napi_create_bigint_uint64(env, oldPhysPointer, &ret);
   if (stat != napi_ok)
   {
     napi_throw_error(env, NULL, "Failed to write PhysAddr into bigint.");
@@ -867,7 +871,7 @@ napi_value Init(napi_env env, napi_value exports)
   {
     napi_throw_error(env, NULL, "Unable to populate exports");
   }
-   // add virtToPhys to the export
+  // add virtToPhys to the export
   status = napi_create_function(env, NULL, 0, dataviewToPhys, NULL, &fn);
   if (status != napi_ok)
   {

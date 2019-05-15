@@ -307,6 +307,8 @@ function pkt_buf_alloc_batch_js(mempool, num_bufs) {
   }
   for (let i = 0; i < num_bufs; i++) {
     const entry_id = mempool.free_stack[--mempool.free_stack_top];
+    // console.log(`entry id: ${entry_id}, offset: ${entry_id * mempool.buf_size} with buf_size of ${mempool.buf_size}`);
+    // console.log(`phys addr in JS: ${addon.virtToPhys(mempool.base_addr)}`);
     const buf = {};
     buf.mem = new DataView(mempool.base_addr, entry_id * mempool.buf_size, mempool.buf_size);
     buf.buf_addr_phy = addon.dataviewToPhys(buf.mem);
