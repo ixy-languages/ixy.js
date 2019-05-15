@@ -534,7 +534,6 @@ void enable_dma(const char *pci_addr)
 {
   if (!turnoffEBLDMA)
   {
-
     char path[PATH_MAX];
     snprintf(path, PATH_MAX, "/sys/bus/pci/devices/%s/config", pci_addr);
     int fd = check_err(open(path, O_RDWR), "open pci config");
@@ -547,6 +546,7 @@ void enable_dma(const char *pci_addr)
     assert(lseek(fd, 4, SEEK_SET) == 4);
     assert(write(fd, &dma, 2) == 2);
     check_err(close(fd), "close");
+    printf("enabled dma...");
   }
 }
 
