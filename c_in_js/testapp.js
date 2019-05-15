@@ -179,10 +179,17 @@ function init_rx(ixgbe_device) {
       virtMemView.setUint32(count / 4, 0xFFFFFFFF, littleEndian);
     }
     // for now there is no obvious way to use bigint in a smart way, even within the long library
+    console.log('-----------cstart------------');
     const shortenedPhys = addon.shortenPhys(mem.phy);
     const shortenedPhysLatter = addon.shortenPhysLatter(mem.phy);
+    console.log('-----------c--end------------');
+    // switch order, little endian has this confused?
     addon.set_reg_js(IXYDevice, defines.IXGBE_RDBAL(i), shortenedPhys);
     addon.set_reg_js(IXYDevice, defines.IXGBE_RDBAH(i), shortenedPhysLatter);
+    /*
+    addon.set_reg_js(IXYDevice, defines.IXGBE_RDBAL(i), shortenedPhysLatter);
+    addon.set_reg_js(IXYDevice, defines.IXGBE_RDBAH(i), shortenedPhys);
+    */
     addon.set_reg_js(IXYDevice, defines.IXGBE_RDLEN(i), ring_size_bytes);
     console.log(`rx ring ${i} phy addr: ${mem.phy}`);
     console.log(`rx ring ${i} virt addr: ${mem.virt}`);
@@ -462,8 +469,8 @@ const ixgbe_device = {
   ixy: {
     pci_addr: pciAddr,
     driver_name: 'ixy.js',
-    num_rx_queues: 2,
-    num_tx_queues: 2,
+    num_rx_queues: 1,
+    num_tx_queues: 1,
     rx_batch: ixgbe_rx_batch,
     tx_batch: () => { },
     read_stats: () => { },

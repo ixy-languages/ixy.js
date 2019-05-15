@@ -186,6 +186,7 @@ napi_value shortenPhys(napi_env env, napi_callback_info info)
     napi_throw_error(env, NULL, "Failed to get virtual Memory from ArrayBuffer.");
   }
   uint32_t shortPhys = (uint32_t)(phys & 0xFFFFFFFFull);
+  printf("Original phys addr: %016" PRIxPTR "\n-----New Phys Addr: %016" PRIxPTR "\n", phys, shortPhys);
   napi_value ret;
   //hoping physical pointers are 64bit, else we need to handle every function that needs this value in C as well
   stat = napi_create_uint32(env, shortPhys, &ret);
@@ -213,6 +214,8 @@ napi_value shortenPhysLatter(napi_env env, napi_callback_info info)
     napi_throw_error(env, NULL, "Failed to get virtual Memory from ArrayBuffer.");
   }
   uint32_t shortPhys = (uint32_t)(phys >> 32);
+  printf("Original phys addr: %016" PRIxPTR "\n-----New Phys Addr: %016" PRIxPTR "\n", phys, shortPhys);
+  printf("original phys addr as decimal: %" PRIu64 "\n", phys);
   napi_value ret;
   //hoping physical pointers are 64bit, else we need to handle every function that needs this value in C as well
   stat = napi_create_uint32(env, shortPhys, &ret);
