@@ -397,7 +397,7 @@ function ixgbe_rx_batch(dev /* ixgbe device*/, queue_id, bufs /* array, not sure
     console.log(util.inspect(desc_ptr, false, null, true /* enable colors */));
     const status = desc_ptr.upper.status_error;
     console.log(`status (${status}) & defines.IXGBE_RXDADV_STAT_DD (${defines.IXGBE_RXDADV_STAT_DD}): ${status & defines.IXGBE_RXDADV_STAT_DD}`);
-    console.log(`RDT register: ${addon.get_reg_js(dev.addr, defines.IXGBE_RDT(queue_id))}/nRDH register: ${addon.get_reg_js(dev.addr, defines.IXGBE_RDH(queue_id))}`);
+    console.log(`RDT register: ${addon.get_reg_js(dev.addr, defines.IXGBE_RDT(queue_id))}\nRDH register: ${addon.get_reg_js(dev.addr, defines.IXGBE_RDH(queue_id))}`);
     if (status & defines.IXGBE_RXDADV_STAT_DD) {
       if (!(status & defines.IXGBE_RXDADV_STAT_EOP)) {
         throw new Error('multi-segment packets are not supported - increase buffer size or decrease MTU');
