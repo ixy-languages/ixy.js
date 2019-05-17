@@ -393,6 +393,7 @@ function ixgbe_rx_batch(dev /* ixgbe device*/, queue_id, bufs /* array, not sure
     // rx descriptors are explained in 7.1.5
     const desc_ptr = getDescriptorFromVirt(queue.descriptors, rx_index);
     const status = desc_ptr.upper.status_error;
+    console.log(`status ()${status}) & defines.IXGBE_RXDADV_STAT_DD (${defines.IXGBE_RXDADV_STAT_DD}): ${status}` & defines.IXGBE_RXDADV_STAT_DD);
     if (status & defines.IXGBE_RXDADV_STAT_DD) {
       if (!(status & defines.IXGBE_RXDADV_STAT_EOP)) {
         throw new Error('multi-segment packets are not supported - increase buffer size or decrease MTU');
@@ -422,6 +423,7 @@ function ixgbe_rx_batch(dev /* ixgbe device*/, queue_id, bufs /* array, not sure
       // want to read the next one in the next iteration, but we still need the last/current to update RDT later
       last_rx_index = rx_index;
       rx_index = wrap_ring(rx_index, queue.num_entries);
+      console.log(`rx_index: ${rx_index}`);
     } else {
       break;
     }
@@ -542,6 +544,9 @@ ixgbe_device.ixy.rx_batch(ixgbe_device, 0, bufferArray, bufferArrayLength);
 function printOurPackages() {
   console.log('buffer array, should be packages we got:');
   console.log(util.inspect(bufferArray, false, null, true));
+
+  console.log('our rx_queues:');
+  console.log(util.inspect(ixgbe_device.rx_queues.mempool, false, 1, true));
 }
 
 setInterval(printOurPackages, 5000);

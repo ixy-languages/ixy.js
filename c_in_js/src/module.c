@@ -546,7 +546,7 @@ void enable_dma(const char *pci_addr)
     assert(lseek(fd, 4, SEEK_SET) == 4);
     assert(write(fd, &dma, 2) == 2);
     check_err(close(fd), "close");
-    printf("enabled dma...");
+    printf("enabled dma...\n");
   }
 }
 
@@ -590,10 +590,9 @@ napi_value printBits(napi_env env, napi_callback_info info)
   printf("Size of the stat: %d\n", stat2.st_size);
 
   uint8_t *pci_map_resource_js = check_err(mmap(NULL, stat2.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0), "mmap pci resource");
-  //printf("should be 0x00800 : %x", getAddress(regi));
-  uint32_t *filepointer = getReg32(pci_map_resource_js, regUsed);
+  uint32_t *filepointer = getReg32(pci_map_resource_js, 0);
 
-  printf("%d :: our resource at 0x%x\n", filepointer[0], regUsed);
+  printf("%d :: our resource at 0x%x\n", filepointer[0], 0);
   printf("%x", filepointer[0]);
   SHOW(uint8_t, filepointer[0]);
   printf("%x", filepointer[1]);
