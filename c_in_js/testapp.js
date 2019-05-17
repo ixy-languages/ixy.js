@@ -394,8 +394,10 @@ function ixgbe_rx_batch(dev /* ixgbe device*/, queue_id, bufs /* array, not sure
     console.log(`at buf index: ${buf_index}`);
     // rx descriptors are explained in 7.1.5
     const desc_ptr = getDescriptorFromVirt(queue.descriptors, rx_index);
+    console.log(util.inspect(desc_ptr, false, null, true /* enable colors */));
     const status = desc_ptr.upper.status_error;
     console.log(`status (${status}) & defines.IXGBE_RXDADV_STAT_DD (${defines.IXGBE_RXDADV_STAT_DD}): ${status & defines.IXGBE_RXDADV_STAT_DD}`);
+    console.log(`RDT register: ${addon.get_reg_js(dev.addr, defines.IXGBE_RDT(queue_id))}/nRDH register: ${addon.get_reg_js(dev.addr, defines.IXGBE_RDH(queue_id))}`);
     if (status & defines.IXGBE_RXDADV_STAT_DD) {
       if (!(status & defines.IXGBE_RXDADV_STAT_EOP)) {
         throw new Error('multi-segment packets are not supported - increase buffer size or decrease MTU');
@@ -437,7 +439,7 @@ function ixgbe_rx_batch(dev /* ixgbe device*/, queue_id, bufs /* array, not sure
     addon.set_reg_js(dev.addr, defines.IXGBE_RDT(queue_id), last_rx_index);
     queue.rx_index = rx_index;
 
-    console.log(`RDT register: ${addon.get_reg_js(dev.addr, defines.IXGBE_RDT(queue_id))}/nRDH register: ${addon.get_reg_js(dev.addr, defines.IXGBE_RDH(queue_id))}`);
+    console.log(`RDT register: ${addon.get_reg_js(dev.addr, defines.IXGBE_RDT(queue_id))}\nRDH register: ${addon.get_reg_js(dev.addr, defines.IXGBE_RDH(queue_id))}`);
   }
   return buf_index; // number of packets stored in bufs; buf_index points to the next index
 }
@@ -547,6 +549,9 @@ ixgbe_device.ixy.rx_batch(ixgbe_device, 0, bufferArray, bufferArrayLength);
 function printOurPackages() {
   console.log('buffer array, should be packages we got:');
   console.log(util.inspect(bufferArray, false, null, true));
+  const queue_id = 0;
+  console.log(`RDT register: ${addon.get_reg_js(ixgbe_device.addr, defines.IXGBE_RDT(queue_id))}\nRDH register: ${addon.get_reg_js(ixgbe_device.addr, defines.IXGBE_RDH(queue_id))}`);
+
 
   console.log('our rx_queues:');
   console.log(util.inspect(ixgbe_device.rx_queues.mempool, false, 1, true));
