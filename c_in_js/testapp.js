@@ -385,15 +385,17 @@ function wrap_ring(index, ring_size) {
 // see datasheet section 7.1.9 for an explanation of the rx ring structure
 // tl;dr: we control the tail of the queue, the hardware the head
 function ixgbe_rx_batch(dev /* ixgbe device*/, queue_id, bufs /* array, not sure we want this*/, num_bufs) { // returns number
+  console.log(`inside our rx batch method, input num_bufs: ${num_bufs}`);
   const queue = dev.rx_queues[queue_id];
   let { rx_index } = queue; // rx index we checked in the last run of this function
   let last_rx_index = rx_index; // index of the descriptor we checked in the last iteration of the loop
   let buf_index;
   for (buf_index = 0; buf_index < num_bufs; buf_index++) {
+    console.log(`at buf index: ${buf_index}`);
     // rx descriptors are explained in 7.1.5
     const desc_ptr = getDescriptorFromVirt(queue.descriptors, rx_index);
     const status = desc_ptr.upper.status_error;
-    console.log(`status ()${status}) & defines.IXGBE_RXDADV_STAT_DD (${defines.IXGBE_RXDADV_STAT_DD}): ${status}` & defines.IXGBE_RXDADV_STAT_DD);
+    console.log(`status (${status}) & defines.IXGBE_RXDADV_STAT_DD (${defines.IXGBE_RXDADV_STAT_DD}): ${status & defines.IXGBE_RXDADV_STAT_DD}`);
     if (status & defines.IXGBE_RXDADV_STAT_DD) {
       if (!(status & defines.IXGBE_RXDADV_STAT_EOP)) {
         throw new Error('multi-segment packets are not supported - increase buffer size or decrease MTU');
@@ -534,11 +536,12 @@ for (const i in ixgbe_device.rx_queues) {
 }
 
 
-console.log('ixgbe_device now:');
-console.log(util.inspect(ixgbe_device, false, null, true));
+// console.log('ixgbe_device now:');
+// console.log(util.inspect(ixgbe_device, false, null, true));
 
 const bufferArrayLength = 512;
 const bufferArray = new Array(bufferArrayLength);
+console.log('running our rx batch method...');
 ixgbe_device.ixy.rx_batch(ixgbe_device, 0, bufferArray, bufferArrayLength);
 
 function printOurPackages() {
