@@ -13,6 +13,15 @@ const littleEndian = (function lE() {
   return new Int16Array(buffer)[0] === 256;
 })();
 
+//  synchronous wait function for testing
+function wait(ms) {
+  const start = Date.now();
+  let now = start;
+  while (now - start < ms) {
+    now = Date.now();
+  }
+}
+
 const currentHost = 'narva'; // adjust this part before deploy on machine
 let pciAddr;
 let pciAddr2;
@@ -43,7 +52,7 @@ function wait_set_reg_js(addr, reg, val) {
   // TODO use val as mask
   while (addon.get_reg_js(addr, reg) !== val) {
     addon.set_reg_js(addr, reg, val);
-    setTimeout(100); // TODO make real waiting, not dumb timeouts
+    wait(100); // TODO make real waiting, not dumb timeouts
   }
 }
 
@@ -662,7 +671,7 @@ function wait_for_link(dev) {
   const poll_interval = 10; // 10 ms in ms
   let speed;
   while (!(speed = dev.ixy.get_link_speed(dev)) && max_wait > 0) {
-    setTimeout(poll_interval);
+    wait(poll_interval);
     max_wait -= poll_interval;
   }
   console.log(`Link speed is ${dev.ixy.get_link_speed(dev)} Mbit/s`);
@@ -678,7 +687,7 @@ function reset_and_init(dev) {
   // section 4.6.3.2
   addon.set_reg_js(dev.addr, defines.IXGBE_CTRL, defines.IXGBE_CTRL_RST_MASK);
   addon.wait_clear_reg_js(dev.addr, defines.IXGBE_CTRL, defines.IXGBE_CTRL_RST_MASK);
-  setTimeout(10000); // why do we do this?
+  wait(100); // why do we do this?
   // section 4.6.3.1 - disable interrupts again after reset
   addon.set_reg_js(dev.addr, defines.IXGBE_EIMC, 0x7FFFFFFF);
 
