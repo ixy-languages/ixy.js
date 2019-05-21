@@ -39,6 +39,15 @@ function set_flags_js(addr, reg, flags) {
   addon.set_reg_js(addr, reg, addon.get_reg_js(addr, reg) | flags);
 }
 
+function wait_set_reg_js(addr, reg, val) {
+  // TODO use val as mask
+  while (addon.get_reg_js(addr, reg) !== val) {
+    addon.set_reg_js(addr, reg, val);
+    setTimeout(100); // TODO make real waiting, not dumb timeouts
+  }
+}
+
+
 const defines = {
   IXGBE_RXCTRL: 0x03000,
   IXGBE_RXCTRL_RXEN: 0x00000001,
@@ -609,6 +618,15 @@ function stats_init(stats, dev) {
   }
 }
 
+// see section 4.6.4
+function init_link(dev) {
+  // should already be set by the eeprom config, maybe we shouldn't override it here to support weirdo nics?
+  addon.set_reg_js(dev.addr, IXGBE_AUTOC, (get_reg32(dev.addr, IXGBE_AUTOC) & ~IXGBE_AUTOC_LMS_MASK) | IXGBE_AUTOC_LMS_10G_SERIAL);
+  addon.set_reg_js(dev.addr, IXGBE_AUTOC, (get_reg32(dev.addr, IXGBE_AUTOC) & ~IXGBE_AUTOC_10G_PMA_PMD_MASK) | IXGBE_AUTOC_10G_XAUI);
+  // negotiate link
+  set_flags_js(dev.addr, IXGBE_AUTOC, IXGBE_AUTOC_AN_RESTART);
+  // datasheet wants us to wait for the link here, but we can continue and wait afterwards
+}
 
 // console.log('running init_rx...');
 // init_rx(ixgbe_device); // we want to do this in the reset and init
@@ -621,9 +639,8 @@ function reset_and_init(dev) {
 
   // section 4.6.3.2
   addon.set_reg_js(dev.addr, IXGBE_CTRL, IXGBE_CTRL_RST_MASK);
-  wait_clear_reg32(dev.addr, IXGBE_CTRL, IXGBE_CTRL_RST_MASK);
-  usleep(10000);
-
+  addon.wait_clear_reg_js(dev.addr, IXGBE_CTRL, IXGBE_CTRL_RST_MASK);
+  setTimeout(10000); // why do we do this?
   // section 4.6.3.1 - disable interrupts again after reset
   addon.set_reg_js(dev.addr, IXGBE_EIMC, 0x7FFFFFFF);
 
@@ -647,7 +664,7 @@ function reset_and_init(dev) {
   init_rx(dev);
 
   // section 4.6.8 - init tx
-  init_tx(dev);
+  // init_tx(dev); // TODO implement this
 
   // enables queues after initializing everything
   for (let i = 0; i < dev.ixy.num_rx_queues; i++) {
