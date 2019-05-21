@@ -67,7 +67,13 @@ const defines = {
   IXGBE_RXDCTL: i => (i < 64 ? 0x01028 + (i * 0x40) : 0x0D028 + ((i - 64) * 0x40)),
   IXGBE_RXDCTL_ENABLE: 0x02000000,
   IXGBE_RXDADV_STAT_DD: 0x01 /* Done*/,
-  IXGBE_RXDADV_STAT_EOP: 0x02 /* End of Packet*/
+  IXGBE_RXDADV_STAT_EOP: 0x02 /* End of Packet*/,
+  IXGBE_GPRC: 0x04074,
+  IXGBE_GPTC: 0x04080,
+  IXGBE_GORCL: 0x04088,
+  IXGBE_GOTCL: 0x04090,
+  IXGBE_GORCH: 0x0408C,
+  IXGBE_GOTCH: 0x04094
 
 };
 
@@ -541,12 +547,49 @@ for (const i in ixgbe_device.rx_queues) {
 // console.log('ixgbe_device now:');
 // console.log(util.inspect(ixgbe_device, false, null, true));
 
+// read stat counters and accumulate in stats
+// stats may be NULL to just reset the counters
+function ixgbe_read_stats(dev, stats) {
+  // const dev = IXY_TO_IXGBE(ixy); // do we want to do this?
+  const rx_pkts = addon.get_reg_js(dev.addr, defines.IXGBE_GPRC);
+  const tx_pkts = addon.get_reg_js(dev.addr, defines.IXGBE_GPTC);
+  const rx_bytes = addon.get_reg_js(dev.addr, defines.IXGBE_GORCL) + (/* (uint64_t)*/addon.get_reg_js(dev.addr, defines.IXGBE_GORCH) << 32); // do these byte shifts in C,or differently in JS?
+  const tx_bytes = addon.get_reg_js(dev.addr, defines.IXGBE_GOTCL) + (/* (uint64_t)*/addon.get_reg_js(dev.addr, defines.IXGBE_GOTCH) << 32);
+  if (stats) {
+    stats.rx_pkts += rx_pkts;
+    stats.tx_pkts += tx_pkts;
+    stats.rx_bytes += rx_bytes;
+    stats.tx_bytes += tx_bytes;
+  }
+}
+ixgbe_device.ixy.read_stats = ixgbe_read_stats;
+
+// initializes a stat struct and clears the stats on the device
+function stats_init(stats, dev) {
+  // might require device-specific initialization
+  stats.rx_pkts = 0;
+  stats.tx_pkts = 0;
+  stats.rx_bytes = 0;
+  stats.tx_bytes = 0;
+  stats.device = dev;
+  if (dev) {
+    dev.ixy.read_stats(dev, stats);
+  }
+}
+
+function print_stats(stats) {
+  console.log(`rx_pkts: ${stats.rx_pkts} | tx_pkts: ${stats.tx_pkts} | rx_bytes: ${stats.rx_bytes} | tx_bytes: ${stats.tx_bytes}`);
+}
+
 const bufferArrayLength = 512;
 const bufferArray = new Array(bufferArrayLength);
 console.log('running our rx batch method...');
 ixgbe_device.ixy.rx_batch(ixgbe_device, 0, bufferArray, bufferArrayLength);
 
+const stats = {};
+
 function printOurPackages() {
+  print_stats(stats);
   console.log('buffer array, should be packages we got:');
   console.log(util.inspect(bufferArray, false, null, true));
   const queue_id = 0;
@@ -556,6 +599,7 @@ function printOurPackages() {
   console.log('our rx_queues:');
   console.log(util.inspect(ixgbe_device.rx_queues.mempool, false, 1, true));
 }
+stats_init(stats, ixgbe_device);
 
 setInterval(printOurPackages, 5000);
 
