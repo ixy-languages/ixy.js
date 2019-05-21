@@ -617,23 +617,23 @@ function stats_init(stats, dev) {
 function reset_and_init(dev) {
   console.log(`Resetting device %s${dev.ixy.pci_addr}`);
   // section 4.6.3.1 - disable all interrupts
-  set_reg32(dev.addr, IXGBE_EIMC, 0x7FFFFFFF);
+  addon.set_reg_js(dev.addr, IXGBE_EIMC, 0x7FFFFFFF);
 
   // section 4.6.3.2
-  set_reg32(dev.addr, IXGBE_CTRL, IXGBE_CTRL_RST_MASK);
+  addon.set_reg_js(dev.addr, IXGBE_CTRL, IXGBE_CTRL_RST_MASK);
   wait_clear_reg32(dev.addr, IXGBE_CTRL, IXGBE_CTRL_RST_MASK);
   usleep(10000);
 
   // section 4.6.3.1 - disable interrupts again after reset
-  set_reg32(dev.addr, IXGBE_EIMC, 0x7FFFFFFF);
+  addon.set_reg_js(dev.addr, IXGBE_EIMC, 0x7FFFFFFF);
 
   console.log(`Initializing device %s${dev.ixy.pci_addr}`);
 
   // section 4.6.3 - Wait for EEPROM auto read completion
-  wait_set_reg32(dev.addr, IXGBE_EEC, IXGBE_EEC_ARD);
+  addon.wait_set_reg_js(dev.addr, IXGBE_EEC, IXGBE_EEC_ARD);
 
   // section 4.6.3 - Wait for DMA initialization done (RDRXCTL.DMAIDONE)
-  wait_set_reg32(devaddr, IXGBE_RDRXCTL, IXGBE_RDRXCTL_DMAIDONE);
+  addon.wait_set_reg_js(devaddr, IXGBE_RDRXCTL, IXGBE_RDRXCTL_DMAIDONE);
 
   // section 4.6.4 - initialize link (auto negotiation)
   init_link(dev);
@@ -641,7 +641,7 @@ function reset_and_init(dev) {
   // section 4.6.5 - statistical counters
   // reset-on-read registers, just read them once
   // ixgbe_read_stats(&dev->ixy, NULL);
-  read_stats(dev, NULL);
+  dev.ixy.read_stats(dev);
 
   // section 4.6.7 - init rx
   init_rx(dev);
@@ -666,7 +666,7 @@ function reset_and_init(dev) {
   wait_for_link(dev);
 }
 console.log('reset and init...');
-reset_and_init(dev);
+reset_and_init(ixgbe_device);
 
 console.log(util.inspect(ixgbe_device, false, null, true /* enable colors */));
 console.log('printing rx_queue descriptors read from buffer we saved:');
