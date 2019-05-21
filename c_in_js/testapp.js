@@ -75,6 +75,10 @@ const defines = {
   IXGBE_GORCH: 0x0408C,
   IXGBE_GOTCH: 0x04094,
   FCCRC: 0x05118,
+  CRCERRS: 0x04000, // crc error
+  ILLERRC: 0x04004, // illegal byte
+  ERRBC: 0x04008, // error byte
+  RXMPC: i => 0x03FA0 + (4 * i), // missed packets count (0-7)
   Link_Status_Register: 0xB2, // first 4 bits are relevant!
   IXGBE_LINKS: 0x042A4,
   IXGBE_LINKS_UP: 0x40000000,
@@ -534,27 +538,6 @@ const physicalAddress = addon.virtToPhys(dmaMem);
 console.log(`Physical address: ${physicalAddress}`);
 
 
-console.log('running init_rx...');
-init_rx(ixgbe_device);
-
-console.log(util.inspect(ixgbe_device, false, null, true /* enable colors */));
-console.log('printing rx_queue descriptors read from buffer we saved:');
-for (const index in ixgbe_device.rx_queues) {
-  const queueDescriptor = getDescriptorFromVirt(ixgbe_device.rx_queues[index].descriptors);
-  console.log(util.inspect(queueDescriptor, false, null, true /* enable colors */));
-}
-
-
-console.log('starting rx_queue....');
-for (const i in ixgbe_device.rx_queues) {
-  start_rx_queue(ixgbe_device, i);
-}
-
-
-// console.log('ixgbe_device now:');
-// console.log(util.inspect(ixgbe_device, false, null, true));
-
-
 function print_stats(stats) {
   console.log(`rx_pkts: ${stats.rx_pkts} | tx_pkts: ${stats.tx_pkts} | rx_bytes: ${stats.rx_bytes} | tx_bytes: ${stats.tx_bytes}`);
 }
@@ -578,6 +561,16 @@ function ixgbe_get_link_speed(dev) {
 
 ixgbe_device.ixy.get_link_speed = ixgbe_get_link_speed;
 
+function printRXErrors(dev) {
+  console.log(`Error counter: ${addon.get_reg_js(dev.addr, defines.FCCRC)}`);
+  console.log(`CRC Error counter: ${addon.get_reg_js(dev.addr, defines.CRCERRS)}`);
+  console.log(`Illegal byte Error counter: ${addon.get_reg_js(dev.addr, defines.ILLERRC)}`);
+  console.log(`Error Byte counter: ${addon.get_reg_js(dev.addr, defines.ERRBC)}`);
+  for (let i = 0; i < 8; i++) {
+    console.log(`Missed Packets Error counter(${i}): ${addon.get_reg_js(dev.addr, defines.RXMPC(i))}`);
+  }
+}
+
 // read stat counters and accumulate in stats
 // stats may be NULL to just reset the counters
 function ixgbe_read_stats(dev, stats) {
@@ -591,6 +584,7 @@ function ixgbe_read_stats(dev, stats) {
   console.log(`reading stats... rx_pkts: ${rx_pkts} | tx_pkts: ${tx_pkts} | rx_bytes: ${rx_bytes} | rx_bytes_first32bits: ${rx_bytes_first32bits} | tx_bytes: ${tx_bytes} | tx_bytes_first32bits: ${tx_bytes_first32bits}`);
   console.log(`Error counter: ${addon.get_reg_js(dev.addr, defines.FCCRC)}`);
   console.log(`link speed: ${ixgbe_device.ixy.get_link_speed(ixgbe_device)}`);
+  printRXErrors(dev);
   if (stats) {
     stats.rx_pkts += rx_pkts;
     stats.tx_pkts += tx_pkts;
@@ -614,6 +608,76 @@ function stats_init(stats, dev) {
     dev.ixy.read_stats(dev);
   }
 }
+
+
+// console.log('running init_rx...');
+// init_rx(ixgbe_device); // we want to do this in the reset and init
+
+// see section 4.6.3
+function reset_and_init(dev) {
+  console.log(`Resetting device %s${dev.ixy.pci_addr}`);
+  // section 4.6.3.1 - disable all interrupts
+  set_reg32(dev.addr, IXGBE_EIMC, 0x7FFFFFFF);
+
+  // section 4.6.3.2
+  set_reg32(dev.addr, IXGBE_CTRL, IXGBE_CTRL_RST_MASK);
+  wait_clear_reg32(dev.addr, IXGBE_CTRL, IXGBE_CTRL_RST_MASK);
+  usleep(10000);
+
+  // section 4.6.3.1 - disable interrupts again after reset
+  set_reg32(dev.addr, IXGBE_EIMC, 0x7FFFFFFF);
+
+  console.log(`Initializing device %s${dev.ixy.pci_addr}`);
+
+  // section 4.6.3 - Wait for EEPROM auto read completion
+  wait_set_reg32(dev.addr, IXGBE_EEC, IXGBE_EEC_ARD);
+
+  // section 4.6.3 - Wait for DMA initialization done (RDRXCTL.DMAIDONE)
+  wait_set_reg32(devaddr, IXGBE_RDRXCTL, IXGBE_RDRXCTL_DMAIDONE);
+
+  // section 4.6.4 - initialize link (auto negotiation)
+  init_link(dev);
+
+  // section 4.6.5 - statistical counters
+  // reset-on-read registers, just read them once
+  // ixgbe_read_stats(&dev->ixy, NULL);
+  read_stats(dev, NULL);
+
+  // section 4.6.7 - init rx
+  init_rx(dev);
+
+  // section 4.6.8 - init tx
+  init_tx(dev);
+
+  // enables queues after initializing everything
+  for (let i = 0; i < dev.ixy.num_rx_queues; i++) {
+    start_rx_queue(dev, i);
+  }
+  for (let i = 0; i < dev.ixy.num_tx_queues; i++) {
+    // TODO not yet implemented
+    // start_tx_queue(dev, i);
+  }
+
+  // skip last step from 4.6.3 - don't want interrupts
+  // finally, enable promisc mode by default, it makes testing less annoying
+  ixgbe_set_promisc(dev, true);
+
+  // wait for some time for the link to come up
+  wait_for_link(dev);
+}
+console.log('reset and init...');
+reset_and_init(dev);
+
+console.log(util.inspect(ixgbe_device, false, null, true /* enable colors */));
+console.log('printing rx_queue descriptors read from buffer we saved:');
+for (const index in ixgbe_device.rx_queues) {
+  const queueDescriptor = getDescriptorFromVirt(ixgbe_device.rx_queues[index].descriptors);
+  console.log(util.inspect(queueDescriptor, false, null, true /* enable colors */));
+}
+
+
+// console.log('ixgbe_device now:');
+// console.log(util.inspect(ixgbe_device, false, null, true));
 
 const bufferArrayLength = 512;
 const bufferArray = new Array(bufferArrayLength);
