@@ -105,7 +105,8 @@ const defines = {
   IXGBE_EEC: 0x10010,
   IXGBE_EEC_ARD: 0x00000200,
   IXGBE_CTRL: 0x00000,
-  IXGBE_CTRL_RST_MASK: 0x00000008 | 0x04000000
+  IXGBE_CTRL_RST_MASK: 0x00000008 | 0x04000000,
+  IXGBE_RDRXCTL_DMAIDONE: 0x00000008
 };
 
 const getDescriptorFromVirt = (virtMem, index = 0) => {
@@ -661,7 +662,7 @@ function reset_and_init(dev) {
   addon.wait_set_reg_js(dev.addr, defines.IXGBE_EEC, defines.IXGBE_EEC_ARD);
 
   // section 4.6.3 - Wait for DMA initialization done (RDRXCTL.DMAIDONE)
-  addon.wait_set_reg_js(devaddr, IXGBE_RDRXCTL, IXGBE_RDRXCTL_DMAIDONE);
+  addon.wait_set_reg_js(dev.addr, defines.IXGBE_RDRXCTL, defines.IXGBE_RDRXCTL_DMAIDONE);
 
   // section 4.6.4 - initialize link (auto negotiation)
   init_link(dev);
