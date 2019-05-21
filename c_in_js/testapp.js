@@ -589,6 +589,7 @@ ixgbe_device.ixy.rx_batch(ixgbe_device, 0, bufferArray, bufferArrayLength);
 const stats = {};
 
 function printOurPackages() {
+  ixgbe_device.ixy.read_stats(ixgbe_device, stats);
   print_stats(stats);
   console.log('buffer array, should be packages we got:');
   console.log(util.inspect(bufferArray, false, null, true));
