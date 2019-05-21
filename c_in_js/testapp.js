@@ -100,7 +100,12 @@ const defines = {
   IXGBE_AUTOC_LMS_10G_SERIAL: 0x3 << 13,
   IXGBE_AUTOC_10G_PMA_PMD_MASK: 0x00000180,
   IXGBE_AUTOC_10G_XAUI: 0x0 << 7,
-  IXGBE_AUTOC_AN_RESTART: 0x00001000
+  IXGBE_AUTOC_AN_RESTART: 0x00001000,
+  IXGBE_EIMC: 0x00888,
+  IXGBE_EEC: 0x10010,
+  IXGBE_EEC_ARD: 0x00000200,
+  IXGBE_CTRL: 0x00000,
+  IXGBE_CTRL_RST_MASK: 0x00000008 | 0x04000000
 };
 
 const getDescriptorFromVirt = (virtMem, index = 0) => {
@@ -641,19 +646,19 @@ function init_link(dev) {
 function reset_and_init(dev) {
   console.log(`Resetting device %s${dev.ixy.pci_addr}`);
   // section 4.6.3.1 - disable all interrupts
-  addon.set_reg_js(dev.addr, IXGBE_EIMC, 0x7FFFFFFF);
+  addon.set_reg_js(dev.addr, defines.IXGBE_EIMC, 0x7FFFFFFF);
 
   // section 4.6.3.2
-  addon.set_reg_js(dev.addr, IXGBE_CTRL, IXGBE_CTRL_RST_MASK);
-  addon.wait_clear_reg_js(dev.addr, IXGBE_CTRL, IXGBE_CTRL_RST_MASK);
+  addon.set_reg_js(dev.addr, defines.IXGBE_CTRL, defines.IXGBE_CTRL_RST_MASK);
+  addon.wait_clear_reg_js(dev.addr, defines.IXGBE_CTRL, defines.IXGBE_CTRL_RST_MASK);
   setTimeout(10000); // why do we do this?
   // section 4.6.3.1 - disable interrupts again after reset
-  addon.set_reg_js(dev.addr, IXGBE_EIMC, 0x7FFFFFFF);
+  addon.set_reg_js(dev.addr, defines.IXGBE_EIMC, 0x7FFFFFFF);
 
   console.log(`Initializing device %s${dev.ixy.pci_addr}`);
 
   // section 4.6.3 - Wait for EEPROM auto read completion
-  addon.wait_set_reg_js(dev.addr, IXGBE_EEC, IXGBE_EEC_ARD);
+  addon.wait_set_reg_js(dev.addr, defines.IXGBE_EEC, defines.IXGBE_EEC_ARD);
 
   // section 4.6.3 - Wait for DMA initialization done (RDRXCTL.DMAIDONE)
   addon.wait_set_reg_js(devaddr, IXGBE_RDRXCTL, IXGBE_RDRXCTL_DMAIDONE);
