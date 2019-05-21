@@ -94,7 +94,13 @@ const defines = {
   IXGBE_LINKS_SPEED_82599: 0x30000000,
   IXGBE_LINKS_SPEED_100_82599: 0x10000000,
   IXGBE_LINKS_SPEED_1G_82599: 0x20000000,
-  IXGBE_LINKS_SPEED_10G_82599: 0x30000000
+  IXGBE_LINKS_SPEED_10G_82599: 0x30000000,
+  IXGBE_AUTOC: 0x042A0,
+  IXGBE_AUTOC_LMS_MASK: 0x7 << 13,
+  IXGBE_AUTOC_LMS_10G_SERIAL: 0x3 << 13,
+  IXGBE_AUTOC_10G_PMA_PMD_MASK: 0x00000180,
+  IXGBE_AUTOC_10G_XAUI: 0x0 << 7,
+  IXGBE_AUTOC_AN_RESTART: 0x00001000
 };
 
 const getDescriptorFromVirt = (virtMem, index = 0) => {
@@ -621,10 +627,10 @@ function stats_init(stats, dev) {
 // see section 4.6.4
 function init_link(dev) {
   // should already be set by the eeprom config, maybe we shouldn't override it here to support weirdo nics?
-  addon.set_reg_js(dev.addr, IXGBE_AUTOC, (get_reg32(dev.addr, IXGBE_AUTOC) & ~IXGBE_AUTOC_LMS_MASK) | IXGBE_AUTOC_LMS_10G_SERIAL);
-  addon.set_reg_js(dev.addr, IXGBE_AUTOC, (get_reg32(dev.addr, IXGBE_AUTOC) & ~IXGBE_AUTOC_10G_PMA_PMD_MASK) | IXGBE_AUTOC_10G_XAUI);
+  addon.set_reg_js(dev.addr, defines.IXGBE_AUTOC, (addon.get_reg_js(dev.addr, defines.IXGBE_AUTOC) & ~defines.IXGBE_AUTOC_LMS_MASK) | defines.IXGBE_AUTOC_LMS_10G_SERIAL);
+  addon.set_reg_js(dev.addr, defines.IXGBE_AUTOC, (addon.get_reg_js(dev.addr, defines.IXGBE_AUTOC) & ~defines.IXGBE_AUTOC_10G_PMA_PMD_MASK) | defines.IXGBE_AUTOC_10G_XAUI);
   // negotiate link
-  set_flags_js(dev.addr, IXGBE_AUTOC, IXGBE_AUTOC_AN_RESTART);
+  set_flags_js(dev.addr, defines.IXGBE_AUTOC, defines.IXGBE_AUTOC_AN_RESTART);
   // datasheet wants us to wait for the link here, but we can continue and wait afterwards
 }
 
