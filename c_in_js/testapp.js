@@ -73,7 +73,15 @@ const defines = {
   IXGBE_GORCL: 0x04088,
   IXGBE_GOTCL: 0x04090,
   IXGBE_GORCH: 0x0408C,
-  IXGBE_GOTCH: 0x04094
+  IXGBE_GOTCH: 0x04094,
+  FCCRC: 0x05118,
+  Link_Status_Register: 0xB2, // first 4 bits are relevant!
+  IXGBE_LINKS: 0x042A4,
+  IXGBE_LINKS_UP: 0x40000000,
+  IXGBE_LINKS_SPEED_82599: 0x30000000,
+  IXGBE_LINKS_SPEED_100_82599: 0x10000000,
+  IXGBE_LINKS_SPEED_1G_82599: 0x20000000,
+  IXGBE_LINKS_SPEED_10G_82599: 0x30000000
 };
 
 const getDescriptorFromVirt = (virtMem, index = 0) => {
@@ -551,6 +559,25 @@ function print_stats(stats) {
   console.log(`rx_pkts: ${stats.rx_pkts} | tx_pkts: ${stats.tx_pkts} | rx_bytes: ${stats.rx_bytes} | tx_bytes: ${stats.tx_bytes}`);
 }
 
+function ixgbe_get_link_speed(dev) {
+  const links = addon.get_reg_js(dev.addr, defines.IXGBE_LINKS);
+  if (!(links & defines.IXGBE_LINKS_UP)) {
+    return 0;
+  }
+  switch (links & defines.IXGBE_LINKS_SPEED_82599) {
+  case defines.IXGBE_LINKS_SPEED_100_82599:
+    return 100;
+  case defines.IXGBE_LINKS_SPEED_1G_82599:
+    return 1000;
+  case defines.IXGBE_LINKS_SPEED_10G_82599:
+    return 10000;
+  default:
+    return 0;
+  }
+}
+
+ixgbe_device.ixy.get_link_speed = ixgbe_get_link_speed;
+
 // read stat counters and accumulate in stats
 // stats may be NULL to just reset the counters
 function ixgbe_read_stats(dev, stats) {
@@ -562,7 +589,8 @@ function ixgbe_read_stats(dev, stats) {
   const tx_bytes = addon.get_reg_js(dev.addr, defines.IXGBE_GOTCL);
   const tx_bytes_first32bits = addon.get_reg_js(dev.addr, defines.IXGBE_GOTCH);
   console.log(`reading stats... rx_pkts: ${rx_pkts} | tx_pkts: ${tx_pkts} | rx_bytes: ${rx_bytes} | rx_bytes_first32bits: ${rx_bytes_first32bits} | tx_bytes: ${tx_bytes} | tx_bytes_first32bits: ${tx_bytes_first32bits}`);
-
+  console.log(`Error counter: ${addon.get_reg_js(dev.addr, defines.FCCRC)}`);
+  console.log(`link speed: ${ixgbe_device.ixy.get_link_speed(ixgbe_device)}`);
   if (stats) {
     stats.rx_pkts += rx_pkts;
     stats.tx_pkts += tx_pkts;

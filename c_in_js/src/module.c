@@ -590,12 +590,11 @@ napi_value printBits(napi_env env, napi_callback_info info)
   printf("Size of the stat: %d\n", stat2.st_size);
 
   uint8_t *pci_map_resource_js = check_err(mmap(NULL, stat2.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0), "mmap pci resource");
-  uint32_t *filepointer = getReg32(pci_map_resource_js, 0);
+  uint32_t filepointer = getReg32(pci_map_resource_js, 0xB2 /*regi*/);
 
-  printf("%d :: our resource at 0x%x\n", filepointer[0], 0);
-  printf("%x", filepointer[0]);
-  SHOW(uint8_t, filepointer[0]);
-  printf("%x", filepointer[1]);
+  printf("%d :: our resource at 0x%x\n", filepointer, 0xB2 /*regi*/);
+  SHOW(uint32_t, filepointer);
+  /*printf("%x", filepointer[1]);
   SHOW(uint8_t, filepointer[1]);
   uint16_t *bitFP = filepointer;
   printf("%x", bitFP[0]);
@@ -611,6 +610,7 @@ napi_value printBits(napi_env env, napi_callback_info info)
     napi_throw_error(env, NULL, "Failed our external buffer creation");
   }
   return testReturnVal;
+  */
 }
 // endof trying
 
