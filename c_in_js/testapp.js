@@ -56,7 +56,8 @@ const defines = {
   IXGBE_HLREG0: 0x04240,
   IXGBE_HLREG0_RXCRCSTRP: 0x00000002,
   IXGBE_RDRXCTL: 0x02F00,
-  IXGBE_RDRXCTL_CRCSTRIP: 0x00000002, IXGBE_FCTRL: 0x05080,
+  IXGBE_RDRXCTL_CRCSTRIP: 0x00000002,
+  IXGBE_FCTRL: 0x05080,
   IXGBE_FCTRL_BAM: 0x00000400,
   IXGBE_SRRCTL: i => (i <= 15 ? 0x02100 + (i * 4) : (i) < 64 ? 0x01014 + ((i) * 0x40) : 0x0D014 + (((i) - 64) * 0x40)),
   IXGBE_SRRCTL_DESCTYPE_MASK: 0x0E000000,
@@ -106,7 +107,9 @@ const defines = {
   IXGBE_EEC_ARD: 0x00000200,
   IXGBE_CTRL: 0x00000,
   IXGBE_CTRL_RST_MASK: 0x00000008 | 0x04000000,
-  IXGBE_RDRXCTL_DMAIDONE: 0x00000008
+  IXGBE_RDRXCTL_DMAIDONE: 0x00000008,
+  IXGBE_FCTRL_MPE: 0x00000100,
+  IXGBE_FCTRL_UPE: 0x00000200
 };
 
 const getDescriptorFromVirt = (virtMem, index = 0) => {
@@ -642,6 +645,29 @@ function init_link(dev) {
 
 // console.log('running init_rx...');
 // init_rx(ixgbe_device); // we want to do this in the reset and init
+
+function ixgbe_set_promisc(dev, enabled) {
+  if (enabled) {
+    console.log('enabling promisc mode');
+    set_flags_js(dev.addr, defines.IXGBE_FCTRL, defines.IXGBE_FCTRL_MPE | defines.IXGBE_FCTRL_UPE);
+  } else {
+    console.log('disabling promisc mode');
+    clear_flags_js(dev.addr, defines.IXGBE_FCTRL, defines.IXGBE_FCTRL_MPE | defines.IXGBE_FCTRL_UPE);
+  }
+}
+
+function wait_for_link(dev) {
+  console.log('Waiting for link...');
+  let max_wait = 1000; // 10 seconds in ms
+  const poll_interval = 10; // 10 ms in ms
+  let speed;
+  while (!(speed = dev.ixy.get_link_speed(dev)) && max_wait > 0) {
+    setTimeout(poll_interval);
+    max_wait -= poll_interval;
+  }
+  console.log(`Link speed is ${dev.ixy.get_link_speed(dev)} Mbit/s`);
+}
+
 
 // see section 4.6.3
 function reset_and_init(dev) {
