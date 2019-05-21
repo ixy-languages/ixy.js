@@ -74,7 +74,6 @@ const defines = {
   IXGBE_GOTCL: 0x04090,
   IXGBE_GORCH: 0x0408C,
   IXGBE_GOTCH: 0x04094
-
 };
 
 const getDescriptorFromVirt = (virtMem, index = 0) => {
@@ -547,19 +546,29 @@ for (const i in ixgbe_device.rx_queues) {
 // console.log('ixgbe_device now:');
 // console.log(util.inspect(ixgbe_device, false, null, true));
 
+
+function print_stats(stats) {
+  console.log(`rx_pkts: ${stats.rx_pkts} | tx_pkts: ${stats.tx_pkts} | rx_bytes: ${stats.rx_bytes} | tx_bytes: ${stats.tx_bytes}`);
+}
+
 // read stat counters and accumulate in stats
 // stats may be NULL to just reset the counters
 function ixgbe_read_stats(dev, stats) {
   // const dev = IXY_TO_IXGBE(ixy); // do we want to do this?
   const rx_pkts = addon.get_reg_js(dev.addr, defines.IXGBE_GPRC);
   const tx_pkts = addon.get_reg_js(dev.addr, defines.IXGBE_GPTC);
-  const rx_bytes = addon.get_reg_js(dev.addr, defines.IXGBE_GORCL) + (/* (uint64_t)*/addon.get_reg_js(dev.addr, defines.IXGBE_GORCH) << 32); // do these byte shifts in C,or differently in JS?
-  const tx_bytes = addon.get_reg_js(dev.addr, defines.IXGBE_GOTCL) + (/* (uint64_t)*/addon.get_reg_js(dev.addr, defines.IXGBE_GOTCH) << 32);
+  const rx_bytes = addon.get_reg_js(dev.addr, defines.IXGBE_GORCL);
+  const rx_bytes_first32bits = addon.get_reg_js(dev.addr, defines.IXGBE_GORCH);
+  const tx_bytes = addon.get_reg_js(dev.addr, defines.IXGBE_GOTCL);
+  const tx_bytes_first32bits = addon.get_reg_js(dev.addr, defines.IXGBE_GOTCH);
+  console.log(`reading stats... rx_pkts: ${rx_pkts} | tx_pkts: ${tx_pkts} | rx_bytes: ${rx_bytes} | rx_bytes_first32bits: ${rx_bytes_first32bits} | tx_bytes: ${tx_bytes} | tx_bytes_first32bits: ${tx_bytes_first32bits}`);
+
   if (stats) {
     stats.rx_pkts += rx_pkts;
     stats.tx_pkts += tx_pkts;
     stats.rx_bytes += rx_bytes;
     stats.tx_bytes += tx_bytes;
+    print_stats(stats);
   }
 }
 ixgbe_device.ixy.read_stats = ixgbe_read_stats;
@@ -573,12 +582,9 @@ function stats_init(stats, dev) {
   stats.tx_bytes = 0;
   stats.device = dev;
   if (dev) {
-    dev.ixy.read_stats(dev, stats);
+    // reset stats
+    dev.ixy.read_stats(dev);
   }
-}
-
-function print_stats(stats) {
-  console.log(`rx_pkts: ${stats.rx_pkts} | tx_pkts: ${stats.tx_pkts} | rx_bytes: ${stats.rx_bytes} | tx_bytes: ${stats.tx_bytes}`);
 }
 
 const bufferArrayLength = 512;
@@ -590,7 +596,6 @@ const stats = {};
 
 function printOurPackages() {
   ixgbe_device.ixy.read_stats(ixgbe_device, stats);
-  print_stats(stats);
   console.log('buffer array, should be packages we got:');
   console.log(util.inspect(bufferArray, false, null, true));
   const queue_id = 0;
@@ -603,4 +608,10 @@ function printOurPackages() {
 stats_init(stats, ixgbe_device);
 
 setInterval(printOurPackages, 5000);
+
+function lifeSignal() {
+  console.log('.');
+}
+
+setInterval(lifeSignal, 1000);
 
