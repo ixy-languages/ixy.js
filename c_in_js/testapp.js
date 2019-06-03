@@ -425,6 +425,7 @@ function pkt_buf_alloc_batch_js(mempool, num_bufs) {
     const buf = {};
     buf.mem = new DataView(mempool.base_addr, entry_id * mempool.buf_size, mempool.buf_size);
     buf.buf_addr_phy = addon.dataviewToPhys(buf.mem);
+    buf.mempool = mempool;
     bufs[i] = buf;
   }
   return bufs;
@@ -617,35 +618,6 @@ function init_tx(dev) {
 }
 
 const TX_CLEAN_BATCH = 32;
-
-
-/*
-these must work together! TODO
-
-uint32_t pkt_buf_alloc_batch(struct mempool* mempool, struct pkt_buf* bufs[], uint32_t num_bufs) {
-	if (mempool->free_stack_top < num_bufs) {
-		warn("memory pool %p only has %d free bufs, requested %d", mempool, mempool->free_stack_top, num_bufs);
-		num_bufs = mempool->free_stack_top;
-	}
-	for (uint32_t i = 0; i < num_bufs; i++) {
-		uint32_t entry_id = mempool->free_stack[--mempool->free_stack_top];
-		bufs[i] = (struct pkt_buf*) (((uint8_t*) mempool->base_addr) + entry_id * mempool->buf_size);
-	}
-	return num_bufs;
-}
-
-struct pkt_buf* pkt_buf_alloc(struct mempool* mempool) {
-	struct pkt_buf* buf = NULL;
-	pkt_buf_alloc_batch(mempool, &buf, 1);
-	return buf;
-}
-
-void pkt_buf_free(struct pkt_buf* buf) {
-	struct mempool* mempool = buf->mempool;
-	mempool->free_stack[mempool->free_stack_top++] = buf->mempool_idx;
-}
-
-*/
 
 function pkt_buf_free(buf) { // TODO this is probably not working
   const { mempool } = buf;
