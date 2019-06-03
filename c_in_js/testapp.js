@@ -435,7 +435,6 @@ function wrap_ring(index, ring_size) {
 // see datasheet section 7.1.9 for an explanation of the rx ring structure
 // tl;dr: we control the tail of the queue, the hardware the head
 function ixgbe_rx_batch(dev /* ixgbe device*/, queue_id, bufs /* array, not sure we want this*/, num_bufs) { // returns number
-  console.log(`inside our rx batch method, input num_bufs: ${num_bufs}`);
   const queue = dev.rx_queues[queue_id];
   let { rx_index } = queue; // rx index we checked in the last run of this function
   let last_rx_index = rx_index; // index of the descriptor we checked in the last iteration of the loop
@@ -443,9 +442,7 @@ function ixgbe_rx_batch(dev /* ixgbe device*/, queue_id, bufs /* array, not sure
   for (buf_index = 0; buf_index < num_bufs; buf_index++) {
     // rx descriptors are explained in 7.1.5
     const desc_ptr = getDescriptorFromVirt(queue.descriptors, rx_index);
-    console.log(util.inspect(desc_ptr, false, null, true /* enable colors */));
     const status = desc_ptr.upper.status_error;
-    console.log(`RDT register: ${addon.get_reg_js(dev.addr, defines.IXGBE_RDT(queue_id))}\nRDH register: ${addon.get_reg_js(dev.addr, defines.IXGBE_RDH(queue_id))}`);
     if (status & defines.IXGBE_RXDADV_STAT_DD) {
       if (!(status & defines.IXGBE_RXDADV_STAT_EOP)) {
         throw new Error('multi-segment packets are not supported - increase buffer size or decrease MTU');
@@ -780,5 +777,11 @@ function lifeSignal() {
   console.log('.');
 }
 
+function receivePackets() {
+  ixgbe_device.ixy.rx_batch(ixgbe_device, 0, bufferArray, bufferArrayLength);
+}
+
 setInterval(lifeSignal, 1000);
+setInterval(receivePackets, 0);
+
 
