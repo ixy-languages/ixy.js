@@ -455,7 +455,7 @@ function ixgbe_rx_batch(dev /* ixgbe device*/, queue_id, bufs /* array, not sure
       // got a packet, read and copy the whole descriptor
       const desc = desc_ptr;
       const buf = queue.virtual_addresses[rx_index];
-      buf.mem.size = desc.wb.upper.length; // check how we can get size of dataView TODO
+      buf.mem.size = desc.upper.length; // check how we can get size of dataView TODO
       // this would be the place to implement RX offloading by translating the device-specific flags
       // to an independent representation in the buf (similiar to how DPDK works)
       // need a new mbuf for the descriptor
@@ -759,7 +759,7 @@ function printOurPackages() {
 
 
   console.log('our rx_queues:');
-  console.log(util.inspect(ixgbe_device.rx_queues.mempool, false, 1, true));
+  console.log(util.inspect(ixgbe_device.rx_queues.mempool, false, 1, true)); // TODO this is undefined
 }
 stats_init(stats, ixgbe_device);
 
