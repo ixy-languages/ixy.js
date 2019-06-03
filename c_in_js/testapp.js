@@ -441,12 +441,10 @@ function ixgbe_rx_batch(dev /* ixgbe device*/, queue_id, bufs /* array, not sure
   let last_rx_index = rx_index; // index of the descriptor we checked in the last iteration of the loop
   let buf_index;
   for (buf_index = 0; buf_index < num_bufs; buf_index++) {
-    console.log(`at buf index: ${buf_index}`);
     // rx descriptors are explained in 7.1.5
     const desc_ptr = getDescriptorFromVirt(queue.descriptors, rx_index);
     console.log(util.inspect(desc_ptr, false, null, true /* enable colors */));
     const status = desc_ptr.upper.status_error;
-    console.log(`status (${status}) & defines.IXGBE_RXDADV_STAT_DD (${defines.IXGBE_RXDADV_STAT_DD}): ${status & defines.IXGBE_RXDADV_STAT_DD}`);
     console.log(`RDT register: ${addon.get_reg_js(dev.addr, defines.IXGBE_RDT(queue_id))}\nRDH register: ${addon.get_reg_js(dev.addr, defines.IXGBE_RDH(queue_id))}`);
     if (status & defines.IXGBE_RXDADV_STAT_DD) {
       if (!(status & defines.IXGBE_RXDADV_STAT_EOP)) {
@@ -477,7 +475,6 @@ function ixgbe_rx_batch(dev /* ixgbe device*/, queue_id, bufs /* array, not sure
       // want to read the next one in the next iteration, but we still need the last/current to update RDT later
       last_rx_index = rx_index;
       rx_index = wrap_ring(rx_index, queue.num_entries);
-      console.log(`rx_index: ${rx_index}`);
     } else {
       break;
     }
@@ -750,16 +747,30 @@ ixgbe_device.ixy.rx_batch(ixgbe_device, 0, bufferArray, bufferArrayLength);
 
 const stats = {};
 
+const { StringDecoder } = require('string_decoder');
+
 function printOurPackages() {
   ixgbe_device.ixy.read_stats(ixgbe_device, stats);
   console.log('buffer array, should be packages we got:');
-  console.log(util.inspect(bufferArray, false, null, true));
+  // console.log(util.inspect(bufferArray, false, null, true));
+  console.log('package at index 0 :');
+  console.log(util.inspect(bufferArray[0], false, null, true));
+  if (bufferArray[0]) {
+    console.log('content:');
+    /*
+  for (let i = 0; i < bufferArray[0].mem.byteLength; i++) {
+    console.log(bufferArray[0].mem.getUint8(i));
+  }
+  */
+    const decoder = new StringDecoder('utf8');
+    console.log(decoder.write(bufferArray[0].mem));
+  }
   const queue_id = 0;
   console.log(`RDT register: ${addon.get_reg_js(ixgbe_device.addr, defines.IXGBE_RDT(queue_id))}\nRDH register: ${addon.get_reg_js(ixgbe_device.addr, defines.IXGBE_RDH(queue_id))}`);
 
 
   console.log('our rx_queues:');
-  console.log(util.inspect(ixgbe_device.rx_queues.mempool, false, 1, true)); // TODO this is undefined
+  console.log(util.inspect(ixgbe_device.rx_queues[queue_id].mempool, false, 0, true));
 }
 stats_init(stats, ixgbe_device);
 
