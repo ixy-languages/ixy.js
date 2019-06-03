@@ -754,7 +754,7 @@ function printOurPackages() {
   console.log('buffer array, should be packages we got:');
   // console.log(util.inspect(bufferArray, false, null, true));
   console.log('package at index 0 :');
-  console.log(util.inspect(bufferArray[0], false, null, true));
+  console.log(util.inspect(bufferArray[0], false, null, true)); // TODO this does not fill when first run, and then moongen, only if first moongen and then this run!
   if (bufferArray[0]) {
     console.log('content:');
     /*
