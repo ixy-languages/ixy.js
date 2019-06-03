@@ -371,7 +371,7 @@ function memory_allocate_mempool_js(num_entries, entry_size) {
     // physical addresses are not contiguous within a pool, we need to get the mapping
     // minor optimization opportunity: this only needs to be done once per page
 
-    // i think these should be done on the view, not variables /sighs
+    // i think these should be done on the view, not variables /sighs TODO check if these should lie in our mempool
     const buff = {};
     buff.buf_addr_phy = addon.virtToPhys(buf.buffer); // this should get the correct physical adress to the part of the mem of the mempool the buffer should be in
     buff.mempool_idx = i;
@@ -426,6 +426,7 @@ function pkt_buf_alloc_batch_js(mempool, num_bufs) {
     buf.mem = new DataView(mempool.base_addr, entry_id * mempool.buf_size, mempool.buf_size);
     buf.buf_addr_phy = addon.dataviewToPhys(buf.mem);
     buf.mempool = mempool;
+    // TODO add the other buf params such as mempool idx etc. ?? // TODO write a getBuf method to get all the attributes from a dataView
     bufs[i] = buf;
   }
   return bufs;
