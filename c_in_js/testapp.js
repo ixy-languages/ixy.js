@@ -118,7 +118,29 @@ const defines = {
   IXGBE_CTRL_RST_MASK: 0x00000008 | 0x04000000,
   IXGBE_RDRXCTL_DMAIDONE: 0x00000008,
   IXGBE_FCTRL_MPE: 0x00000100,
-  IXGBE_FCTRL_UPE: 0x00000200
+  IXGBE_FCTRL_UPE: 0x00000200,
+  IXGBE_ADVTXD_STAT_DD: 0x00000001,
+  IXGBE_HLREG0_TXCRCEN: 0x00000001,
+  IXGBE_HLREG0_TXPADEN: 0x00000400,
+  IXGBE_TXPBSIZE: i => 0x0CC00 + (i * 4),
+  IXGBE_TXPBSIZE_40KB: 0x0000A000,
+  IXGBE_DTXMXSZRQ: 0x08100,
+  IXGBE_RTTDCS: 0x04900,
+  IXGBE_RTTDCS_ARBDIS: 0x00000040,
+  IXGBE_TDBAL: i => 0x06000 + (i * 0x40),
+  IXGBE_TDBAH: i => 0x06004 + (i * 0x40),
+  IXGBE_TDLEN: i => 0x06008 + (i * 0x40),
+  IXGBE_TXDCTL: i => 0x06028 + (i * 0x40),
+  IXGBE_DMATXCTL: 0x04A80,
+  IXGBE_DMATXCTL_TE: 0x1,
+  IXGBE_TDT: i => 0x06018 + (i * 0x40),
+  IXGBE_ADVTXD_PAYLEN_SHIFT: 14,
+  IXGBE_ADVTXD_DCMD_EOP: 0x01000000,
+  IXGBE_ADVTXD_DCMD_RS: 0x08000000,
+  IXGBE_ADVTXD_DCMD_IFCS: 0x02000000,
+  IXGBE_ADVTXD_DCMD_DEXT: 0x20000000,
+  IXGBE_ADVTXD_DTYP_DATA: 0x00300000
+
 };
 
 const getDescriptorFromVirt = (virtMem, index = 0) => {
@@ -185,6 +207,40 @@ union ixgbe_adv_rx_desc {
   return descriptor;
 };
 
+function getTxDescriptorFromVirt(virtMem, index = 0) {
+  /*
+  // Transmit Descriptor - Advanced
+  union ixgbe_adv_tx_desc {
+    struct {
+      __le64 buffer_addr; // Address of descriptor's data buf
+      __le32 cmd_type_len;
+      __le32 olinfo_status;
+    } read;
+    struct {
+      __le64 rsvd; // Reserved
+      __le32 nxtseq_seed;
+      __le32 status;
+    } wb;
+  };
+  */
+  const offset = index * 16; // offset in bytes, depending on index
+  const descriptor = {};
+  const dataView = new DataView(virtMem);
+
+  descriptor.read.buffer_addr = dataView.getBigUint64(0 + offset, littleEndian);
+  descriptor.read.cmd_type_len = dataView.getUint32(8 + offset, littleEndian);
+  descriptor.read.olinfo_status = dataView.getUint32(12 + offset, littleEndian);
+
+  descriptor.wb.rsvd = dataView.getBigUint64(0 + offset, littleEndian);
+  descriptor.wb.nxtseq_seed = dataView.getUint32(8 + offset, littleEndian);
+  descriptor.wb.status = dataView.getUint32(12 + offset, littleEndian);
+
+  descriptor.memView = dataView;
+
+  // TODO check if upper/lower is wrong because we supply the littleEndian when reading (so double-correct lE)
+
+  return descriptor;
+}
 // see section 4.6.7
 // it looks quite complicated in the data sheet, but it's actually really easy because we don't need fancy features
 function init_rx(ixgbe_device) {
@@ -379,11 +435,6 @@ function pkt_buf_alloc_js(mempool) {
   return buf[0];
 }
 
-/*
-now lets port this:
-*/
-// /* // remove the leftmost comment slashes to deactivate
-
 function start_rx_queue(ixgbe_device, queue_id) {
   console.log(`starting rx queue ${queue_id}`);
   const queue = ixgbe_device.rx_queues[queue_id];
@@ -487,6 +538,181 @@ function ixgbe_rx_batch(dev /* ixgbe device*/, queue_id, bufs /* array, not sure
   }
   return buf_index; // number of packets stored in bufs; buf_index points to the next index
 }
+
+
+/*
+now lets port this:
+*/
+// /* // remove the leftmost comment slashes to deactivate
+
+
+// see section 4.6.8
+function init_tx(dev) {
+  // crc offload and small packet padding
+  set_flags_js(dev.addr, defines.IXGBE_HLREG0, defines.IXGBE_HLREG0_TXCRCEN | defines.IXGBE_HLREG0_TXPADEN);
+
+  // set default buffer size allocations
+  // see also: section 4.6.11.3.4, no fancy features like DCB and VTd
+  addon.set_reg_js(dev.addr, defines.IXGBE_TXPBSIZE(0), defines.IXGBE_TXPBSIZE_40KB);
+  for (let i = 1; i < 8; i++) {
+    addon.set_reg_js(dev.addr, defines.IXGBE_TXPBSIZE(i), 0);
+  }
+  // required when not using DCB/VTd
+  addon.set_reg_js(dev.addr, defines.IXGBE_DTXMXSZRQ, 0xFFFF);
+  clear_flags_js(dev.addr, defines.IXGBE_RTTDCS, defines.IXGBE_RTTDCS_ARBDIS);
+
+  // per-queue config for all queues
+  for (let i = 0; i < dev.ixy.num_tx_queues; i++) {
+    console.log(`initializing tx queue ${i}`);
+
+    // setup descriptor ring, see section 7.1.9
+    const ring_size_bytes = defines.NUM_RX_QUEUE_ENTRIES * 16; // 128bit headers? -> 128/8 bytes
+    const mem = {};
+    console.log('-----------cstart------------');
+    mem.virt = addon.getDmaMem(ring_size_bytes, true);
+    mem.phy = addon.virtToPhys(mem.virt);
+    console.log('-----------c--end------------');
+    // neat trick from Snabb: initialize to 0xFF to prevent rogue memory accesses on premature DMA activation
+    const virtMemView = new DataView(mem.virt);
+    for (let count = 0; count < ring_size_bytes; count++) {
+      virtMemView.setUint32(count / 4, 0xFFFFFFFF, littleEndian);
+    }
+
+    // for now there is no obvious way to use bigint in a smart way, even within the long library
+    console.log('-----------cstart------------');
+    const shortenedPhys = addon.shortenPhys(mem.phy);
+    const shortenedPhysLatter = addon.shortenPhysLatter(mem.phy);
+    console.log('-----------c--end------------');
+    // switch order, little endian has this confused?
+    addon.set_reg_js(dev.addr, defines.IXGBE_TDBAL(i), shortenedPhys);
+    addon.set_reg_js(dev.addr, defines.IXGBE_TDBAH(i), shortenedPhysLatter);
+
+    addon.set_reg_js(dev.addr, defines.IXGBE_TDLEN(i), ring_size_bytes);
+
+    // descriptor writeback magic values, important to get good performance and low PCIe overhead
+    // see 7.2.3.4.1 and 7.2.3.5 for an explanation of these values and how to find good ones
+    // we just use the defaults from DPDK here, but this is a potentially interesting point for optimizations
+    let txdctl = addon.get_reg_js(dev.addr, defines.IXGBE_TXDCTL(i));
+    // there are no defines for this in ixgbe_type.h for some reason
+    // pthresh: 6:0, hthresh: 14:8, wthresh: 22:16
+    txdctl &= ~(0x3F | (0x3F << 8) | (0x3F << 16)); // clear bits
+    txdctl |= 36 | (8 << 8) | (4 << 16); // from DPDK
+    addon.set_reg_js(dev.addr, defines.IXGBE_TXDCTL(i), txdctl);
+
+    // private data for the driver, 0-initialized
+    const queue = {
+      num_entries: defines.NUM_RX_QUEUE_ENTRIES,
+      descriptors: mem.virt,
+      // position to clean up descriptors that where sent out by the nic
+	 clean_index: 0,
+      // position to insert packets for transmission
+	 tx_index: 0,
+      // virtual addresses to map descriptors back to their mbuf for freeing
+      virtual_addresses: new Array(defines.NUM_RX_QUEUE_ENTRIES)
+    };
+    dev.tx_queues[i] = queue;
+  }
+  // final step: enable DMA
+  addon.set_reg_js(dev.addr, defines.IXGBE_DMATXCTL, defines.IXGBE_DMATXCTL_TE);
+}
+
+const TX_CLEAN_BATCH = 32;
+
+function pkt_buf_free(buf) { // TODO this is probably not working
+  const { mempool } = buf;
+  mempool.free_stack[mempool.free_stack_top++] = buf.mempool_idx;
+}
+
+
+// section 1.8.1 and 7.2
+// we control the tail, hardware the head
+// huge performance gains possible here by sending packets in batches - writing to TDT for every packet is not efficient
+// returns the number of packets transmitted, will not block when the queue is full
+function ixgbe_tx_batch(dev, queue_id, bufs, num_bufs) {
+  const queue = dev.tx_queues[queue_id];
+  // the descriptor is explained in section 7.2.3.2.4
+  // we just use a struct copy & pasted from intel, but it basically has two formats (hence a union):
+  // 1. the write-back format which is written by the NIC once sending it is finished this is used in step 1
+  // 2. the read format which is read by the NIC and written by us, this is used in step 2
+
+  let { clean_index } = queue; // next descriptor to clean up
+  let cur_index = queue.tx_index; // next descriptor to use for tx
+
+  // step 1: clean up descriptors that were sent out by the hardware and return them to the mempool
+  // start by reading step 2 which is done first for each packet
+  // cleaning up must be done in batches for performance reasons, so this is unfortunately somewhat complicated
+  while (true) {
+    // figure out how many descriptors can be cleaned up
+    let cleanable = cur_index - clean_index; // cur is always ahead of clean (invariant of our queue)
+    if (cleanable < 0) { // handle wrap-around
+      cleanable = queue.num_entries + cleanable;
+    }
+    if (cleanable < TX_CLEAN_BATCH) {
+      break;
+    }
+    // calculcate the index of the last transcriptor in the clean batch
+    // we can't check all descriptors for performance reasons
+    let cleanup_to = clean_index + TX_CLEAN_BATCH - 1;
+    if (cleanup_to >= queue.num_entries) {
+      cleanup_to -= queue.num_entries;
+    }
+    const txd = getDescriptorFromVirt(queue.descriptors, cleanup_to);
+
+    const { status } = txd;
+    // hardware sets this flag as soon as it's sent out, we can give back all bufs in the batch back to the mempool
+    if (status & defines.IXGBE_ADVTXD_STAT_DD) {
+      let i = clean_index;
+      while (true) {
+				 const buf = queue.virtual_addresses[i];
+        pkt_buf_free(buf);
+        if (i === cleanup_to) {
+          break;
+        }
+        i = wrap_ring(i, queue.num_entries);
+      }
+      // next descriptor to be cleaned up is one after the one we just cleaned
+      clean_index = wrap_ring(cleanup_to, queue.num_entries);
+    } else {
+      // clean the whole batch or nothing; yes, this leaves some packets in
+      // the queue forever if you stop transmitting, but that's not a real concern
+      break;
+    }
+  }
+  queue.clean_index = clean_index;
+
+  // step 2: send out as many of our packets as possible
+  let sent;
+  for (sent = 0; sent < num_bufs; sent++) {
+    const next_index = wrap_ring(cur_index, queue.num_entries);
+    // we are full if the next index is the one we are trying to reclaim
+    if (clean_index === next_index) {
+      break;
+    }
+    const buf = bufs[sent];
+    // remember virtual address to clean it up later
+    queue.virtual_addresses[cur_index] = buf;
+    queue.tx_index = wrap_ring(queue.tx_index, queue.num_entries);
+    const txd = getTxDescriptorFromVirt(queue.descriptors, cur_index);
+
+    // NIC reads from here
+    txd.memView.setBigUint64(0, addon.addBigInts(buf.buf_addr_phy, 64)/* offsetof(struct pkt_buf, data)*/, littleEndian); // TODO double check offset
+
+    // always the same flags: one buffer (EOP), advanced data descriptor, CRC offload, data length
+    txd.memView.setUint32(8, defines.IXGBE_ADVTXD_DCMD_EOP | defines.IXGBE_ADVTXD_DCMD_RS | defines.IXGBE_ADVTXD_DCMD_IFCS | defines.IXGBE_ADVTXD_DCMD_DEXT | defines.IXGBE_ADVTXD_DTYP_DATA | buf.size, littleEndian);
+
+    // no fancy offloading stuff - only the total payload length
+    // implement offloading flags here:
+    // 	* ip checksum offloading is trivial: just set the offset
+    // 	* tcp/udp checksum offloading is more annoying, you have to precalculate the pseudo-header checksum
+    txd.memView.setUint32(12, buf.size << defines.IXGBE_ADVTXD_PAYLEN_SHIFT, littleEndian);
+    cur_index = next_index;
+  }
+  // send out by advancing tail, i.e., pass control of the bufs to the nic
+  // this seems like a textbook case for a release memory order, but Intel's driver doesn't even use a compiler barrier here
+  addon.set_reg_js(dev.addr, defines.IXGBE_TDT(queue_id), queue.tx_index);
+  return sent;
+}
+
 
 /**/
 
@@ -705,7 +931,7 @@ function reset_and_init(dev) {
   init_rx(dev);
 
   // section 4.6.8 - init tx
-  // init_tx(dev); // TODO implement this
+  init_tx(dev);
 
   // enables queues after initializing everything
   for (let i = 0; i < dev.ixy.num_rx_queues; i++) {
