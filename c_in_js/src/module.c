@@ -156,8 +156,8 @@ napi_value dataviewToPhys(napi_env env, napi_callback_info info)
   {
     napi_throw_error(env, NULL, "Failed to get virtual Memory from Dataview.");
   }
-  uintptr_t oldPhysPointer = virt_to_phys(virt);
-  uintptr_t physPointer = virt_to_phys(virt) + byteOffset; // TODO check if we need to multiply with 8 or so to get to bytes
+  uintptr_t oldPhysPointer = virt_to_phys(virt); // TODO double check, but apparently offset is already added!
+  uintptr_t physPointer = virt_to_phys(virt + byteOffset); // TODO check if we need to multiply with 8 or so to get to bytes
   //printf("Byte offset: %d\nOriginal phys addr: %016" PRIxPTR "\n-----New Phys Addr: %016" PRIxPTR "\n", byteOffset, oldPhysPointer, physPointer);
   napi_value ret;
   //hoping physical pointers are 64bit, else we need to handle every function that needs this value in C as well
@@ -376,14 +376,22 @@ void waitSetReg32(const uint8_t *addr, int32_t reg, uint32_t mask)
                      : "memory");
   }
 }
-void waitClearReg32(const uint8_t* addr, int reg, uint32_t mask) {
-	__asm__ volatile ("" : : : "memory");
-	uint32_t cur = 0;
-	while (cur = *((volatile uint32_t*) (addr + reg)), (cur & mask) != 0) {
-		debug("waiting for flags 0x%08X in register 0x%05X to clear, current value 0x%08X", mask, reg, cur);
-		usleep(10000);
-		__asm__ volatile ("" : : : "memory");
-	}
+void waitClearReg32(const uint8_t *addr, int reg, uint32_t mask)
+{
+  __asm__ volatile(""
+                   :
+                   :
+                   : "memory");
+  uint32_t cur = 0;
+  while (cur = *((volatile uint32_t *)(addr + reg)), (cur & mask) != 0)
+  {
+    debug("waiting for flags 0x%08X in register 0x%05X to clear, current value 0x%08X", mask, reg, cur);
+    usleep(10000);
+    __asm__ volatile(""
+                     :
+                     :
+                     : "memory");
+  }
 }
 uint32_t getReg32(const uint8_t *addr, int reg)
 {

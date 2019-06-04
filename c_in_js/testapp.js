@@ -368,14 +368,14 @@ function readBufferValues(buffer, mempool) {
 
   // TODO read data
   const decoder = new StringDecoder('utf8');
-  ret.data = decoder.write(buffer); // this also includes the first bytes, we will adjust this later TODO
+  // ret.data = decoder.end(buffer); // this also includes the first bytes, we will adjust this later TODO
 
   return ret;
 }
 
 function setBufferValues(buffer, mempool, mempool_idx, size, data, phys = false) { // i don't think we need mempool at all TODO double check this
   // const vmem = mempool.base_addr;
-  if (phys) { // addon.virtToPhys(buffer.buffer)
+  if (phys) { // addon.dataviewToPhys(buffer.mem)
     buffer.setBigUint64(0, phys, littleEndian); // maybe we dont need to do this every time, so only on getBuffer ? TODO validate
   }
   // let's skip mempool 8 bytes for now?
@@ -419,7 +419,7 @@ function memory_allocate_mempool_js(num_entries, entry_size) {
 
     // physical addresses are not contiguous within a pool, we need to get the mapping
     // minor optimization opportunity: this only needs to be done once per page
-    setBufferValues(buf.mem, mempool, i, 0, 0, addon.virtToPhys(buf.buffer)); // we should move these into creation later TODO
+    setBufferValues(buf.mem, mempool, i, 0, 0, addon.dataviewToPhys(buf.mem)); // we should move these into creation later TODO
   }
   return mempool;
 }
@@ -974,7 +974,7 @@ function reset_and_init(dev) {
 console.log('reset and init...');
 reset_and_init(ixgbe_device);
 
-console.log(util.inspect(ixgbe_device, false, null, true /* enable colors */));
+console.log(util.inspect(ixgbe_device, false, 2, true /* enable colors */));
 console.log('printing rx_queue descriptors read from buffer we saved:');
 for (const index in ixgbe_device.rx_queues) {
   const queueDescriptor = getDescriptorFromVirt(ixgbe_device.rx_queues[index].descriptors);
@@ -992,21 +992,28 @@ ixgbe_device.ixy.rx_batch(ixgbe_device, 0, bufferArray, bufferArrayLength);
 
 const stats = {};
 
+function buf2hex(buffer) { // buffer is an ArrayBuffer
+  return Array.prototype.map.call(new Uint8Array(buffer), x => `00${x.toString(16)}`.slice(-2)).join('');
+}
+
 function printOurPackages() {
   ixgbe_device.ixy.read_stats(ixgbe_device, stats);
   console.log('buffer array, should be packages we got:');
   // console.log(util.inspect(bufferArray, false, null, true));
-  console.log('package at index 0 :');
-  console.log(util.inspect(bufferArray[0], false, null, true)); // TODO this does not fill when first run, and then moongen, only if first moongen and then this run!
+  const index = 3;
+  console.log(`package at index ${index} :`);
+  console.log(util.inspect(bufferArray[index], false, 1, true)); // TODO this does not fill when first run, and then moongen, only if first moongen and then this run!
   if (bufferArray[0]) {
-    console.log('content:');
+    // console.log('content:');
     /*
   for (let i = 0; i < bufferArray[0].mem.byteLength; i++) {
     console.log(bufferArray[0].mem.getUint8(i));
   }
   */
-    const decoder = new StringDecoder('utf8');
-    console.log(decoder.write(bufferArray[0].mem));
+    // const decoder = new StringDecoder('utf8');
+    // console.log(decoder.write(bufferArray[0].mem));
+    console.log('content as hex (sliced at 60 Byte because currently all buffers):');
+    console.log(buf2hex(bufferArray[0].mem.buffer).slice(0, 60 * 2));
   }
   const queue_id = 0;
   console.log(`RDT register: ${addon.get_reg_js(ixgbe_device.addr, defines.IXGBE_RDT(queue_id))}\nRDH register: ${addon.get_reg_js(ixgbe_device.addr, defines.IXGBE_RDH(queue_id))}`);
