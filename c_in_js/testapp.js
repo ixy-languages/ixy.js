@@ -2,6 +2,8 @@ const addon = require('./build/Release/exported_module');
 const Long = require('long'); // bigint is annoying http://thecodebarbarian.com/an-overview-of-bigint-in-node-js.html
 const util = require('util');
 const bigInt = require('big-integer');
+const { StringDecoder } = require('string_decoder');
+
 
 // const jstruct = require('js-struct');
 
@@ -332,6 +334,67 @@ function init_rx(ixgbe_device) {
   set_flags_js(IXYDevice, defines.IXGBE_RXCTRL, defines.IXGBE_RXCTRL_RXEN);
 }
 
+// create and read buffer methods
+/*
+struct pkt_buf {
+	// physical address to pass a buffer to a nic
+	uintptr_t buf_addr_phy;
+	struct mempool* mempool;
+	uint32_t mempool_idx;
+	uint32_t size;
+	uint8_t head_room[SIZE_PKT_BUF_HEADROOM];
+	uint8_t data[] __attribute__((aligned(64)));
+};
+*/
+
+function getBuffer(mempool, index, entry_size) {
+  return { mem: new DataView(mempool.base_addr, index * entry_size), mempool }; // this should do the trick, returns {mem:dataView,mempool}
+}
+
+function readBufferValues(buffer, mempool) {
+  const ret = { mem: buffer };
+
+  ret.buf_addr_phy = buffer.getBigUint64(0, littleEndian);
+  // let's skip mempool 8 bytes for now?
+  // buf.setUint32(8, 0);
+  // buf.setUint32(12, 0);
+  ret.mempool = mempool;
+  ret.mempool_idx = buffer.getUint32(16, littleEndian);
+  ret.size = buffer.getUint32(20, littleEndian);
+
+  // rest of first 64 bytes is empty
+
+  // the rest can be data, but we dont give access via a variable
+
+  // TODO read data
+  const decoder = new StringDecoder('utf8');
+  ret.data = decoder.write(buffer); // this also includes the first bytes, we will adjust this later TODO
+
+  return ret;
+}
+
+function setBufferValues(buffer, mempool, mempool_idx, size, data, phys = false) { // i don't think we need mempool at all TODO double check this
+  // const vmem = mempool.base_addr;
+  if (phys) { // addon.virtToPhys(buffer.buffer)
+    buffer.setBigUint64(0, phys, littleEndian); // maybe we dont need to do this every time, so only on getBuffer ? TODO validate
+  }
+  // let's skip mempool 8 bytes for now?
+  // buf.setUint32(8, 0);
+  // buf.setUint32(12, 0);
+
+  buffer.setUint32(16, mempool_idx, littleEndian);
+  buffer.setUint32(20, size, littleEndian);
+
+  // TODO write data
+  // data is an 8bit array
+  for (let i = 0; i < data.length; i++) {
+    buffer.setUint8(64 + i, data[i], littleEndian);
+    if (i > 2048 - 64) {
+      throw new Error('Too large data provided.');
+    }
+  }
+}
+
 /* let's port mempool allocation first:
 */
 
@@ -345,69 +408,18 @@ function memory_allocate_mempool_js(num_entries, entry_size) {
   const mem = addon.getDmaMem(num_entries * entry_size, false);
   const mempool = {};
   mempool.num_entries = num_entries;
-  mempool.buf_size = entry_size;
+  mempool.buf_size = entry_size; // 2048
   mempool.base_addr = mem; // buffer that holds mempool
   mempool.free_stack_top = num_entries;
   mempool.free_stack = new Array(num_entries);
 
   for (let i = 0; i < num_entries; i++) {
     mempool.free_stack[i] = i;
-    const buf = new DataView(mem, i * entry_size); // this should do the trick?
-    // TODO get buffer correctly!
-    /*
-    struct pkt_buf * buf = (struct pkt_buf *) (((uint8_t *) mempool -> base_addr) + i * entry_size);
-    // this is what a pkt buff has saved:
-    struct pkt_buf {
-      // physical address to pass a buffer to a nic
-      uintptr_t buf_addr_phy; // 8 bytes
-      struct mempool* mempool; // 8 bytes????
-      uint32_t mempool_idx; // 4 bytes
-      uint32_t size; //4 bytes
-      uint8_t head_room[SIZE_PKT_BUF_HEADROOM]; // 40 bytes, does this mean the rest above is 24 bytes?
-      uint8_t data[] __attribute__((aligned(64))); // min size of 64 bytes
-    };
-    // end of buf
-*/
+    const buf = getBuffer(mempool, i, entry_size); // this should do the trick?
+
     // physical addresses are not contiguous within a pool, we need to get the mapping
     // minor optimization opportunity: this only needs to be done once per page
-
-    // i think these should be done on the view, not variables /sighs TODO check if these should lie in our mempool
-    const buff = {};
-    buff.buf_addr_phy = addon.virtToPhys(buf.buffer); // this should get the correct physical adress to the part of the mem of the mempool the buffer should be in
-    buff.mempool_idx = i;
-    buff.mempool = mempool;
-    buff.size = 0;
-
-    buf.setBigUint64(0, buff.buf_addr_phy, littleEndian);
-    // let's skip mempool 8 bytes for now?
-    // buf.setBigUint64(8, bigInt(), littleEndian); // without a real bigint we cant write a bigint
-    buf.setUint32(8, 0);
-    buf.setUint32(12, 0);
-
-    buf.setUint32(16, buff.mempool_idx, littleEndian);
-    buf.setUint32(20, buff.size, littleEndian);
-    // same problem as above, cannot write bigint without real bigint input
-    /*
-    buf.setBigUint64(24, bigInt(), littleEndian);
-    buf.setBigUint64(32, bigInt(), littleEndian);
-    buf.setBigUint64(40, bigInt(), littleEndian);
-    buf.setBigUint64(48, bigInt(), littleEndian);
-    buf.setBigUint64(56, bigInt(), littleEndian);
-    */
-    buf.setUint32(24, 0);
-    buf.setUint32(28, 0);
-    buf.setUint32(32, 0);
-    buf.setUint32(36, 0);
-    buf.setUint32(40, 0);
-    buf.setUint32(44, 0);
-    buf.setUint32(48, 0);
-    buf.setUint32(52, 0);
-    buf.setUint32(56, 0);
-    buf.setUint32(60, 0);
-
-    // now we filled the first 64 bytes
-
-    // the rest can be data, but we dont give access via a variable
+    setBufferValues(buf.mem, mempool, i, 0, 0, addon.virtToPhys(buf.buffer)); // we should move these into creation later TODO
   }
   return mempool;
 }
@@ -422,11 +434,11 @@ function pkt_buf_alloc_batch_js(mempool, num_bufs) {
     const entry_id = mempool.free_stack[--mempool.free_stack_top];
     // console.log(`entry id: ${entry_id}, offset: ${entry_id * mempool.buf_size} with buf_size of ${mempool.buf_size}`);
     // console.log(`phys addr in JS: ${addon.virtToPhys(mempool.base_addr)}`);
-    const buf = {};
+    const buf = readBufferValues(getBuffer(mempool, entry_id, mempool.buf_size).mem, mempool);
+    /*
     buf.mem = new DataView(mempool.base_addr, entry_id * mempool.buf_size, mempool.buf_size);
     buf.buf_addr_phy = addon.dataviewToPhys(buf.mem);
-    buf.mempool = mempool;
-    // TODO add the other buf params such as mempool idx etc. ?? // TODO write a getBuf method to get all the attributes from a dataView
+    */
     bufs[i] = buf;
   }
   return bufs;
@@ -620,7 +632,15 @@ function init_tx(dev) {
 
 const TX_CLEAN_BATCH = 32;
 
-function pkt_buf_free(buf) { // TODO this is probably not working
+
+/*
+void pkt_buf_free(struct pkt_buf* buf) {
+	struct mempool* mempool = buf->mempool;
+	mempool->free_stack[mempool->free_stack_top++] = buf->mempool_idx;
+}
+*/
+
+function pkt_buf_free(buf) { // TODO check if this works
   const { mempool } = buf;
   mempool.free_stack[mempool.free_stack_top++] = buf.mempool_idx;
 }
@@ -971,8 +991,6 @@ console.log('running our rx batch method...');
 ixgbe_device.ixy.rx_batch(ixgbe_device, 0, bufferArray, bufferArrayLength);
 
 const stats = {};
-
-const { StringDecoder } = require('string_decoder');
 
 function printOurPackages() {
   ixgbe_device.ixy.read_stats(ixgbe_device, stats);
