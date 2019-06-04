@@ -156,8 +156,8 @@ napi_value dataviewToPhys(napi_env env, napi_callback_info info)
   {
     napi_throw_error(env, NULL, "Failed to get virtual Memory from Dataview.");
   }
-  uintptr_t oldPhysPointer = virt_to_phys(virt); // TODO double check, but apparently offset is already added!
-  uintptr_t physPointer = virt_to_phys(virt + byteOffset); // TODO check if we need to multiply with 8 or so to get to bytes
+  uintptr_t oldPhysPointer = virt_to_phys(virt);           // TODO double check, but apparently offset is already added!
+  uintptr_t physPointer = virt_to_phys(virt) + byteOffset; // TODO check if we need to multiply with 8 or so to get to bytes
   //printf("Byte offset: %d\nOriginal phys addr: %016" PRIxPTR "\n-----New Phys Addr: %016" PRIxPTR "\n", byteOffset, oldPhysPointer, physPointer);
   napi_value ret;
   //hoping physical pointers are 64bit, else we need to handle every function that needs this value in C as well

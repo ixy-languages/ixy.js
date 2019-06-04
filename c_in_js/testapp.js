@@ -348,7 +348,7 @@ struct pkt_buf {
 */
 
 function getBuffer(mempool, index, entry_size) {
-  return { mem: new DataView(mempool.base_addr, index * entry_size), mempool }; // this should do the trick, returns {mem:dataView,mempool}
+  return { mem: new DataView(mempool.base_addr, index * entry_size, entry_size), mempool }; // this should do the trick, returns {mem:dataView,mempool}
 }
 
 function readBufferValues(buffer, mempool) {
@@ -996,25 +996,31 @@ function buf2hex(buffer) { // buffer is an ArrayBuffer
   return Array.prototype.map.call(new Uint8Array(buffer), x => `00${x.toString(16)}`.slice(-2)).join('');
 }
 
+function printPackage(index) {
+  console.log(`package at index ${index} :`);
+  const buf = bufferArray[index];
+  console.log(util.inspect(buf, false, 1, true)); // TODO this does not fill when first run, and then moongen, only if first moongen and then this run!
+  if (buf) {
+    console.log('content:');
+    let str = '';
+    for (let i = 0; i < buf.mem.byteLength; i++) {
+      str += `00${buf.mem.getUint8(i).toString(16)}`.slice(-2);
+    }
+    console.log(str);
+    // const decoder = new StringDecoder('utf8');
+    // console.log(decoder.write(bufferArray[0].mem));
+    // console.log('content as hex (sliced at 60 Byte because currently all buffers):');
+    // console.log(buf2hex(buf.mem.buffer).slice(0, 60 * 2));
+  }
+}
+
 function printOurPackages() {
   ixgbe_device.ixy.read_stats(ixgbe_device, stats);
   console.log('buffer array, should be packages we got:');
   // console.log(util.inspect(bufferArray, false, null, true));
-  const index = 3;
-  console.log(`package at index ${index} :`);
-  console.log(util.inspect(bufferArray[index], false, 1, true)); // TODO this does not fill when first run, and then moongen, only if first moongen and then this run!
-  if (bufferArray[0]) {
-    // console.log('content:');
-    /*
-  for (let i = 0; i < bufferArray[0].mem.byteLength; i++) {
-    console.log(bufferArray[0].mem.getUint8(i));
-  }
-  */
-    // const decoder = new StringDecoder('utf8');
-    // console.log(decoder.write(bufferArray[0].mem));
-    console.log('content as hex (sliced at 60 Byte because currently all buffers):');
-    console.log(buf2hex(bufferArray[0].mem.buffer).slice(0, 60 * 2));
-  }
+  printPackage(0);
+  printPackage(4);
+
   const queue_id = 0;
   console.log(`RDT register: ${addon.get_reg_js(ixgbe_device.addr, defines.IXGBE_RDT(queue_id))}\nRDH register: ${addon.get_reg_js(ixgbe_device.addr, defines.IXGBE_RDH(queue_id))}`);
 
