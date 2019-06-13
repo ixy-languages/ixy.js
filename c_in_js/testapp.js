@@ -488,11 +488,12 @@ function start_rx_queue(ixgbe_device, queue_id) {
   addon.set_reg_js(ixgbe_device.addr, defines.IXGBE_RDH(queue_id), 0);
   // was set to 0 before in the init function
   addon.set_reg_js(ixgbe_device.addr, defines.IXGBE_RDT(queue_id), queue.num_entries - 1);
+  console.log(`at start_rx_queue:\nRDT register: ${addon.get_reg_js(ixgbe_device.addr, defines.IXGBE_RDT(queue_id))}\nRDH register: ${addon.get_reg_js(ixgbe_device.addr, defines.IXGBE_RDH(queue_id))}`);
 }
 
 function wrap_ring(index, ring_size) {
-  return (index + 1) % ring_size;
-} // our version of wrapper, not sure if bitwise would work exactly as in C
+  return (index + 1) & (ring_size - 1);
+}
 
 
 // section 1.8.2 and 7.1
@@ -527,7 +528,7 @@ function ixgbe_rx_batch(dev /* ixgbe device*/, queue_id, bufs /* array, not sure
       }
       // reset the descriptor
       // TODO add the set functions
-      desc_ptr.memView.setBigUint64(0, addon.addBigInts(buf.buf_addr_phy, 64)/* offsetof(struct pkt_buf, data)*/, littleEndian); // TODO double check offset
+      desc_ptr.memView.setBigUint64(0, addon.addBigInts(buf.buf_addr_phy, 64)/* offsetof(struct pkt_buf, data)*/, littleEndian);
       // this resets the flags
       desc_ptr.memView.setUint32(8, 0, littleEndian);
       desc_ptr.memView.setUint32(12, 0, littleEndian);
@@ -542,12 +543,16 @@ function ixgbe_rx_batch(dev /* ixgbe device*/, queue_id, bufs /* array, not sure
     }
   }
   if (rx_index !== last_rx_index) {
+    console.log(`rx_index: ${rx_index} ; last_rx_index: ${last_rx_index}`);
     // tell hardware that we are done
     // this is intentionally off by one, otherwise we'd set RDT=RDH if we are receiving faster than packets are coming in
     // RDT=RDH means queue is full
+    console.log(`RDT register: ${addon.get_reg_js(dev.addr, defines.IXGBE_RDT(queue_id))}\nRDH register: ${addon.get_reg_js(dev.addr, defines.IXGBE_RDH(queue_id))}`);
     addon.set_reg_js(dev.addr, defines.IXGBE_RDT(queue_id), last_rx_index);
     queue.rx_index = rx_index;
-
+    console.log(`queue rx_index: ${queue.rx_index}`);
+    console.log(`reading queue from our device rx_index: ${dev.rx_queues[queue_id].rx_index}`);
+    console.log(`we set RDT to ${last_rx_index}`);
     console.log(`RDT register: ${addon.get_reg_js(dev.addr, defines.IXGBE_RDT(queue_id))}\nRDH register: ${addon.get_reg_js(dev.addr, defines.IXGBE_RDH(queue_id))}`);
   }
   return buf_index; // number of packets stored in bufs; buf_index points to the next index
@@ -791,6 +796,7 @@ ixgbe_device.addr = addon.getIXYAddr(ixgbe_device.ixy.pci_addr);
 const IXYDevice = ixgbe_device.addr;
 // create a View on the IXY memory, which is RO
 ixgbe_device.dataView = new DataView(IXYDevice);
+/*
 const IXYView = ixgbe_device.dataView;
 console.log(`The 32bit before changing: ${IXYView.getUint32(0x200, littleEndian)}`);
 console.log('-----------cstart------------');
@@ -811,7 +817,7 @@ dmaView.setUint32(0, 20, littleEndian);
 console.log(`dma at byte 0 after JS change : ${dmaView.getUint32(0, littleEndian)}`);
 const physicalAddress = addon.virtToPhys(dmaMem);
 console.log(`Physical address: ${physicalAddress}`);
-
+*/
 
 function print_stats(stats) {
   console.log(`rx_pkts: ${stats.rx_pkts} | tx_pkts: ${stats.tx_pkts} | rx_bytes: ${stats.rx_bytes} | tx_bytes: ${stats.tx_bytes}`);
@@ -922,7 +928,7 @@ function wait_for_link(dev) {
 
 // see section 4.6.3
 function reset_and_init(dev) {
-  console.log(`Resetting device %s${dev.ixy.pci_addr}`);
+  console.log(`Resetting device ${dev.ixy.pci_addr}`);
   // section 4.6.3.1 - disable all interrupts
   addon.set_reg_js(dev.addr, defines.IXGBE_EIMC, 0x7FFFFFFF);
 
@@ -933,7 +939,7 @@ function reset_and_init(dev) {
   // section 4.6.3.1 - disable interrupts again after reset
   addon.set_reg_js(dev.addr, defines.IXGBE_EIMC, 0x7FFFFFFF);
 
-  console.log(`Initializing device %s${dev.ixy.pci_addr}`);
+  console.log(`Initializing device ${dev.ixy.pci_addr}`);
 
   // section 4.6.3 - Wait for EEPROM auto read completion
   addon.wait_set_reg_js(dev.addr, defines.IXGBE_EEC, defines.IXGBE_EEC_ARD);
@@ -1019,7 +1025,7 @@ function printOurPackages() {
   console.log('buffer array, should be packages we got:');
   // console.log(util.inspect(bufferArray, false, null, true));
   printPackage(0);
-  printPackage(4);
+  // printPackage(4);
 
   const queue_id = 0;
   console.log(`RDT register: ${addon.get_reg_js(ixgbe_device.addr, defines.IXGBE_RDT(queue_id))}\nRDH register: ${addon.get_reg_js(ixgbe_device.addr, defines.IXGBE_RDH(queue_id))}`);
@@ -1040,7 +1046,7 @@ function receivePackets() {
   ixgbe_device.ixy.rx_batch(ixgbe_device, 0, bufferArray, bufferArrayLength);
 }
 
-setInterval(lifeSignal, 1000);
+// setInterval(lifeSignal, 1000);
 setInterval(receivePackets, 0);
 
 
