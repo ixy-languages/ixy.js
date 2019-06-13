@@ -381,7 +381,8 @@ function readBufferValues(buffer, mempool) {
 function setBufferValues(buffer, mempool, mempool_idx, size, data, phys = false) {
   // const vmem = mempool.base_addr;
   if (phys) { // addon.dataviewToPhys(buffer.mem)
-    buffer.setBigUint64(0, phys, littleEndian); // maybe we dont need to do this every time, so only on getBuffer ? TODO validate
+    // maybe we dont need to do this every time, so only on getBuffer ? TODO validate
+    buffer.setBigUint64(0, phys, littleEndian);
   }
   // let's skip mempool 8 bytes for now?
   // buf.setUint32(8, 0);
@@ -437,7 +438,8 @@ function pkt_buf_alloc_batch_js(mempool, num_bufs) {
   }
   for (let i = 0; i < num_bufs; i++) {
     const entry_id = mempool.free_stack[--mempool.free_stack_top];
-    // console.log(`entry id: ${entry_id}, offset: ${entry_id * mempool.buf_size} with buf_size of ${mempool.buf_size}`);
+    // console.log(`entry id: ${entry_id}, offset: ${entry_id * mempool.buf_size}
+    // with buf_size of ${ mempool.buf_size }`);
     // console.log(`phys addr in JS: ${addon.virtToPhys(mempool.base_addr)}`);
     const buf = readBufferValues(getBuffer(mempool, entry_id, mempool.buf_size).mem, mempool);
     /*
@@ -476,14 +478,15 @@ function start_rx_queue(ixgbe_device, queue_id) {
     }
     // missing the offset value of this, would it be 64 bytes?
     // set pkt addr
-    rxd.memView.setBigUint64(0, addon.addBigInts(buf.buf_addr_phy, 64)/* offsetof(struct pkt_buf, data) */, littleEndian); // TODO double check offset
+    rxd.memView.setBigUint64(0, addon.addBigInts(buf.buf_addr_phy, 64), littleEndian);
     // set hdr addr
     // because of bigint
     // rxd.memView.setBigUint64(8, 0, littleEndian);
     rxd.memView.setUint32(8, 0, littleEndian);
     rxd.memView.setUint32(12, 0, littleEndian);
 
-    // we need to return the virtual address in the rx function which the descriptor doesn't know by default
+    // we need to return the virtual address in the rx function
+    // which the descriptor doesn't know by default
     queue.virtual_addresses[i] = buf;
   }
   // enable queue and wait if necessary
@@ -505,7 +508,7 @@ function wrap_ring(index, ring_size) {
 // try to receive a single packet if one is available, non-blocking
 // see datasheet section 7.1.9 for an explanation of the rx ring structure
 // tl;dr: we control the tail of the queue, the hardware the head
-function ixgbe_rx_batch(dev /* ixgbe device */, queue_id, bufs /* array, not sure we want this */, num_bufs) { // returns number
+function ixgbe_rx_batch(dev, queue_id, bufs, num_bufs) { // returns number
   const queue = dev.rx_queues[queue_id];
   let { rx_index } = queue; // rx index we checked in the last run of this function
   let last_rx_index = rx_index; // index of the descriptor we checked in the last iteration of the loop
@@ -985,15 +988,16 @@ function forward(rx_dev, rx_queue, tx_dev, tx_queue) {
     // touch all packets, otherwise it's a completely unrealistic workload
     // if the packet just stays in L3
     for (let i = 0; i < num_rx; i++) {
-      const val = bufs[i].mem.getUint8(70) + 1;
-      bufs[i].mem.setUint8(val);
+      const val = bufs[i].mem.getUint8(70, littleEndian) + 1;
+      bufs[i].mem.setUint8(70, val, littleEndian);
     }
     const num_tx = rx_dev.ixy.tx_batch(tx_dev, tx_queue, bufs, num_rx);
     // there are two ways to handle the case that packets are not being sent out:
     // either wait on tx or drop them; in this case it's better to drop them, otherwise we accumulate latency
-    for (let i = num_tx; i < num_rx; i++) {
-      pkt_buf_free(bufs[i]);
-    }
+    // TODO double check the correctnes of this slice
+    bufferArray.slice(num_tx, num_rx).forEach((buf) => {
+      pkt_buf_free(buf);
+    });
   }
 }
 

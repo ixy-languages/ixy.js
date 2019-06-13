@@ -16,10 +16,5 @@
     "node": ">=8.4.0"
   },
   "author": "Sebastian Di Luzio <sebastian.di-luzio@tum.de>",
-  "license": "MIT",
-  "devDependencies": {
-    "eslint": "^5.16.0",
-    "eslint-config-airbnb": "^17.1.0",
-    "eslint-plugin-import": "^2.17.3"
-  }
+  "license": "MIT"
 }
