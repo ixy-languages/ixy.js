@@ -147,9 +147,8 @@ const defines = {
 };
 
 const getRxDescriptorFromVirt = (virtMem, index = 0) => {
-  const offset = index * 16; // offset in bytes, depending on index
   const descriptor = {};
-  const dataView = new DataView(virtMem);
+  const dataView = new DataView(virtMem, index * 16, 16);
   /* ixgbe_adv_rx_desc:
 union ixgbe_adv_rx_desc {
   struct
@@ -187,22 +186,22 @@ union ixgbe_adv_rx_desc {
   } wb; // writeback
 };
   */
-  descriptor.pkt_addr = dataView.getBigUint64(0 + offset, littleEndian);
-  descriptor.hdr_addr = dataView.getBigUint64(8 + offset, littleEndian);
+  descriptor.pkt_addr = dataView.getBigUint64(0, littleEndian);
+  descriptor.hdr_addr = dataView.getBigUint64(8, littleEndian);
   descriptor.lower = {};
   descriptor.lower.lo_dword = {};
-  descriptor.lower.lo_dword.data = dataView.getUint32(0 + offset, littleEndian);
+  descriptor.lower.lo_dword.data = dataView.getUint32(0, littleEndian);
   descriptor.lower.lo_dword.hs_rss = {};
-  descriptor.lower.lo_dword.hs_rss.pkt_info = dataView.getUint16(0 + offset, littleEndian);
-  descriptor.lower.lo_dword.hs_rss.hdr_info = dataView.getUint16(2 + offset, littleEndian);
+  descriptor.lower.lo_dword.hs_rss.pkt_info = dataView.getUint16(0, littleEndian);
+  descriptor.lower.lo_dword.hs_rss.hdr_info = dataView.getUint16(2, littleEndian);
   descriptor.lower.hi_dword = {};
-  descriptor.lower.hi_dword.rss = dataView.getUint32(4 + offset, littleEndian);
-  descriptor.lower.hi_dword.ip_id = dataView.getUint16(4 + offset, littleEndian);
-  descriptor.lower.hi_dword.csum = dataView.getUint16(6 + offset, littleEndian);
+  descriptor.lower.hi_dword.rss = dataView.getUint32(4, littleEndian);
+  descriptor.lower.hi_dword.ip_id = dataView.getUint16(4, littleEndian);
+  descriptor.lower.hi_dword.csum = dataView.getUint16(6, littleEndian);
   descriptor.upper = {};
-  descriptor.upper.status_error = dataView.getUint32(8 + offset, littleEndian);
-  descriptor.upper.length = dataView.getUint16(12 + offset, littleEndian);
-  descriptor.upper.vlan = dataView.getUint16(14 + offset, littleEndian);
+  descriptor.upper.status_error = dataView.getUint32(8, littleEndian);
+  descriptor.upper.length = dataView.getUint16(12, littleEndian);
+  descriptor.upper.vlan = dataView.getUint16(14, littleEndian);
   descriptor.memView = dataView;
   return descriptor;
 };
@@ -223,17 +222,16 @@ function getTxDescriptorFromVirt(virtMem, index = 0) {
     } wb;
   };
   */
-  const offset = index * 16; // offset in bytes, depending on index
   const descriptor = {};
-  const dataView = new DataView(virtMem);
+  const dataView = new DataView(virtMem, index * 16, 16);
 
-  descriptor.read.buffer_addr = dataView.getBigUint64(0 + offset, littleEndian);
-  descriptor.read.cmd_type_len = dataView.getUint32(8 + offset, littleEndian);
-  descriptor.read.olinfo_status = dataView.getUint32(12 + offset, littleEndian);
+  descriptor.read.buffer_addr = dataView.getBigUint64(0, littleEndian);
+  descriptor.read.cmd_type_len = dataView.getUint32(8, littleEndian);
+  descriptor.read.olinfo_status = dataView.getUint32(12, littleEndian);
 
-  descriptor.wb.rsvd = dataView.getBigUint64(0 + offset, littleEndian);
-  descriptor.wb.nxtseq_seed = dataView.getUint32(8 + offset, littleEndian);
-  descriptor.wb.status = dataView.getUint32(12 + offset, littleEndian);
+  descriptor.wb.rsvd = dataView.getBigUint64(0, littleEndian);
+  descriptor.wb.nxtseq_seed = dataView.getUint32(8, littleEndian);
+  descriptor.wb.status = dataView.getUint32(12, littleEndian);
 
   descriptor.memView = dataView;
   return descriptor;
@@ -540,11 +538,12 @@ function ixgbe_rx_batch(dev /* ixgbe device */, queue_id, bufs /* array, not sur
       // this resets the flags
       desc_ptr.memView.setUint32(8, 0, littleEndian);
       desc_ptr.memView.setUint32(12, 0, littleEndian);
+      /*
       console.log('desc before:');
       console.log(desc_ptr);
       console.log('desc after:');
       console.log(getRxDescriptorFromVirt(queue.descriptors, rx_index));
-
+*/
 
       queue.virtual_addresses[rx_index] = new_buf;
       bufs[buf_index] = buf;
@@ -562,12 +561,8 @@ function ixgbe_rx_batch(dev /* ixgbe device */, queue_id, bufs /* array, not sur
     // tell hardware that we are done
     // this is intentionally off by one, otherwise we'd set RDT=RDH if we are receiving faster than packets are coming in
     // RDT=RDH means queue is full
-    console.log(`--RDT register: ${addon.get_reg_js(dev.addr, defines.IXGBE_RDT(queue_id))}\n--RDH register: ${addon.get_reg_js(dev.addr, defines.IXGBE_RDH(queue_id))}`);
     addon.set_reg_js(dev.addr, defines.IXGBE_RDT(queue_id), last_rx_index);
     queue.rx_index = rx_index;
-    console.log(`queue rx_index: ${queue.rx_index}`);
-    console.log(`reading queue from our device rx_index: ${dev.rx_queues[queue_id].rx_index}`);
-    console.log(`----we set RDT to ${last_rx_index}`);
     console.log(`----RDT register: ${addon.get_reg_js(dev.addr, defines.IXGBE_RDT(queue_id))}\n----RDH register: ${addon.get_reg_js(dev.addr, defines.IXGBE_RDH(queue_id))}`);
   }
   return buf_index; // number of packets stored in bufs; buf_index points to the next index
@@ -932,8 +927,7 @@ function wait_for_link(dev) {
   console.log('Waiting for link...');
   let max_wait = 1000; // 10 seconds in ms
   const poll_interval = 10; // 10 ms in ms
-  let speed;
-  while (!(speed = dev.ixy.get_link_speed(dev)) && max_wait > 0) {
+  while (!(dev.ixy.get_link_speed(dev)) && max_wait > 0) {
     wait(poll_interval);
     max_wait -= poll_interval;
   }
@@ -1027,12 +1021,6 @@ for (const index in ixgbe_device.rx_queues) {
 
 // console.log('ixgbe_device now:');
 // console.log(util.inspect(ixgbe_device, false, null, true));
-
-const bufferArrayLength = 512;
-const bufferArray = new Array(bufferArrayLength);
-console.log('running our rx batch method...');
-ixgbe_device.ixy.rx_batch(ixgbe_device, 0, bufferArray, bufferArrayLength);
-
 const stats = {};
 
 function buf2hex(buffer) { // buffer is an ArrayBuffer
@@ -1083,10 +1071,19 @@ const timerVal = 3000;
 let tmpRDT = -1;
 let tmpRDH = -1;
 let tmpPkgDrops = -1;
+const bufferArrayLength = 512;
+
 function receivePackets() {
-  ixgbe_device.ixy.rx_batch(ixgbe_device, 0, bufferArray, bufferArrayLength);
+
+const bufferArray = new Array(bufferArrayLength);
+  const numBufs = ixgbe_device.ixy.rx_batch(ixgbe_device, 0, bufferArray, bufferArrayLength);
   const newRDT = addon.get_reg_js(ixgbe_device.addr, defines.IXGBE_RDT(queue_id));
   const newRDH = addon.get_reg_js(ixgbe_device.addr, defines.IXGBE_RDH(queue_id));
+  bufferArray.forEach((buf, index) => {
+    if (index <= numBufs) {
+      pkt_buf_free(buf);
+    }
+  });
   if (tmpRDH !== newRDH || tmpRDT !== newRDT) {
     tmpRDH = newRDH;
     tmpRDT = newRDT;
