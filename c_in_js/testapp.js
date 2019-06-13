@@ -1,8 +1,6 @@
-const addon = require('./build/Release/exported_module');
-const Long = require('long'); // bigint is annoying http://thecodebarbarian.com/an-overview-of-bigint-in-node-js.html
 const util = require('util');
-const bigInt = require('big-integer');
 const { StringDecoder } = require('string_decoder');
+const addon = require('./build/Release/exported_module');
 
 
 // const jstruct = require('js-struct');
@@ -13,7 +11,7 @@ const littleEndian = (function lE() {
   new DataView(buffer).setInt16(0, 256, true /* littleEndian */);
   // Int16Array benutzt die Plattform Byte-Reihenfolge.
   return new Int16Array(buffer)[0] === 256;
-})();
+}());
 
 //  synchronous wait function for testing
 function wait(ms) {
@@ -87,8 +85,8 @@ const defines = {
   SIZE_PKT_BUF_HEADROOM: 40,
   IXGBE_RXDCTL: i => (i < 64 ? 0x01028 + (i * 0x40) : 0x0D028 + ((i - 64) * 0x40)),
   IXGBE_RXDCTL_ENABLE: 0x02000000,
-  IXGBE_RXDADV_STAT_DD: 0x01 /* Done*/,
-  IXGBE_RXDADV_STAT_EOP: 0x02 /* End of Packet*/,
+  IXGBE_RXDADV_STAT_DD: 0x01 /* Done */,
+  IXGBE_RXDADV_STAT_EOP: 0x02 /* End of Packet */,
   IXGBE_GPRC: 0x04074,
   IXGBE_GPTC: 0x04080,
   IXGBE_GORCL: 0x04088,
@@ -141,7 +139,7 @@ const defines = {
   IXGBE_ADVTXD_DCMD_RS: 0x08000000,
   IXGBE_ADVTXD_DCMD_IFCS: 0x02000000,
   IXGBE_ADVTXD_DCMD_DEXT: 0x20000000,
-  IXGBE_ADVTXD_DTYP_DATA: 0x00300000
+  IXGBE_ADVTXD_DTYP_DATA: 0x00300000,
 
 };
 
@@ -203,9 +201,6 @@ union ixgbe_adv_rx_desc {
   descriptor.upper.length = dataView.getUint16(12 + offset, littleEndian);
   descriptor.upper.vlan = dataView.getUint16(14 + offset, littleEndian);
   descriptor.memView = dataView;
-
-  // TODO check if upper/lower is wrong because we supply the littleEndian when reading (so double-correct lE)
-
   return descriptor;
 };
 
@@ -238,9 +233,6 @@ function getTxDescriptorFromVirt(virtMem, index = 0) {
   descriptor.wb.status = dataView.getUint32(12 + offset, littleEndian);
 
   descriptor.memView = dataView;
-
-  // TODO check if upper/lower is wrong because we supply the littleEndian when reading (so double-correct lE)
-
   return descriptor;
 }
 // see section 4.6.7
@@ -317,7 +309,7 @@ function init_rx(ixgbe_device) {
       num_entries: defines.NUM_RX_QUEUE_ENTRIES,
       rx_index: 0,
       descriptors: mem.virt,
-      virtual_addresses: new Array(defines.NUM_RX_QUEUE_ENTRIES)
+      virtual_addresses: new Array(defines.NUM_RX_QUEUE_ENTRIES),
     };
     ixgbe_device.rx_queues[i] = queue;
   }
@@ -367,13 +359,14 @@ function readBufferValues(buffer, mempool) {
   // the rest can be data, but we dont give access via a variable
 
   // TODO read data
-  const decoder = new StringDecoder('utf8');
+  // const decoder = new StringDecoder('utf8');
   // ret.data = decoder.end(buffer); // this also includes the first bytes, we will adjust this later TODO
 
   return ret;
 }
 
-function setBufferValues(buffer, mempool, mempool_idx, size, data, phys = false) { // i don't think we need mempool at all TODO double check this
+// i don't think we need mempool at all TODO double check this
+function setBufferValues(buffer, mempool, mempool_idx, size, data, phys = false) { 
   // const vmem = mempool.base_addr;
   if (phys) { // addon.dataviewToPhys(buffer.mem)
     buffer.setBigUint64(0, phys, littleEndian); // maybe we dont need to do this every time, so only on getBuffer ? TODO validate
@@ -399,7 +392,7 @@ function setBufferValues(buffer, mempool, mempool_idx, size, data, phys = false)
 */
 
 function memory_allocate_mempool_js(num_entries, entry_size) {
-  entry_size = entry_size ? entry_size : 2048;
+  entry_size = entry_size || 2048;
   // require entries that neatly fit into the page size, this makes the memory pool much easier
   // otherwise our base_addr + index * size formula would be wrong because we can't cross a page-boundary
   if (defines.HUGE_PAGE_SIZE % entry_size) {
@@ -471,7 +464,7 @@ function start_rx_queue(ixgbe_device, queue_id) {
     }
     // missing the offset value of this, would it be 64 bytes?
     // set pkt addr
-    rxd.memView.setBigUint64(0, addon.addBigInts(buf.buf_addr_phy, 64)/* offsetof(struct pkt_buf, data)*/, littleEndian); // TODO double check offset
+    rxd.memView.setBigUint64(0, addon.addBigInts(buf.buf_addr_phy, 64)/* offsetof(struct pkt_buf, data) */, littleEndian); // TODO double check offset
     // set hdr addr
     // because of bigint
     // rxd.memView.setBigUint64(8, 0, littleEndian);
@@ -500,7 +493,7 @@ function wrap_ring(index, ring_size) {
 // try to receive a single packet if one is available, non-blocking
 // see datasheet section 7.1.9 for an explanation of the rx ring structure
 // tl;dr: we control the tail of the queue, the hardware the head
-function ixgbe_rx_batch(dev /* ixgbe device*/, queue_id, bufs /* array, not sure we want this*/, num_bufs) { // returns number
+function ixgbe_rx_batch(dev /* ixgbe device */, queue_id, bufs /* array, not sure we want this */, num_bufs) { // returns number
   const queue = dev.rx_queues[queue_id];
   let { rx_index } = queue; // rx index we checked in the last run of this function
   let last_rx_index = rx_index; // index of the descriptor we checked in the last iteration of the loop
@@ -528,7 +521,7 @@ function ixgbe_rx_batch(dev /* ixgbe device*/, queue_id, bufs /* array, not sure
       }
       // reset the descriptor
       // TODO add the set functions
-      desc_ptr.memView.setBigUint64(0, addon.addBigInts(buf.buf_addr_phy, 64)/* offsetof(struct pkt_buf, data)*/, littleEndian);
+      desc_ptr.memView.setBigUint64(0, addon.addBigInts(buf.buf_addr_phy, 64)/* offsetof(struct pkt_buf, data) */, littleEndian);
       // this resets the flags
       desc_ptr.memView.setUint32(8, 0, littleEndian);
       desc_ptr.memView.setUint32(12, 0, littleEndian);
@@ -627,7 +620,7 @@ function init_tx(dev) {
       // position to insert packets for transmission
 	 tx_index: 0,
       // virtual addresses to map descriptors back to their mbuf for freeing
-      virtual_addresses: new Array(defines.NUM_RX_QUEUE_ENTRIES)
+      virtual_addresses: new Array(defines.NUM_RX_QUEUE_ENTRIES),
     };
     dev.tx_queues[i] = queue;
   }
@@ -722,7 +715,7 @@ function ixgbe_tx_batch(dev, queue_id, bufs, num_bufs) {
     const txd = getTxDescriptorFromVirt(queue.descriptors, cur_index);
 
     // NIC reads from here
-    txd.memView.setBigUint64(0, addon.addBigInts(buf.buf_addr_phy, 64)/* offsetof(struct pkt_buf, data)*/, littleEndian); // TODO double check offset
+    txd.memView.setBigUint64(0, addon.addBigInts(buf.buf_addr_phy, 64)/* offsetof(struct pkt_buf, data) */, littleEndian); // TODO double check offset
 
     // always the same flags: one buffer (EOP), advanced data descriptor, CRC offload, data length
     txd.memView.setUint32(8, defines.IXGBE_ADVTXD_DCMD_EOP | defines.IXGBE_ADVTXD_DCMD_RS | defines.IXGBE_ADVTXD_DCMD_IFCS | defines.IXGBE_ADVTXD_DCMD_DEXT | defines.IXGBE_ADVTXD_DTYP_DATA | buf.size, littleEndian);
@@ -778,13 +771,13 @@ const ixgbe_device = {
     tx_batch: () => { },
     read_stats: () => { },
     set_promisc: () => { },
-    get_link_speed: () => { }
+    get_link_speed: () => { },
   },
   addr: null,
   dataView: null,
   phAddr: null,
   rx_queues: [],
-  tx_queues: []
+  tx_queues: [],
 };
 
 ixgbe_device.rx_queues = new Array(ixgbe_device.ixy.num_rx_queues);
@@ -1005,7 +998,7 @@ function buf2hex(buffer) { // buffer is an ArrayBuffer
 function printPackage(index) {
   console.log(`package at index ${index} :`);
   const buf = bufferArray[index];
-  console.log(util.inspect(buf, false, 1, true)); // TODO this does not fill when first run, and then moongen, only if first moongen and then this run!
+  console.log(util.inspect(buf, false, 1, true));
   if (buf) {
     console.log('content:');
     let str = '';
@@ -1048,5 +1041,3 @@ function receivePackets() {
 
 // setInterval(lifeSignal, 1000);
 setInterval(receivePackets, 0);
-
-
