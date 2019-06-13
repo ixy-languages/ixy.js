@@ -518,7 +518,6 @@ function ixgbe_rx_batch(dev /* ixgbe device */, queue_id, bufs /* array, not sur
       if (!(status & defines.IXGBE_RXDADV_STAT_EOP)) {
         throw new Error('multi-segment packets are not supported - increase buffer size or decrease MTU');
       }
-      console.log('got a packet!');
       // got a packet, read and copy the whole descriptor
       const desc = desc_ptr;
       const buf = queue.virtual_addresses[rx_index];
@@ -538,32 +537,23 @@ function ixgbe_rx_batch(dev /* ixgbe device */, queue_id, bufs /* array, not sur
       // this resets the flags
       desc_ptr.memView.setUint32(8, 0, littleEndian);
       desc_ptr.memView.setUint32(12, 0, littleEndian);
-      /*
-      console.log('desc before:');
-      console.log(desc_ptr);
-      console.log('desc after:');
-      console.log(getRxDescriptorFromVirt(queue.descriptors, rx_index));
-*/
 
       queue.virtual_addresses[rx_index] = new_buf;
       bufs[buf_index] = buf;
       // want to read the next one in the next iteration, but we still need the last/current to update RDT later
       last_rx_index = rx_index;
       rx_index = wrap_ring(rx_index, queue.num_entries);
-      console.log(`rx_index: ${rx_index} ; last_rx_index: ${last_rx_index}`);
     } else {
       // console.log('status & defines.IXGBE_RXDADV_STAT_DD is FALSE');
       break;
     }
   }
   if (rx_index !== last_rx_index) {
-    console.log(`rx_index: ${rx_index} ; last_rx_index: ${last_rx_index}`);
     // tell hardware that we are done
     // this is intentionally off by one, otherwise we'd set RDT=RDH if we are receiving faster than packets are coming in
     // RDT=RDH means queue is full
     addon.set_reg_js(dev.addr, defines.IXGBE_RDT(queue_id), last_rx_index);
     queue.rx_index = rx_index;
-    console.log(`----RDT register: ${addon.get_reg_js(dev.addr, defines.IXGBE_RDT(queue_id))}\n----RDH register: ${addon.get_reg_js(dev.addr, defines.IXGBE_RDH(queue_id))}`);
   }
   return buf_index; // number of packets stored in bufs; buf_index points to the next index
 }
@@ -873,7 +863,6 @@ function ixgbe_read_stats(dev, stats) {
   const tx_bytes = addon.get_reg_js(dev.addr, defines.IXGBE_GOTCL);
   const tx_bytes_first32bits = addon.get_reg_js(dev.addr, defines.IXGBE_GOTCH);
   console.log(`reading stats... rx_pkts: ${rx_pkts} | tx_pkts: ${tx_pkts} | rx_bytes: ${rx_bytes} | rx_bytes_first32bits: ${rx_bytes_first32bits} | tx_bytes: ${tx_bytes} | tx_bytes_first32bits: ${tx_bytes_first32bits}`);
-  console.log(`Error counter: ${addon.get_reg_js(dev.addr, defines.FCCRC)}`);
   console.log(`link speed: ${ixgbe_device.ixy.get_link_speed(ixgbe_device)}`);
   printRXErrors(dev);
   if (stats) {
@@ -1068,35 +1057,41 @@ function lifeSignal() {
 }
 let timer = 0;
 const timerVal = 3000;
-let tmpRDT = -1;
-let tmpRDH = -1;
-let tmpPkgDrops = -1;
+const tmpRDT = -1;
+const tmpRDH = -1;
+const tmpPkgDrops = -1;
 const bufferArrayLength = 512;
 
 function receivePackets() {
-
-const bufferArray = new Array(bufferArrayLength);
+  const bufferArray = new Array(bufferArrayLength);
   const numBufs = ixgbe_device.ixy.rx_batch(ixgbe_device, 0, bufferArray, bufferArrayLength);
-  const newRDT = addon.get_reg_js(ixgbe_device.addr, defines.IXGBE_RDT(queue_id));
-  const newRDH = addon.get_reg_js(ixgbe_device.addr, defines.IXGBE_RDH(queue_id));
   bufferArray.forEach((buf, index) => {
     if (index <= numBufs) {
       pkt_buf_free(buf);
     }
   });
+  /*
+  const newRDT = addon.get_reg_js(ixgbe_device.addr, defines.IXGBE_RDT(queue_id));
+  const newRDH = addon.get_reg_js(ixgbe_device.addr, defines.IXGBE_RDH(queue_id));
+
   if (tmpRDH !== newRDH || tmpRDT !== newRDT) {
     tmpRDH = newRDH;
     tmpRDT = newRDT;
     console.log(`RDT register: ${tmpRDT}\nRDH register: ${tmpRDH}`);
   }
+  */
+  /*
   const pkgDrops = addon.get_reg_js(ixgbe_device.addr, defines.RXMPC(0));
   if (pkgDrops !== tmpPkgDrops) {
     tmpPkgDrops = pkgDrops;
     console.log(`Missed Packets Error counter: ${tmpPkgDrops}`);
   }
+  */
+
   timer += 1;
   if (timer >= timerVal) {
     // printOurPackages();
+    ixgbe_read_stats(ixgbe_device);
     timer = 0;
   }
 }
