@@ -510,8 +510,10 @@ function wrap_ring(index, ring_size) {
 // tl;dr: we control the tail of the queue, the hardware the head
 function ixgbe_rx_batch(dev, queue_id, bufs, num_bufs) { // returns number
   const queue = dev.rx_queues[queue_id];
-  let { rx_index } = queue; // rx index we checked in the last run of this function
-  let last_rx_index = rx_index; // index of the descriptor we checked in the last iteration of the loop
+  // rx index we checked in the last run of this function
+  let { rx_index } = queue;
+  // index of the descriptor we checked in the last iteration of the loop
+  let last_rx_index = rx_index;
   let buf_index;
   for (buf_index = 0; buf_index < num_bufs; buf_index++) {
     // rx descriptors are explained in 7.1.5
@@ -536,14 +538,15 @@ function ixgbe_rx_batch(dev, queue_id, bufs, num_bufs) { // returns number
       }
       // reset the descriptor
       // TODO add the set functions
-      desc_ptr.memView.setBigUint64(0, addon.addBigInts(new_buf.buf_addr_phy, 64)/* offsetof(struct pkt_buf, data) */, littleEndian);
+      desc_ptr.memView.setBigUint64(0, addon.addBigInts(new_buf.buf_addr_phy, 64), littleEndian);
       // this resets the flags
       desc_ptr.memView.setUint32(8, 0, littleEndian);
       desc_ptr.memView.setUint32(12, 0, littleEndian);
 
       queue.virtual_addresses[rx_index] = new_buf;
       bufs[buf_index] = buf;
-      // want to read the next one in the next iteration, but we still need the last/current to update RDT later
+      // want to read the next one in the next iteration,
+      // but we still need the last / current to update RDT later
       last_rx_index = rx_index;
       rx_index = wrap_ring(rx_index, queue.num_entries);
     } else {
@@ -553,7 +556,8 @@ function ixgbe_rx_batch(dev, queue_id, bufs, num_bufs) { // returns number
   }
   if (rx_index !== last_rx_index) {
     // tell hardware that we are done
-    // this is intentionally off by one, otherwise we'd set RDT=RDH if we are receiving faster than packets are coming in
+    // this is intentionally off by one, otherwise we'd set RDT=RDH
+    // if we are receiving faster than packets are coming in
     // RDT=RDH means queue is full
     addon.set_reg_js(dev.addr, defines.IXGBE_RDT(queue_id), last_rx_index);
     queue.rx_index = rx_index;
