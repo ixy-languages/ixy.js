@@ -1,6 +1,6 @@
 const util = require('util');
-const { StringDecoder } = require('string_decoder');
-const addon = require('./build/Release/exported_module');
+//const { StringDecoder } = require('string_decoder');
+const addon = require('./build/Release/exported_module'); // eslint-disable-line import/no-unresolved
 
 
 // const jstruct = require('js-struct');
@@ -366,7 +366,7 @@ function readBufferValues(buffer, mempool) {
 }
 
 // i don't think we need mempool at all TODO double check this
-function setBufferValues(buffer, mempool, mempool_idx, size, data, phys = false) { 
+function setBufferValues(buffer, mempool, mempool_idx, size, data, phys = false) {
   // const vmem = mempool.base_addr;
   if (phys) { // addon.dataviewToPhys(buffer.mem)
     buffer.setBigUint64(0, phys, littleEndian); // maybe we dont need to do this every time, so only on getBuffer ? TODO validate
