@@ -11,7 +11,9 @@ module.exports = {
       }
     ],
     camelcase: "warn",
-    "no-bitwise": "off"
+    "no-bitwise": "off",
+    "no-plusplus": "off", // temporarily, i DO want to ge this through
+    "no-param-reassign": "off" // let's see if i can change this afterwards
   },
   parserOptions: {
     parser: "babel-eslint"

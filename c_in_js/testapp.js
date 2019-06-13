@@ -1,5 +1,5 @@
 const util = require('util');
-//const { StringDecoder } = require('string_decoder');
+// const { StringDecoder } = require('string_decoder');
 const addon = require('./build/Release/exported_module'); // eslint-disable-line import/no-unresolved
 
 
@@ -24,7 +24,7 @@ function wait(ms) {
 
 const currentHost = 'narva'; // adjust this part before deploy on machine
 let pciAddr;
-let pciAddr2;
+let pciAddr2; // eslint-disable-line no-unused-vars
 switch (currentHost) {
 case 'narva':
   pciAddr = '0000:03:00.0';
@@ -49,8 +49,7 @@ function set_flags_js(addr, reg, flags) {
 }
 
 function wait_set_reg_js(addr, reg, val) {
-  // TODO use val as mask
-  while (addon.get_reg_js(addr, reg) !== val) {
+  while ((addon.get_reg_js(addr, reg) & val) !== val) {
     addon.set_reg_js(addr, reg, val);
     wait(100); // TODO make real waiting, not dumb timeouts
   }
@@ -68,7 +67,9 @@ const defines = {
   IXGBE_RDRXCTL_CRCSTRIP: 0x00000002,
   IXGBE_FCTRL: 0x05080,
   IXGBE_FCTRL_BAM: 0x00000400,
-  IXGBE_SRRCTL: i => (i <= 15 ? 0x02100 + (i * 4) : (i) < 64 ? 0x01014 + ((i) * 0x40) : 0x0D014 + (((i) - 64) * 0x40)),
+  // eslint-disable-next-line no-nested-ternary
+  IXGBE_SRRCTL: i => (i <= 15 ? 0x02100 + (i * 4) : (i) < 64 ? 0x01014
+    + ((i) * 0x40) : 0x0D014 + (((i) - 64) * 0x40)),
   IXGBE_SRRCTL_DESCTYPE_MASK: 0x0E000000,
   IXGBE_SRRCTL_DESCTYPE_ADV_ONEBUF: 0x02000000,
   IXGBE_SRRCTL_DROP_EN: 0x10000000,
@@ -81,7 +82,9 @@ const defines = {
   IXGBE_RDT: i => (i < 64 ? 0x01018 + (i * 0x40) : 0x0D018 + ((i - 64) * 0x40)),
   IXGBE_CTRL_EXT: 0x00018,
   IXGBE_CTRL_EXT_NS_DIS: 0x00010000,
-  IXGBE_DCA_RXCTRL: i => (i <= 15 ? 0x02200 + (i * 4) : (i) < 64 ? 0x0100C + ((i) * 0x40) : 0x0D00C + (((i) - 64) * 0x40)),
+  // eslint-disable-next-line no-nested-ternary
+  IXGBE_DCA_RXCTRL: i => (i <= 15 ? 0x02200 + (i * 4) : (i) < 64 ? 0x0100C
+      + ((i) * 0x40) : 0x0D00C + (((i) - 64) * 0x40)),
   SIZE_PKT_BUF_HEADROOM: 40,
   IXGBE_RXDCTL: i => (i < 64 ? 0x01028 + (i * 0x40) : 0x0D028 + ((i - 64) * 0x40)),
   IXGBE_RXDCTL_ENABLE: 0x02000000,
@@ -236,12 +239,14 @@ function getTxDescriptorFromVirt(virtMem, index = 0) {
   return descriptor;
 }
 // see section 4.6.7
-// it looks quite complicated in the data sheet, but it's actually really easy because we don't need fancy features
+// it looks quite complicated in the data sheet, but it's actually
+// really easy because we don't need fancy features
 function init_rx(ixgbe_device) {
   const IXYDevice = ixgbe_device.addr;
   const num_of_queues = ixgbe_device.ixy.num_rx_queues;
   // make sure that rx is disabled while re-configuring it
-  // the datasheet also wants us to disable some crypto-offloading related rx paths (but we don't care about them)
+  // the datasheet also wants us to disable some crypto-offloading
+  // related rx paths(but we don't care about them)
   clear_flags_js(IXYDevice, defines.IXGBE_RXCTRL, defines.IXGBE_RXCTRL_RXEN);
   // no fancy dcb or vt, just a single 128kb packet buffer for us
   addon.set_reg_js(IXYDevice, defines.IXGBE_RXPBSIZE(0), defines.IXGBE_RXPBSIZE_128KB);
@@ -258,10 +263,15 @@ function init_rx(ixgbe_device) {
   // per-queue config, same for all queues
   for (let i = 0; i < num_of_queues; i++) {
     console.log(`initializing rx queue ${i}`);
-    // enable advanced rx descriptors, we could also get away with legacy descriptors, but they aren't really easier
-    addon.set_reg_js(IXYDevice, defines.IXGBE_SRRCTL(i), (addon.get_reg_js(IXYDevice, defines.IXGBE_SRRCTL(i)) & ~defines.IXGBE_SRRCTL_DESCTYPE_MASK) | defines.IXGBE_SRRCTL_DESCTYPE_ADV_ONEBUF);
-    // drop_en causes the nic to drop packets if no rx descriptors are available instead of buffering them
-    // a single overflowing queue can fill up the whole buffer and impact operations if not setting this flag
+    // enable advanced rx descriptors,
+    // we could also get away with legacy descriptors, but they aren't really easier
+    addon.set_reg_js(IXYDevice, defines.IXGBE_SRRCTL(i),
+      (addon.get_reg_js(IXYDevice, defines.IXGBE_SRRCTL(i)) & ~defines.IXGBE_SRRCTL_DESCTYPE_MASK)
+      | defines.IXGBE_SRRCTL_DESCTYPE_ADV_ONEBUF);
+    // drop_en causes the nic to drop packets if no rx descriptors are available
+    // instead of buffering them
+    // a single overflowing queue can fill up the whole buffer
+    // and impact operations if not setting this flag
     set_flags_js(IXYDevice, defines.IXGBE_SRRCTL(i), defines.IXGBE_SRRCTL_DROP_EN);
     // setup descriptor ring, see section 7.1.9
     /* TODO get ringsize
@@ -273,7 +283,8 @@ function init_rx(ixgbe_device) {
     mem.virt = addon.getDmaMem(ring_size_bytes, true);
     mem.phy = addon.virtToPhys(mem.virt);
     console.log('-----------c--end------------');
-    // neat trick from Snabb: initialize to 0xFF to prevent rogue memory accesses on premature DMA activation
+    // neat trick from Snabb: initialize to 0xFF to prevent
+    // rogue memory accesses on premature DMA activation
     const virtMemView = new DataView(mem.virt);
     for (let count = 0; count < ring_size_bytes; count++) {
       virtMemView.setUint32(count / 4, 0xFFFFFFFF, littleEndian);
@@ -316,7 +327,8 @@ function init_rx(ixgbe_device) {
 
   // last step is to set some magic bits mentioned in the last sentence in 4.6.7
   set_flags_js(IXYDevice, defines.IXGBE_CTRL_EXT, defines.IXGBE_CTRL_EXT_NS_DIS);
-  // this flag probably refers to a broken feature: it's reserved and initialized as '1' but it must be set to '0'
+  // this flag probably refers to a broken feature: it's reserved
+  // and initialized as '1' but it must be set to '0'
   // there isn't even a constant in 'defines' for this flag
   for (let i = 0; i < num_of_queues; i++) {
     clear_flags_js(IXYDevice, defines.IXGBE_DCA_RXCTRL(i), 1 << 12);
@@ -329,18 +341,19 @@ function init_rx(ixgbe_device) {
 // create and read buffer methods
 /*
 struct pkt_buf {
-	// physical address to pass a buffer to a nic
-	uintptr_t buf_addr_phy;
-	struct mempool* mempool;
-	uint32_t mempool_idx;
-	uint32_t size;
-	uint8_t head_room[SIZE_PKT_BUF_HEADROOM];
-	uint8_t data[] __attribute__((aligned(64)));
+  // physical address to pass a buffer to a nic
+  uintptr_t buf_addr_phy;
+  struct mempool* mempool;
+  uint32_t mempool_idx;
+  uint32_t size;
+  uint8_t head_room[SIZE_PKT_BUF_HEADROOM];
+  uint8_t data[] __attribute__((aligned(64)));
 };
 */
 
 function getBuffer(mempool, index, entry_size) {
-  return { mem: new DataView(mempool.base_addr, index * entry_size, entry_size), mempool }; // this should do the trick, returns {mem:dataView,mempool}
+  // this should do the trick, returns {mem:dataView,mempool}
+  return { mem: new DataView(mempool.base_addr, index * entry_size, entry_size), mempool }; 
 }
 
 function readBufferValues(buffer, mempool) {
@@ -476,7 +489,7 @@ function start_rx_queue(ixgbe_device, queue_id) {
   }
   // enable queue and wait if necessary
   set_flags_js(ixgbe_device.addr, defines.IXGBE_RXDCTL(queue_id), defines.IXGBE_RXDCTL_ENABLE);
-  addon.wait_set_reg_js(ixgbe_device.addr, defines.IXGBE_RXDCTL(queue_id), defines.IXGBE_RXDCTL_ENABLE);
+  wait_set_reg_js(ixgbe_device.addr, defines.IXGBE_RXDCTL(queue_id), defines.IXGBE_RXDCTL_ENABLE);
   // rx queue starts out full
   addon.set_reg_js(ixgbe_device.addr, defines.IXGBE_RDH(queue_id), 0);
   // was set to 0 before in the init function
@@ -521,7 +534,7 @@ function ixgbe_rx_batch(dev /* ixgbe device */, queue_id, bufs /* array, not sur
       }
       // reset the descriptor
       // TODO add the set functions
-      desc_ptr.memView.setBigUint64(0, addon.addBigInts(buf.buf_addr_phy, 64)/* offsetof(struct pkt_buf, data) */, littleEndian);
+      desc_ptr.memView.setBigUint64(0, addon.addBigInts(new_buf.buf_addr_phy, 64)/* offsetof(struct pkt_buf, data) */, littleEndian);
       // this resets the flags
       desc_ptr.memView.setUint32(8, 0, littleEndian);
       desc_ptr.memView.setUint32(12, 0, littleEndian);
@@ -768,7 +781,7 @@ const ixgbe_device = {
     num_rx_queues: 1,
     num_tx_queues: 1,
     rx_batch: ixgbe_rx_batch,
-    tx_batch: () => { },
+    tx_batch: ixgbe_tx_batch,
     read_stats: () => { },
     set_promisc: () => { },
     get_link_speed: () => { },
@@ -935,10 +948,10 @@ function reset_and_init(dev) {
   console.log(`Initializing device ${dev.ixy.pci_addr}`);
 
   // section 4.6.3 - Wait for EEPROM auto read completion
-  addon.wait_set_reg_js(dev.addr, defines.IXGBE_EEC, defines.IXGBE_EEC_ARD);
+  wait_set_reg_js(dev.addr, defines.IXGBE_EEC, defines.IXGBE_EEC_ARD);
 
   // section 4.6.3 - Wait for DMA initialization done (RDRXCTL.DMAIDONE)
-  addon.wait_set_reg_js(dev.addr, defines.IXGBE_RDRXCTL, defines.IXGBE_RDRXCTL_DMAIDONE);
+  wait_set_reg_js(dev.addr, defines.IXGBE_RDRXCTL, defines.IXGBE_RDRXCTL_DMAIDONE);
 
   // section 4.6.4 - initialize link (auto negotiation)
   init_link(dev);
@@ -970,6 +983,28 @@ function reset_and_init(dev) {
   // wait for some time for the link to come up
   wait_for_link(dev);
 }
+
+const BATCH_SIZE = 32;
+
+function forward(rx_dev, rx_queue, tx_dev, tx_queue) {
+  const bufs = new Array(BATCH_SIZE);
+  const num_rx = rx_dev.ixy.rx_batch(rx_dev, rx_queue, bufs, BATCH_SIZE);
+  if (num_rx > 0) {
+    // touch all packets, otherwise it's a completely unrealistic workload
+    // if the packet just stays in L3
+    for (let i = 0; i < num_rx; i++) {
+      const val = bufs[i].mem.getUint8(70) + 1;
+      bufs[i].mem.setUint8(val);
+    }
+    const num_tx = rx_dev.ixy.tx_batch(tx_dev, tx_queue, bufs, num_rx);
+    // there are two ways to handle the case that packets are not being sent out:
+    // either wait on tx or drop them; in this case it's better to drop them, otherwise we accumulate latency
+    for (let i = num_tx; i < num_rx; i++) {
+      pkt_buf_free(bufs[i]);
+    }
+  }
+}
+
 console.log('reset and init...');
 reset_and_init(ixgbe_device);
 
