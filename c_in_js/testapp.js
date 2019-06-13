@@ -146,7 +146,7 @@ const defines = {
 
 };
 
-const getDescriptorFromVirt = (virtMem, index = 0) => {
+const getRxDescriptorFromVirt = (virtMem, index = 0) => {
   const offset = index * 16; // offset in bytes, depending on index
   const descriptor = {};
   const dataView = new DataView(virtMem);
@@ -353,7 +353,7 @@ struct pkt_buf {
 
 function getBuffer(mempool, index, entry_size) {
   // this should do the trick, returns {mem:dataView,mempool}
-  return { mem: new DataView(mempool.base_addr, index * entry_size, entry_size), mempool }; 
+  return { mem: new DataView(mempool.base_addr, index * entry_size, entry_size), mempool };
 }
 
 function readBufferValues(buffer, mempool) {
@@ -373,7 +373,8 @@ function readBufferValues(buffer, mempool) {
 
   // TODO read data
   // const decoder = new StringDecoder('utf8');
-  // ret.data = decoder.end(buffer); // this also includes the first bytes, we will adjust this later TODO
+  // ret.data = decoder.end(buffer);
+  // ^this also includes the first bytes, we will adjust this later TODO
 
   return ret;
 }
@@ -470,7 +471,7 @@ function start_rx_queue(ixgbe_device, queue_id) {
     throw new Error('number of queue entries must be a power of 2');
   }
   for (let i = 0; i < queue.num_entries; i++) {
-    const rxd = getDescriptorFromVirt(queue.descriptors, i);
+    const rxd = getRxDescriptorFromVirt(queue.descriptors, i);
     const buf = pkt_buf_alloc_js(queue.mempool);
     if (!buf) {
       throw new Error('failed to allocate rx descriptor');
@@ -513,12 +514,13 @@ function ixgbe_rx_batch(dev /* ixgbe device */, queue_id, bufs /* array, not sur
   let buf_index;
   for (buf_index = 0; buf_index < num_bufs; buf_index++) {
     // rx descriptors are explained in 7.1.5
-    const desc_ptr = getDescriptorFromVirt(queue.descriptors, rx_index);
+    const desc_ptr = getRxDescriptorFromVirt(queue.descriptors, rx_index);
     const status = desc_ptr.upper.status_error;
     if (status & defines.IXGBE_RXDADV_STAT_DD) {
       if (!(status & defines.IXGBE_RXDADV_STAT_EOP)) {
         throw new Error('multi-segment packets are not supported - increase buffer size or decrease MTU');
       }
+      console.log('got a packet!');
       // got a packet, read and copy the whole descriptor
       const desc = desc_ptr;
       const buf = queue.virtual_addresses[rx_index];
@@ -538,13 +540,20 @@ function ixgbe_rx_batch(dev /* ixgbe device */, queue_id, bufs /* array, not sur
       // this resets the flags
       desc_ptr.memView.setUint32(8, 0, littleEndian);
       desc_ptr.memView.setUint32(12, 0, littleEndian);
+      console.log('desc before:');
+      console.log(desc_ptr);
+      console.log('desc after:');
+      console.log(getRxDescriptorFromVirt(queue.descriptors, rx_index));
+
 
       queue.virtual_addresses[rx_index] = new_buf;
       bufs[buf_index] = buf;
       // want to read the next one in the next iteration, but we still need the last/current to update RDT later
       last_rx_index = rx_index;
       rx_index = wrap_ring(rx_index, queue.num_entries);
+      console.log(`rx_index: ${rx_index} ; last_rx_index: ${last_rx_index}`);
     } else {
+      // console.log('status & defines.IXGBE_RXDADV_STAT_DD is FALSE');
       break;
     }
   }
@@ -553,13 +562,13 @@ function ixgbe_rx_batch(dev /* ixgbe device */, queue_id, bufs /* array, not sur
     // tell hardware that we are done
     // this is intentionally off by one, otherwise we'd set RDT=RDH if we are receiving faster than packets are coming in
     // RDT=RDH means queue is full
-    console.log(`RDT register: ${addon.get_reg_js(dev.addr, defines.IXGBE_RDT(queue_id))}\nRDH register: ${addon.get_reg_js(dev.addr, defines.IXGBE_RDH(queue_id))}`);
+    console.log(`--RDT register: ${addon.get_reg_js(dev.addr, defines.IXGBE_RDT(queue_id))}\n--RDH register: ${addon.get_reg_js(dev.addr, defines.IXGBE_RDH(queue_id))}`);
     addon.set_reg_js(dev.addr, defines.IXGBE_RDT(queue_id), last_rx_index);
     queue.rx_index = rx_index;
     console.log(`queue rx_index: ${queue.rx_index}`);
     console.log(`reading queue from our device rx_index: ${dev.rx_queues[queue_id].rx_index}`);
-    console.log(`we set RDT to ${last_rx_index}`);
-    console.log(`RDT register: ${addon.get_reg_js(dev.addr, defines.IXGBE_RDT(queue_id))}\nRDH register: ${addon.get_reg_js(dev.addr, defines.IXGBE_RDH(queue_id))}`);
+    console.log(`----we set RDT to ${last_rx_index}`);
+    console.log(`----RDT register: ${addon.get_reg_js(dev.addr, defines.IXGBE_RDT(queue_id))}\n----RDH register: ${addon.get_reg_js(dev.addr, defines.IXGBE_RDH(queue_id))}`);
   }
   return buf_index; // number of packets stored in bufs; buf_index points to the next index
 }
@@ -689,7 +698,7 @@ function ixgbe_tx_batch(dev, queue_id, bufs, num_bufs) {
     if (cleanup_to >= queue.num_entries) {
       cleanup_to -= queue.num_entries;
     }
-    const txd = getDescriptorFromVirt(queue.descriptors, cleanup_to);
+    const txd = getRxDescriptorFromVirt(queue.descriptors, cleanup_to);
 
     const { status } = txd;
     // hardware sets this flag as soon as it's sent out, we can give back all bufs in the batch back to the mempool
@@ -1011,7 +1020,7 @@ reset_and_init(ixgbe_device);
 console.log(util.inspect(ixgbe_device, false, 2, true /* enable colors */));
 console.log('printing rx_queue descriptors read from buffer we saved:');
 for (const index in ixgbe_device.rx_queues) {
-  const queueDescriptor = getDescriptorFromVirt(ixgbe_device.rx_queues[index].descriptors);
+  const queueDescriptor = getRxDescriptorFromVirt(ixgbe_device.rx_queues[index].descriptors);
   console.log(util.inspect(queueDescriptor, false, null, true /* enable colors */));
 }
 
@@ -1047,6 +1056,7 @@ function printPackage(index) {
     // console.log(buf2hex(buf.mem.buffer).slice(0, 60 * 2));
   }
 }
+const queue_id = 0;
 
 function printOurPackages() {
   ixgbe_device.ixy.read_stats(ixgbe_device, stats);
@@ -1055,7 +1065,6 @@ function printOurPackages() {
   printPackage(0);
   // printPackage(4);
 
-  const queue_id = 0;
   console.log(`RDT register: ${addon.get_reg_js(ixgbe_device.addr, defines.IXGBE_RDT(queue_id))}\nRDH register: ${addon.get_reg_js(ixgbe_device.addr, defines.IXGBE_RDH(queue_id))}`);
 
 
@@ -1064,14 +1073,35 @@ function printOurPackages() {
 }
 stats_init(stats, ixgbe_device);
 
-setInterval(printOurPackages, 5000);
+// setInterval(printOurPackages, 5000);
 
 function lifeSignal() {
   console.log('.');
 }
-
+let timer = 0;
+const timerVal = 3000;
+let tmpRDT = -1;
+let tmpRDH = -1;
+let tmpPkgDrops = -1;
 function receivePackets() {
   ixgbe_device.ixy.rx_batch(ixgbe_device, 0, bufferArray, bufferArrayLength);
+  const newRDT = addon.get_reg_js(ixgbe_device.addr, defines.IXGBE_RDT(queue_id));
+  const newRDH = addon.get_reg_js(ixgbe_device.addr, defines.IXGBE_RDH(queue_id));
+  if (tmpRDH !== newRDH || tmpRDT !== newRDT) {
+    tmpRDH = newRDH;
+    tmpRDT = newRDT;
+    console.log(`RDT register: ${tmpRDT}\nRDH register: ${tmpRDH}`);
+  }
+  const pkgDrops = addon.get_reg_js(ixgbe_device.addr, defines.RXMPC(0));
+  if (pkgDrops !== tmpPkgDrops) {
+    tmpPkgDrops = pkgDrops;
+    console.log(`Missed Packets Error counter: ${tmpPkgDrops}`);
+  }
+  timer += 1;
+  if (timer >= timerVal) {
+    // printOurPackages();
+    timer = 0;
+  }
 }
 
 // setInterval(lifeSignal, 1000);
