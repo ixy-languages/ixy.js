@@ -630,8 +630,6 @@ function init_tx(dev) {
     txdctl &= ~(0x3F | (0x3F << 8) | (0x3F << 16)); // clear bits
     txdctl |= 36 | (8 << 8) | (4 << 16); // from DPDK
     addon.set_reg_js(dev.addr, defines.IXGBE_TXDCTL(i), txdctl);
-    txdctl = addon.get_reg_js(dev.addr, defines.IXGBE_TXDCTL(i));
-
 
     // private data for the driver, 0-initialized
     const queue = {
