@@ -689,7 +689,6 @@ function ixgbe_tx_batch(dev, queue_id, bufs, num_bufs) {
     // figure out how many descriptors can be cleaned up
     // cur is always ahead of clean (invariant of our queue)
     let cleanable = cur_index - clean_index;
-    // console.log(`cleanable: ${cleanable} ; cur index: ${cur_index} ; clean index: ${clean_index} `);
     if (cleanable < 0) { // handle wrap-around
       cleanable = queue.num_entries + cleanable;
     }
@@ -894,10 +893,13 @@ function ixgbe_read_stats(dev, stats) {
   const tx_bytes = addon.get_reg_js(dev.addr, defines.IXGBE_GOTCL);
   const tx_bytes_first32bits = addon.get_reg_js(dev.addr, defines.IXGBE_GOTCH);
   let rx_dropped_pkts = 0;
-  for (i = 0; i < 8; i++) {
-    rx_dropped_pkts += addon.get_reg_js(dev.addr, defines.RXMPC(i)) * Math.pow(4294967296/* 2^32 aka. 32 bit number */, i);
+  for (let i = 0; i < 8; i++) {
+    rx_dropped_pkts += addon.get_reg_js(dev.addr,
+      defines.RXMPC(i)) * (4294967296/* 2^32 aka. 32 bit number */ ** i); // ** is exponential
   }
-  // console.log(`${dev.ixy.pci_addr} stats:\nrx_pkts: ${rx_pkts} | tx_pkts: ${tx_pkts} | rx_bytes: ${rx_bytes} | rx_bytes_first32bits: ${rx_bytes_first32bits} | tx_bytes: ${tx_bytes} | tx_bytes_first32bits: ${tx_bytes_first32bits}`);
+  // console.log(`${dev.ixy.pci_addr} stats:\nrx_pkts: ${rx_pkts} | tx_pkts: ${tx_pkts}
+  // | rx_bytes: ${ rx_bytes } | rx_bytes_first32bits: ${ rx_bytes_first32bits }
+  // | tx_bytes: ${ tx_bytes } | tx_bytes_first32bits: ${ tx_bytes_first32bits }`);
   // console.log(`link speed: ${ixgbe_device.ixy.get_link_speed(ixgbe_device)}`);
   // printRXErrors(dev);
   if (stats) {
