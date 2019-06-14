@@ -224,11 +224,11 @@ function getTxDescriptorFromVirt(virtMem, index = 0) {
   */
   const descriptor = {};
   const dataView = new DataView(virtMem, index * 16, 16);
-
+  descriptor.read = {};
   descriptor.read.buffer_addr = dataView.getBigUint64(0, littleEndian);
   descriptor.read.cmd_type_len = dataView.getUint32(8, littleEndian);
   descriptor.read.olinfo_status = dataView.getUint32(12, littleEndian);
-
+  descriptor.wb = {};
   descriptor.wb.rsvd = dataView.getBigUint64(0, littleEndian);
   descriptor.wb.nxtseq_seed = dataView.getUint32(8, littleEndian);
   descriptor.wb.status = dataView.getUint32(12, littleEndian);
@@ -886,6 +886,10 @@ function ixgbe_read_stats(dev, stats) {
   const rx_bytes_first32bits = addon.get_reg_js(dev.addr, defines.IXGBE_GORCH);
   const tx_bytes = addon.get_reg_js(dev.addr, defines.IXGBE_GOTCL);
   const tx_bytes_first32bits = addon.get_reg_js(dev.addr, defines.IXGBE_GOTCH);
+  let rx_dropped_pkts = 0;
+  for (i = 0; i < 8; i++) {
+    rx_dropped_pkts += addon.get_reg_js(dev.addr, defines.RXMPC(i)) * Math.pow(4294967296/* 2^32 aka. 32 bit number */, i);
+  }
   // console.log(`${dev.ixy.pci_addr} stats:\nrx_pkts: ${rx_pkts} | tx_pkts: ${tx_pkts} | rx_bytes: ${rx_bytes} | rx_bytes_first32bits: ${rx_bytes_first32bits} | tx_bytes: ${tx_bytes} | tx_bytes_first32bits: ${tx_bytes_first32bits}`);
   // console.log(`link speed: ${ixgbe_device.ixy.get_link_speed(ixgbe_device)}`);
   // printRXErrors(dev);
@@ -894,7 +898,8 @@ function ixgbe_read_stats(dev, stats) {
     stats.tx_pkts += tx_pkts;
     stats.rx_bytes += rx_bytes;
     stats.tx_bytes += tx_bytes;
-    print_stats(stats);
+    stats.rx_dropped_pkts += rx_dropped_pkts;
+    // print_stats(stats);
   }
 }
 ixgbe_device.ixy.read_stats = ixgbe_read_stats;
@@ -906,6 +911,7 @@ function stats_init(stats, dev) {
   stats.tx_pkts = 0;
   stats.rx_bytes = 0;
   stats.tx_bytes = 0;
+  stats.rx_dropped_pkts = 0;
   stats.device = dev;
   if (dev) {
     // reset stats
@@ -1093,11 +1099,9 @@ function diff_mbit(bytes_new, bytes_old, pkts_new, pkts_old, nanos) {
 }
 
 function print_stats_diff(stats_new, stats_old, nanos) {
-  console.log('stat objects:');
-  console.log(stats_new);
-  console.log(stats_old);
   console.log(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] RX: ${diff_mbit(stats_new.rx_bytes, stats_old.rx_bytes, stats_new.rx_pkts, stats_old.rx_pkts, nanos)} Mbit/s ${diff_mpps(stats_new.rx_pkts, stats_old.rx_pkts, nanos)} Mpps`);
   console.log(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] TX: ${diff_mbit(stats_new.tx_bytes, stats_old.tx_bytes, stats_new.tx_pkts, stats_old.tx_pkts, nanos)} Mbit/s ${diff_mpps(stats_new.tx_pkts, stats_old.tx_pkts, nanos)} Mpps`);
+  console.log(`Packages actually getting received: ${((stats_new.rx_dropped_pkts - stats_old.rx_dropped_pkts) / (stats_new.rx_pkts - stats_old.rx_pkts)) * 100}%`);
 }
 
 // /*
