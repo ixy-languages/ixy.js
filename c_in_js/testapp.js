@@ -700,9 +700,9 @@ function ixgbe_tx_batch(dev, queue_id, bufs, num_bufs) {
     if (cleanup_to >= queue.num_entries) {
       cleanup_to -= queue.num_entries;
     }
-    const txd = getRxDescriptorFromVirt(queue.descriptors, cleanup_to);
+    const txd = getTxDescriptorFromVirt(queue.descriptors, cleanup_to);
 
-    const { status } = txd;
+    const { status } = txd.wb;
     // hardware sets this flag as soon as it's sent out,
     // we can give back all bufs in the batch back to the mempool
     if (status & defines.IXGBE_ADVTXD_STAT_DD) {
