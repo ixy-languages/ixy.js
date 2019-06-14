@@ -633,14 +633,14 @@ function init_tx(dev) {
 
     // private data for the driver, 0-initialized
     const queue = {
-      num_entries: defines.NUM_RX_QUEUE_ENTRIES,
+      num_entries: defines.NUM_TX_QUEUE_ENTRIES,
       descriptors: mem.virt,
       // position to clean up descriptors that where sent out by the nic
       clean_index: 0,
       // position to insert packets for transmission
       tx_index: 0,
       // virtual addresses to map descriptors back to their mbuf for freeing
-      virtual_addresses: new Array(defines.NUM_RX_QUEUE_ENTRIES),
+      virtual_addresses: new Array(defines.NUM_TX_QUEUE_ENTRIES),
     };
     dev.tx_queues[i] = queue;
   }
@@ -685,9 +685,11 @@ function ixgbe_tx_batch(dev, queue_id, bufs, num_bufs) {
   // cleaning up must be done in batches for performance reasons,
   // so this is unfortunately somewhat complicated
   while (true) {
+    console.log(`cleaning ${clean_index}`);
     // figure out how many descriptors can be cleaned up
     // cur is always ahead of clean (invariant of our queue)
     let cleanable = cur_index - clean_index;
+    // console.log(`cleanable: ${cleanable} ; cur index: ${cur_index} ; clean index: ${clean_index} `);
     if (cleanable < 0) { // handle wrap-around
       cleanable = queue.num_entries + cleanable;
     }
@@ -729,8 +731,11 @@ function ixgbe_tx_batch(dev, queue_id, bufs, num_bufs) {
   let sent;
   for (sent = 0; sent < num_bufs; sent++) {
     const next_index = wrap_ring(cur_index, queue.num_entries);
+    console.log(`trying to send ${next_index}`);
+
     // we are full if the next index is the one we are trying to reclaim
     if (clean_index === next_index) {
+      console.log('we`re full');
       break;
     }
     const buf = bufs[sent];
@@ -754,6 +759,7 @@ function ixgbe_tx_batch(dev, queue_id, bufs, num_bufs) {
     // you have to precalculate the pseudo - header checksum
     txd.memView.setUint32(12, buf.size << defines.IXGBE_ADVTXD_PAYLEN_SHIFT, littleEndian);
     cur_index = next_index;
+    console.log(`sent ${cur_index}`);
   }
   // send out by advancing tail, i.e., pass control of the bufs to the nic
   // this seems like a textbook case for a release memory order,
@@ -1028,16 +1034,20 @@ function forward(rx_dev, rx_queue, tx_dev, tx_queue) {
   if (num_rx > 0) {
     // touch all packets, otherwise it's a completely unrealistic workload
     // if the packet just stays in L3
+    console.log(`----num rx: ${num_rx}`);
     for (let i = 0; i < num_rx; i++) {
-      const val = bufs[i].mem.getUint8(70, littleEndian) + 1;
-      bufs[i].mem.setUint8(70, val, littleEndian);
+      const val = bufs[i].mem.getUint8(50) + 1;
+      console.log(`val : ${val}`);
+      bufs[i].mem.setUint8(50, val);
     }
     const num_tx = rx_dev.ixy.tx_batch(tx_dev, tx_queue, bufs, num_rx);
+    console.log(`----num tx: ${num_tx}`);
+
     // there are two ways to handle the case that packets are not being sent out:
     // either wait on tx or drop them; in this case it's better to drop them,
     // otherwise we accumulate latency
     // TODO double check the correctnes of this slice
-    bufs.slice(num_tx, num_rx).forEach((buf) => {
+    bufs.slice(num_tx, num_rx - 1).forEach((buf) => {
       pkt_buf_free(buf);
     });
   }
@@ -1100,9 +1110,11 @@ function diff_mbit(bytes_new, bytes_old, pkts_new, pkts_old, nanos) {
 }
 
 function print_stats_diff(stats_new, stats_old, nanos) {
-  const rxMbits = diff_mbit(stats_new.rx_bytes, stats_old.rx_bytes, stats_new.rx_pkts, stats_old.rx_pkts, nanos);
+  const rxMbits = diff_mbit(stats_new.rx_bytes, stats_old.rx_bytes,
+    stats_new.rx_pkts, stats_old.rx_pkts, nanos);
   console.log(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] RX: ${rxMbits} Mbit/s ${diff_mpps(stats_new.rx_pkts, stats_old.rx_pkts, nanos)} Mpps`);
-  const droprate = (stats_new.rx_dropped_pkts - stats_old.rx_dropped_pkts) / (stats_new.rx_pkts - stats_old.rx_pkts);
+  const droprate = (stats_new.rx_dropped_pkts - stats_old.rx_dropped_pkts)
+    / (stats_new.rx_pkts - stats_old.rx_pkts);
   console.log(`Packages actually getting received: ${(1 - droprate) * 100}% ; droprate: ${droprate * 100}%`);
   console.log(`So our actual rate is ${rxMbits * (1 - droprate)} Mbits/s`);
 
