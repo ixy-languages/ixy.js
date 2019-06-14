@@ -886,9 +886,9 @@ function ixgbe_read_stats(dev, stats) {
   const rx_bytes_first32bits = addon.get_reg_js(dev.addr, defines.IXGBE_GORCH);
   const tx_bytes = addon.get_reg_js(dev.addr, defines.IXGBE_GOTCL);
   const tx_bytes_first32bits = addon.get_reg_js(dev.addr, defines.IXGBE_GOTCH);
-  console.log(`reading stats... rx_pkts: ${rx_pkts} | tx_pkts: ${tx_pkts} | rx_bytes: ${rx_bytes} | rx_bytes_first32bits: ${rx_bytes_first32bits} | tx_bytes: ${tx_bytes} | tx_bytes_first32bits: ${tx_bytes_first32bits}`);
-  console.log(`link speed: ${ixgbe_device.ixy.get_link_speed(ixgbe_device)}`);
-  printRXErrors(dev);
+  //console.log(`${dev.ixy.pci_addr} stats:\nrx_pkts: ${rx_pkts} | tx_pkts: ${tx_pkts} | rx_bytes: ${rx_bytes} | rx_bytes_first32bits: ${rx_bytes_first32bits} | tx_bytes: ${tx_bytes} | tx_bytes_first32bits: ${tx_bytes_first32bits}`);
+  //console.log(`link speed: ${ixgbe_device.ixy.get_link_speed(ixgbe_device)}`);
+  //printRXErrors(dev);
   if (stats) {
     stats.rx_pkts += rx_pkts;
     stats.tx_pkts += tx_pkts;
@@ -911,6 +911,13 @@ function stats_init(stats, dev) {
     // reset stats
     dev.ixy.read_stats(dev);
   }
+}
+function copyStats(stat1, stat2) {
+  stat1.rx_pkts = stat2.rx_pkts;
+  stat1.tx_pkts = stat2.tx_pkts;
+  stat1.rx_bytes = stat2.rx_bytes;
+  stat1.tx_bytes = stat2.tx_bytes;
+  stat1.device = stat2.device;
 }
 
 // see section 4.6.4
@@ -1086,13 +1093,11 @@ function diff_mbit(bytes_new, bytes_old, pkts_new, pkts_old, nanos) {
 }
 
 function print_stats_diff(stats_new, stats_old, nanos) {
-  // console.log("%s %d seconds and %d nanoseconds", title, nanos[0], nanos[1]);
-  console.log('[%s] RX: %d Mbit/s %.2f Mpps\n', stats_new.device ? stats_new.device.pci_addr : '???',
-    diff_mbit(stats_new.rx_bytes, stats_old.rx_bytes, stats_new.rx_pkts, stats_old.rx_pkts, nanos),
-    diff_mpps(stats_new.rx_pkts, stats_old.rx_pkts, nanos));
-  console.log('[%s] TX: %d Mbit/s %.2f Mpps\n', stats_new.device ? stats_new.device.pci_addr : '???',
-    diff_mbit(stats_new.tx_bytes, stats_old.tx_bytes, stats_new.tx_pkts, stats_old.tx_pkts, nanos),
-    diff_mpps(stats_new.tx_pkts, stats_old.tx_pkts, nanos));
+  console.log('stat objects:');
+  console.log(stats_new);
+  console.log(stats_old);
+  console.log(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] RX: ${diff_mbit(stats_new.rx_bytes, stats_old.rx_bytes, stats_new.rx_pkts, stats_old.rx_pkts, nanos)} Mbit/s ${diff_mpps(stats_new.rx_pkts, stats_old.rx_pkts, nanos)} Mpps`);
+  console.log(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] TX: ${diff_mbit(stats_new.tx_bytes, stats_old.tx_bytes, stats_new.tx_pkts, stats_old.tx_pkts, nanos)} Mbit/s ${diff_mpps(stats_new.tx_pkts, stats_old.tx_pkts, nanos)} Mpps`);
 }
 
 // /*
@@ -1106,10 +1111,10 @@ function forwardProgram(argc, argv) {
   const dev1 = ixgbe_init(argv[1], 1, 1);
   const dev2 = ixgbe_init(argv[2], 1, 1);
 
-  let stats1;
-  let stats1_old;
-  let stats2;
-  let stats2_old;
+  const stats1 = {};
+  const stats1_old = {};
+  const stats2 = {};
+  const stats2_old = {};
   stats_init(stats1, dev1);
   stats_init(stats1_old, dev1);
   stats_init(stats2, dev2);
@@ -1123,16 +1128,16 @@ function forwardProgram(argc, argv) {
   let last_stats_printed = process.hrtime();
   // every second
   setInterval(() => {
-    const time = process.hrtime(last_stats_printed);
+    const time = process.hrtime(last_stats_printed,'ns');
+    last_stats_printed = process.hrtime();
     dev1.ixy.read_stats(dev1, stats1);
     print_stats_diff(stats1, stats1_old, time);
-    stats1_old = stats1;
+    copyStats(stats1_old , stats1);
     if (dev1.ixy.pci_addr !== dev2.ixy.pci_addr) {
       dev2.ixy.read_stats(dev2, stats2);
       print_stats_diff(stats2, stats2_old, time);
-      stats2_old = stats2;
+      copyStats(stats2_old, stats2);
     }
-    last_stats_printed = time; // TODO maybe process.hrtime() again?
   }, 1000);
 }
 /* */
