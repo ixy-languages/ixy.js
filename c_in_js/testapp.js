@@ -596,7 +596,7 @@ function init_tx(dev) {
     console.log(`initializing tx queue ${i}`);
 
     // setup descriptor ring, see section 7.1.9
-    const ring_size_bytes = defines.NUM_RX_QUEUE_ENTRIES * 16; // 128bit headers? -> 128/8 bytes
+    const ring_size_bytes = defines.NUM_TX_QUEUE_ENTRIES * 16; // 128bit headers? -> 128/8 bytes
     const mem = {};
     console.log('-----------cstart------------');
     mem.virt = addon.getDmaMem(ring_size_bytes, true);
@@ -630,6 +630,8 @@ function init_tx(dev) {
     txdctl &= ~(0x3F | (0x3F << 8) | (0x3F << 16)); // clear bits
     txdctl |= 36 | (8 << 8) | (4 << 16); // from DPDK
     addon.set_reg_js(dev.addr, defines.IXGBE_TXDCTL(i), txdctl);
+    txdctl = addon.get_reg_js(dev.addr, defines.IXGBE_TXDCTL(i));
+
 
     // private data for the driver, 0-initialized
     const queue = {
@@ -704,7 +706,6 @@ function ixgbe_tx_batch(dev, queue_id, bufs, num_bufs) {
     const txd = getTxDescriptorFromVirt(queue.descriptors, cleanup_to);
 
     const { status } = txd.wb;
-    console.log(txd);
     // hardware sets this flag as soon as it's sent out,
     // we can give back all bufs in the batch back to the mempool
     if (status & defines.IXGBE_ADVTXD_STAT_DD) {
@@ -1142,7 +1143,9 @@ function forwardProgram(argc, argv) {
   stats_init(stats1_old, dev1);
   stats_init(stats2, dev2);
   stats_init(stats2_old, dev2);
-
+  // TODO remember this is called every 10ms,
+  // so maybe an infinite loop would be better ?
+  // this is non blocking though, if that does any good
   setInterval(() => {
     forward(dev1, 0, dev2, 0);
     forward(dev2, 0, dev1, 0);
