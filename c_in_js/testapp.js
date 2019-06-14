@@ -923,6 +923,7 @@ function copyStats(stat1, stat2) {
   stat1.tx_pkts = stat2.tx_pkts;
   stat1.rx_bytes = stat2.rx_bytes;
   stat1.tx_bytes = stat2.tx_bytes;
+  stat1.rx_dropped_pkts = stat2.rx_dropped_pkts;
   stat1.device = stat2.device;
 }
 
@@ -1099,9 +1100,13 @@ function diff_mbit(bytes_new, bytes_old, pkts_new, pkts_old, nanos) {
 }
 
 function print_stats_diff(stats_new, stats_old, nanos) {
-  console.log(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] RX: ${diff_mbit(stats_new.rx_bytes, stats_old.rx_bytes, stats_new.rx_pkts, stats_old.rx_pkts, nanos)} Mbit/s ${diff_mpps(stats_new.rx_pkts, stats_old.rx_pkts, nanos)} Mpps`);
+  const rxMbits = diff_mbit(stats_new.rx_bytes, stats_old.rx_bytes, stats_new.rx_pkts, stats_old.rx_pkts, nanos);
+  console.log(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] RX: ${rxMbits} Mbit/s ${diff_mpps(stats_new.rx_pkts, stats_old.rx_pkts, nanos)} Mpps`);
+  const droprate = (stats_new.rx_dropped_pkts - stats_old.rx_dropped_pkts) / (stats_new.rx_pkts - stats_old.rx_pkts);
+  console.log(`Packages actually getting received: ${(1 - droprate) * 100}% ; droprate: ${droprate * 100}%`);
+  console.log(`So our actual rate is ${rxMbits * (1 - droprate)} Mbits/s`);
+
   console.log(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] TX: ${diff_mbit(stats_new.tx_bytes, stats_old.tx_bytes, stats_new.tx_pkts, stats_old.tx_pkts, nanos)} Mbit/s ${diff_mpps(stats_new.tx_pkts, stats_old.tx_pkts, nanos)} Mpps`);
-  console.log(`Packages actually getting received: ${((stats_new.rx_dropped_pkts - stats_old.rx_dropped_pkts) / (stats_new.rx_pkts - stats_old.rx_pkts)) * 100}%`);
 }
 
 // /*
