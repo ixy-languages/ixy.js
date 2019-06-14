@@ -407,7 +407,8 @@ function setBufferValues(buffer, mempool, mempool_idx, size, data, phys = false)
 function memory_allocate_mempool_js(num_entries, entry_size) {
   entry_size = entry_size || 2048;
   // require entries that neatly fit into the page size, this makes the memory pool much easier
-  // otherwise our base_addr + index * size formula would be wrong because we can't cross a page-boundary
+  // otherwise our base_addr + index * size formula would be wrong
+  // because we can't cross a page-boundary
   if (defines.HUGE_PAGE_SIZE % entry_size) {
     console.error(`entry size must be a divisor of the huge page size ${defines.HUGE_PAGE_SIZE}`);
   }
@@ -425,7 +426,8 @@ function memory_allocate_mempool_js(num_entries, entry_size) {
 
     // physical addresses are not contiguous within a pool, we need to get the mapping
     // minor optimization opportunity: this only needs to be done once per page
-    setBufferValues(buf.mem, mempool, i, 0, 0, addon.dataviewToPhys(buf.mem)); // we should move these into creation later TODO
+    // TODO we should move these into creation later?
+    setBufferValues(buf.mem, mempool, i, 0, 0, addon.dataviewToPhys(buf.mem));
   }
   return mempool;
 }
@@ -461,7 +463,8 @@ function start_rx_queue(ixgbe_device, queue_id) {
   const queue = ixgbe_device.rx_queues[queue_id];
   // 2048 as pktbuf size is strictly speaking incorrect:
   // we need a few headers (1 cacheline), so there's only 1984 bytes left for the device
-  // but the 82599 can only handle sizes in increments of 1 kb; but this is fine since our max packet size
+  // but the 82599 can only handle sizes in increments of 1 kb;
+  // but this is fine since our max packet size
   // is the default MTU of 1518
   // this has to be fixed if jumbo frames are to be supported
   // mempool should be >= the number of rx and tx descriptors for a forwarding application
@@ -575,7 +578,8 @@ now lets port this:
 // see section 4.6.8
 function init_tx(dev) {
   // crc offload and small packet padding
-  set_flags_js(dev.addr, defines.IXGBE_HLREG0, defines.IXGBE_HLREG0_TXCRCEN | defines.IXGBE_HLREG0_TXPADEN);
+  set_flags_js(dev.addr, defines.IXGBE_HLREG0, defines.IXGBE_HLREG0_TXCRCEN
+    | defines.IXGBE_HLREG0_TXPADEN);
 
   // set default buffer size allocations
   // see also: section 4.6.11.3.4, no fancy features like DCB and VTd
@@ -598,7 +602,8 @@ function init_tx(dev) {
     mem.virt = addon.getDmaMem(ring_size_bytes, true);
     mem.phy = addon.virtToPhys(mem.virt);
     console.log('-----------c--end------------');
-    // neat trick from Snabb: initialize to 0xFF to prevent rogue memory accesses on premature DMA activation
+    // neat trick from Snabb: initialize to 0xFF to prevent
+    // rogue memory accesses on premature DMA activation
     const virtMemView = new DataView(mem.virt);
     for (let count = 0; count < ring_size_bytes; count++) {
       virtMemView.setUint32(count / 4, 0xFFFFFFFF, littleEndian);
@@ -617,7 +622,8 @@ function init_tx(dev) {
 
     // descriptor writeback magic values, important to get good performance and low PCIe overhead
     // see 7.2.3.4.1 and 7.2.3.5 for an explanation of these values and how to find good ones
-    // we just use the defaults from DPDK here, but this is a potentially interesting point for optimizations
+    // we just use the defaults from DPDK here,
+    // but this is a potentially interesting point for optimizations
     let txdctl = addon.get_reg_js(dev.addr, defines.IXGBE_TXDCTL(i));
     // there are no defines for this in ixgbe_type.h for some reason
     // pthresh: 6:0, hthresh: 14:8, wthresh: 22:16
@@ -630,9 +636,9 @@ function init_tx(dev) {
       num_entries: defines.NUM_RX_QUEUE_ENTRIES,
       descriptors: mem.virt,
       // position to clean up descriptors that where sent out by the nic
-	 clean_index: 0,
+      clean_index: 0,
       // position to insert packets for transmission
-	 tx_index: 0,
+      tx_index: 0,
       // virtual addresses to map descriptors back to their mbuf for freeing
       virtual_addresses: new Array(defines.NUM_RX_QUEUE_ENTRIES),
     };
@@ -647,8 +653,8 @@ const TX_CLEAN_BATCH = 32;
 
 /*
 void pkt_buf_free(struct pkt_buf* buf) {
-	struct mempool* mempool = buf->mempool;
-	mempool->free_stack[mempool->free_stack_top++] = buf->mempool_idx;
+  struct mempool* mempool = buf->mempool;
+  mempool->free_stack[mempool->free_stack_top++] = buf->mempool_idx;
 }
 */
 
@@ -660,13 +666,15 @@ function pkt_buf_free(buf) { // TODO check if this works
 
 // section 1.8.1 and 7.2
 // we control the tail, hardware the head
-// huge performance gains possible here by sending packets in batches - writing to TDT for every packet is not efficient
+// huge performance gains possible here by sending packets in batches
+// - writing to TDT for every packet is not efficient
 // returns the number of packets transmitted, will not block when the queue is full
 function ixgbe_tx_batch(dev, queue_id, bufs, num_bufs) {
   const queue = dev.tx_queues[queue_id];
   // the descriptor is explained in section 7.2.3.2.4
-  // we just use a struct copy & pasted from intel, but it basically has two formats (hence a union):
-  // 1. the write-back format which is written by the NIC once sending it is finished this is used in step 1
+  // we just use a struct copy & pasted from intel, but it basically has two formats:
+  // 1. the write-back format which is written by the NIC once sending it is finished
+  // ^this is used in step 1
   // 2. the read format which is read by the NIC and written by us, this is used in step 2
 
   let { clean_index } = queue; // next descriptor to clean up
@@ -674,10 +682,12 @@ function ixgbe_tx_batch(dev, queue_id, bufs, num_bufs) {
 
   // step 1: clean up descriptors that were sent out by the hardware and return them to the mempool
   // start by reading step 2 which is done first for each packet
-  // cleaning up must be done in batches for performance reasons, so this is unfortunately somewhat complicated
+  // cleaning up must be done in batches for performance reasons,
+  // so this is unfortunately somewhat complicated
   while (true) {
     // figure out how many descriptors can be cleaned up
-    let cleanable = cur_index - clean_index; // cur is always ahead of clean (invariant of our queue)
+    // cur is always ahead of clean (invariant of our queue)
+    let cleanable = cur_index - clean_index;
     if (cleanable < 0) { // handle wrap-around
       cleanable = queue.num_entries + cleanable;
     }
@@ -693,11 +703,12 @@ function ixgbe_tx_batch(dev, queue_id, bufs, num_bufs) {
     const txd = getRxDescriptorFromVirt(queue.descriptors, cleanup_to);
 
     const { status } = txd;
-    // hardware sets this flag as soon as it's sent out, we can give back all bufs in the batch back to the mempool
+    // hardware sets this flag as soon as it's sent out,
+    // we can give back all bufs in the batch back to the mempool
     if (status & defines.IXGBE_ADVTXD_STAT_DD) {
       let i = clean_index;
       while (true) {
-				 const buf = queue.virtual_addresses[i];
+        const buf = queue.virtual_addresses[i];
         pkt_buf_free(buf);
         if (i === cleanup_to) {
           break;
@@ -729,20 +740,24 @@ function ixgbe_tx_batch(dev, queue_id, bufs, num_bufs) {
     const txd = getTxDescriptorFromVirt(queue.descriptors, cur_index);
 
     // NIC reads from here
-    txd.memView.setBigUint64(0, addon.addBigInts(buf.buf_addr_phy, 64)/* offsetof(struct pkt_buf, data) */, littleEndian); // TODO double check offset
+    txd.memView.setBigUint64(0, addon.addBigInts(buf.buf_addr_phy, 64), littleEndian);
 
     // always the same flags: one buffer (EOP), advanced data descriptor, CRC offload, data length
-    txd.memView.setUint32(8, defines.IXGBE_ADVTXD_DCMD_EOP | defines.IXGBE_ADVTXD_DCMD_RS | defines.IXGBE_ADVTXD_DCMD_IFCS | defines.IXGBE_ADVTXD_DCMD_DEXT | defines.IXGBE_ADVTXD_DTYP_DATA | buf.size, littleEndian);
+    txd.memView.setUint32(8, defines.IXGBE_ADVTXD_DCMD_EOP | defines.IXGBE_ADVTXD_DCMD_RS
+      | defines.IXGBE_ADVTXD_DCMD_IFCS | defines.IXGBE_ADVTXD_DCMD_DEXT
+      | defines.IXGBE_ADVTXD_DTYP_DATA | buf.size, littleEndian);
 
     // no fancy offloading stuff - only the total payload length
     // implement offloading flags here:
-    // 	* ip checksum offloading is trivial: just set the offset
-    // 	* tcp/udp checksum offloading is more annoying, you have to precalculate the pseudo-header checksum
+    // * ip checksum offloading is trivial: just set the offset
+    // * tcp/udp checksum offloading is more annoying,
+    // you have to precalculate the pseudo - header checksum
     txd.memView.setUint32(12, buf.size << defines.IXGBE_ADVTXD_PAYLEN_SHIFT, littleEndian);
     cur_index = next_index;
   }
   // send out by advancing tail, i.e., pass control of the bufs to the nic
-  // this seems like a textbook case for a release memory order, but Intel's driver doesn't even use a compiler barrier here
+  // this seems like a textbook case for a release memory order,
+  // but Intel's driver doesn't even use a compiler barrier here
   addon.set_reg_js(dev.addr, defines.IXGBE_TDT(queue_id), queue.tx_index);
   return sent;
 }
@@ -764,15 +779,17 @@ struct ixgbe_device {
     void* tx_queues;
 };
 struct ixy_device {
-	const char* pci_addr;
-	const char* driver_name;
-	uint16_t num_rx_queues;
-	uint16_t num_tx_queues;
-	uint32_t (*rx_batch) (struct ixy_device* dev, uint16_t queue_id, struct pkt_buf* bufs[], uint32_t num_bufs);
-	uint32_t (*tx_batch) (struct ixy_device* dev, uint16_t queue_id, struct pkt_buf* bufs[], uint32_t num_bufs);
-	void (*read_stats) (struct ixy_device* dev, struct device_stats* stats);
-	void (*set_promisc) (struct ixy_device* dev, bool enabled);
-	uint32_t (*get_link_speed) (const struct ixy_device* dev);
+  const char* pci_addr;
+  const char* driver_name;
+  uint16_t num_rx_queues;
+  uint16_t num_tx_queues;
+  uint32_t (*rx_batch) (struct ixy_device* dev, uint16_t queue_id,
+    struct pkt_buf* bufs[], uint32_t num_bufs);
+  uint32_t (*tx_batch) (struct ixy_device* dev, uint16_t queue_id,
+    struct pkt_buf* bufs[], uint32_t num_bufs);
+  void (*read_stats) (struct ixy_device* dev, struct device_stats* stats);
+  void (*set_promisc) (struct ixy_device* dev, bool enabled);
+  uint32_t (*get_link_speed) (const struct ixy_device* dev);
 };
 */
 const ixgbe_device = {
@@ -898,9 +915,14 @@ function stats_init(stats, dev) {
 
 // see section 4.6.4
 function init_link(dev) {
-  // should already be set by the eeprom config, maybe we shouldn't override it here to support weirdo nics?
-  addon.set_reg_js(dev.addr, defines.IXGBE_AUTOC, (addon.get_reg_js(dev.addr, defines.IXGBE_AUTOC) & ~defines.IXGBE_AUTOC_LMS_MASK) | defines.IXGBE_AUTOC_LMS_10G_SERIAL);
-  addon.set_reg_js(dev.addr, defines.IXGBE_AUTOC, (addon.get_reg_js(dev.addr, defines.IXGBE_AUTOC) & ~defines.IXGBE_AUTOC_10G_PMA_PMD_MASK) | defines.IXGBE_AUTOC_10G_XAUI);
+  // should already be set by the eeprom config,
+  // maybe we shouldn't override it here to support weirdo nics?
+  addon.set_reg_js(dev.addr, defines.IXGBE_AUTOC,
+    (addon.get_reg_js(dev.addr, defines.IXGBE_AUTOC) & ~defines.IXGBE_AUTOC_LMS_MASK)
+    | defines.IXGBE_AUTOC_LMS_10G_SERIAL);
+  addon.set_reg_js(dev.addr, defines.IXGBE_AUTOC,
+    (addon.get_reg_js(dev.addr, defines.IXGBE_AUTOC) & ~defines.IXGBE_AUTOC_10G_PMA_PMD_MASK)
+    | defines.IXGBE_AUTOC_10G_XAUI);
   // negotiate link
   set_flags_js(dev.addr, defines.IXGBE_AUTOC, defines.IXGBE_AUTOC_AN_RESTART);
   // datasheet wants us to wait for the link here, but we can continue and wait afterwards
@@ -915,7 +937,8 @@ function ixgbe_set_promisc(dev, enabled) {
     set_flags_js(dev.addr, defines.IXGBE_FCTRL, defines.IXGBE_FCTRL_MPE | defines.IXGBE_FCTRL_UPE);
   } else {
     console.log('disabling promisc mode');
-    clear_flags_js(dev.addr, defines.IXGBE_FCTRL, defines.IXGBE_FCTRL_MPE | defines.IXGBE_FCTRL_UPE);
+    clear_flags_js(dev.addr, defines.IXGBE_FCTRL, defines.IXGBE_FCTRL_MPE
+      | defines.IXGBE_FCTRL_UPE);
   }
 }
 
@@ -999,11 +1022,99 @@ function forward(rx_dev, rx_queue, tx_dev, tx_queue) {
     // there are two ways to handle the case that packets are not being sent out:
     // either wait on tx or drop them; in this case it's better to drop them, otherwise we accumulate latency
     // TODO double check the correctnes of this slice
-    bufferArray.slice(num_tx, num_rx).forEach((buf) => {
+    bufs.slice(num_tx, num_rx).forEach((buf) => {
       pkt_buf_free(buf);
     });
   }
 }
+const MAX_QUEUES = 64;
+function ixgbe_init(pci_addr, num_rx_queues, num_tx_queues) {
+  /* TODO add own root check?
+  if (getuid()) {
+		warn("Not running as root, this will probably fail");
+  }
+  */
+  if (num_rx_queues > MAX_QUEUES) {
+    throw new Error(`cannot configure ${num_rx_queues} rx queues: limit is ${MAX_QUEUES}`);
+  }
+  if (num_tx_queues > MAX_QUEUES) {
+    throw new Error(`cannot configure ${num_tx_queues} tx queues: limit is ${MAX_QUEUES}`);
+  }
+
+  const ixgbe_dev = {
+    ixy: {
+      pci_addr,
+      driver_name: 'ixy.js',
+      num_rx_queues,
+      num_tx_queues,
+      rx_batch: ixgbe_rx_batch,
+      tx_batch: ixgbe_tx_batch,
+      get_link_speed: ixgbe_get_link_speed,
+      read_stats: ixgbe_read_stats,
+      set_promisc: ixgbe_set_promisc,
+    },
+    addr: null,
+    dataView: null,
+    phAddr: null,
+    rx_queues: [],
+    tx_queues: [],
+  };
+
+  ixgbe_dev.rx_queues = new Array(ixgbe_dev.ixy.num_rx_queues);
+  ixgbe_dev.tx_queues = new Array(ixgbe_dev.ixy.num_rx_queues);
+
+  // get IXY memory
+  ixgbe_dev.addr = addon.getIXYAddr(ixgbe_dev.ixy.pci_addr);
+  const IXYDev = ixgbe_dev.addr;
+  // create a View on the IXY memory, which is RO
+  ixgbe_dev.dataView = new DataView(IXYDev);
+
+  reset_and_init(ixgbe_dev);
+  return ixgbe_dev;
+}
+/*
+function forwardProgram( argc,  argv) {
+	if (argc != 3) {
+		printf("%s forwards packets between two ports.\n", argv[0]);
+		printf("Usage: %s <pci bus id2> <pci bus id1>\n", argv[0]);
+		return 1;
+	}
+
+	const dev1 = ixgbe_init(argv[1], 1, 1);
+	const dev2 = ixgbe_init(argv[2], 1, 1);
+
+	uint64_t last_stats_printed = monotonic_time();
+	struct device_stats stats1, stats1_old;
+	struct device_stats stats2, stats2_old;
+	stats_init(&stats1, dev1);
+	stats_init(&stats1_old, dev1);
+	stats_init(&stats2, dev2);
+	stats_init(&stats2_old, dev2);
+
+	uint64_t counter = 0;
+	while (true) {
+		forward(dev1, 0, dev2, 0);
+		forward(dev2, 0, dev1, 0);
+
+		// don't poll the time unnecessarily
+		if ((counter++ & 0xFFF) == 0) {
+			uint64_t time = monotonic_time();
+			if (time - last_stats_printed > 1000 * 1000 * 1000) {
+				// every second
+				ixy_read_stats(dev1, &stats1);
+				print_stats_diff(&stats1, &stats1_old, time - last_stats_printed);
+				stats1_old = stats1;
+				if (dev1 != dev2) {
+					ixy_read_stats(dev2, &stats2);
+					print_stats_diff(&stats2, &stats2_old, time - last_stats_printed);
+					stats2_old = stats2;
+				}
+				last_stats_printed = time;
+			}
+		}
+	}
+}
+/* */
 
 console.log('reset and init...');
 reset_and_init(ixgbe_device);
