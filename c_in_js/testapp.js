@@ -1020,7 +1020,8 @@ function forward(rx_dev, rx_queue, tx_dev, tx_queue) {
     }
     const num_tx = rx_dev.ixy.tx_batch(tx_dev, tx_queue, bufs, num_rx);
     // there are two ways to handle the case that packets are not being sent out:
-    // either wait on tx or drop them; in this case it's better to drop them, otherwise we accumulate latency
+    // either wait on tx or drop them; in this case it's better to drop them,
+    // otherwise we accumulate latency
     // TODO double check the correctnes of this slice
     bufs.slice(num_tx, num_rx).forEach((buf) => {
       pkt_buf_free(buf);
@@ -1031,7 +1032,7 @@ const MAX_QUEUES = 64;
 function ixgbe_init(pci_addr, num_rx_queues, num_tx_queues) {
   /* TODO add own root check?
   if (getuid()) {
-		warn("Not running as root, this will probably fail");
+    warn("Not running as root, this will probably fail");
   }
   */
   if (num_rx_queues > MAX_QUEUES) {
@@ -1072,47 +1073,67 @@ function ixgbe_init(pci_addr, num_rx_queues, num_tx_queues) {
   reset_and_init(ixgbe_dev);
   return ixgbe_dev;
 }
-/*
-function forwardProgram( argc,  argv) {
-	if (argc != 3) {
-		printf("%s forwards packets between two ports.\n", argv[0]);
-		printf("Usage: %s <pci bus id2> <pci bus id1>\n", argv[0]);
-		return 1;
-	}
 
-	const dev1 = ixgbe_init(argv[1], 1, 1);
-	const dev2 = ixgbe_init(argv[2], 1, 1);
+function diff_mpps(pkts_new, pkts_old, nanos) {
+  return (pkts_new - pkts_old) / 1000000.0 / (nanos / 1000000000.0);
+}
 
-	uint64_t last_stats_printed = monotonic_time();
-	struct device_stats stats1, stats1_old;
-	struct device_stats stats2, stats2_old;
-	stats_init(&stats1, dev1);
-	stats_init(&stats1_old, dev1);
-	stats_init(&stats2, dev2);
-	stats_init(&stats2_old, dev2);
+function diff_mbit(bytes_new, bytes_old, pkts_new, pkts_old, nanos) {
+  // take stuff on the wire into account, i.e., the preamble, SFD and IFG (20 bytes)
+  // otherwise it won't show up as 10000 mbit/s with small packets which is confusing
+  return (((bytes_new - bytes_old) / 1000000.0 / (nanos / 1000000000.0)) * 8
+    + diff_mpps(pkts_new, pkts_old, nanos) * 20 * 8);
+}
 
-	uint64_t counter = 0;
-	while (true) {
-		forward(dev1, 0, dev2, 0);
-		forward(dev2, 0, dev1, 0);
+function print_stats_diff(stats_new, stats_old, nanos) {
+  // console.log("%s %d seconds and %d nanoseconds", title, nanos[0], nanos[1]);
+  console.log('[%s] RX: %d Mbit/s %.2f Mpps\n', stats_new.device ? stats_new.device.pci_addr : '???',
+    diff_mbit(stats_new.rx_bytes, stats_old.rx_bytes, stats_new.rx_pkts, stats_old.rx_pkts, nanos),
+    diff_mpps(stats_new.rx_pkts, stats_old.rx_pkts, nanos));
+  console.log('[%s] TX: %d Mbit/s %.2f Mpps\n', stats_new.device ? stats_new.device.pci_addr : '???',
+    diff_mbit(stats_new.tx_bytes, stats_old.tx_bytes, stats_new.tx_pkts, stats_old.tx_pkts, nanos),
+    diff_mpps(stats_new.tx_pkts, stats_old.tx_pkts, nanos));
+}
 
-		// don't poll the time unnecessarily
-		if ((counter++ & 0xFFF) == 0) {
-			uint64_t time = monotonic_time();
-			if (time - last_stats_printed > 1000 * 1000 * 1000) {
-				// every second
-				ixy_read_stats(dev1, &stats1);
-				print_stats_diff(&stats1, &stats1_old, time - last_stats_printed);
-				stats1_old = stats1;
-				if (dev1 != dev2) {
-					ixy_read_stats(dev2, &stats2);
-					print_stats_diff(&stats2, &stats2_old, time - last_stats_printed);
-					stats2_old = stats2;
-				}
-				last_stats_printed = time;
-			}
-		}
-	}
+// /*
+function forwardProgram(argc, argv) {
+  if (argc !== 3) {
+    console.error(`${argv[0]} forwards packets between two ports.`);
+    console.error(`Usage: ${argv[0]} <pci bus id2> <pci bus id1>`);
+    return;
+  }
+
+  const dev1 = ixgbe_init(argv[1], 1, 1);
+  const dev2 = ixgbe_init(argv[2], 1, 1);
+
+  let stats1;
+  let stats1_old;
+  let stats2;
+  let stats2_old;
+  stats_init(stats1, dev1);
+  stats_init(stats1_old, dev1);
+  stats_init(stats2, dev2);
+  stats_init(stats2_old, dev2);
+
+  setInterval(() => {
+    forward(dev1, 0, dev2, 0);
+    forward(dev2, 0, dev1, 0);
+  }, 0);
+
+  let last_stats_printed = process.hrtime();
+  // every second
+  setInterval(() => {
+    const time = process.hrtime(last_stats_printed);
+    dev1.ixy.read_stats(dev1, stats1);
+    print_stats_diff(stats1, stats1_old, time);
+    stats1_old = stats1;
+    if (dev1.ixy.pci_addr !== dev2.ixy.pci_addr) {
+      dev2.ixy.read_stats(dev2, stats2);
+      print_stats_diff(stats2, stats2_old, time);
+      stats2_old = stats2;
+    }
+    last_stats_printed = time; // TODO maybe process.hrtime() again?
+  }, 1000);
 }
 /* */
 
@@ -1121,10 +1142,10 @@ reset_and_init(ixgbe_device);
 
 console.log(util.inspect(ixgbe_device, false, 2, true /* enable colors */));
 console.log('printing rx_queue descriptors read from buffer we saved:');
-for (const index in ixgbe_device.rx_queues) {
-  const queueDescriptor = getRxDescriptorFromVirt(ixgbe_device.rx_queues[index].descriptors);
+Object.values(ixgbe_device.rx_queues).forEach((v) => {
+  const queueDescriptor = getRxDescriptorFromVirt(v.descriptors);
   console.log(util.inspect(queueDescriptor, false, null, true /* enable colors */));
-}
+});
 
 
 // console.log('ixgbe_device now:');
@@ -1135,9 +1156,9 @@ function buf2hex(buffer) { // buffer is an ArrayBuffer
   return Array.prototype.map.call(new Uint8Array(buffer), x => `00${x.toString(16)}`.slice(-2)).join('');
 }
 
-function printPackage(index) {
+function printPackage(index, bufs) {
   console.log(`package at index ${index} :`);
-  const buf = bufferArray[index];
+  const buf = bufs[index];
   console.log(util.inspect(buf, false, 1, true));
   if (buf) {
     console.log('content:');
@@ -1154,12 +1175,12 @@ function printPackage(index) {
 }
 const queue_id = 0;
 
-function printOurPackages() {
+function printOurPackages(bufs) {
   ixgbe_device.ixy.read_stats(ixgbe_device, stats);
   console.log('buffer array, should be packages we got:');
   // console.log(util.inspect(bufferArray, false, null, true));
-  printPackage(0);
-  // printPackage(4);
+  printPackage(0, bufs);
+  // printPackage(4, bufs);
 
   console.log(`RDT register: ${addon.get_reg_js(ixgbe_device.addr, defines.IXGBE_RDT(queue_id))}\nRDH register: ${addon.get_reg_js(ixgbe_device.addr, defines.IXGBE_RDH(queue_id))}`);
 
@@ -1193,7 +1214,7 @@ function receivePackets() {
   const newRDT = addon.get_reg_js(ixgbe_device.addr, defines.IXGBE_RDT(queue_id));
   const newRDH = addon.get_reg_js(ixgbe_device.addr, defines.IXGBE_RDH(queue_id));
 
-  if (tmpRDH !== newRDH || tmpRDT !== newRDT) {
+  if (tmpRDH !== newRDH || tmpRDT !== newRDT) {
     tmpRDH = newRDH;
     tmpRDT = newRDT;
     console.log(`RDT register: ${tmpRDT}\nRDH register: ${tmpRDH}`);
@@ -1216,4 +1237,5 @@ function receivePackets() {
 }
 
 // setInterval(lifeSignal, 1000);
-setInterval(receivePackets, 0);
+// setInterval(receivePackets, 0);
+forwardProgram(3, ['', pciAddr, pciAddr2]);
