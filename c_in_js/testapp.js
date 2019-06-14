@@ -529,7 +529,11 @@ function ixgbe_rx_batch(dev, queue_id, bufs, num_bufs) { // returns number
       // got a packet, read and copy the whole descriptor
       const desc = desc_ptr;
       const buf = queue.virtual_addresses[rx_index];
-      buf.mem.size = desc.upper.length; // check how we can get size of dataView TODO
+      buf.mem.size = desc.upper.length;
+      // TODO check if we need to save this for NIC or not
+      // IF yes, then probably we also need to save the mempool
+      // buf.mem.setUint32(20, desc.upper.length, littleEndian); // at byte 20
+
       // this would be the place to implement RX offloading by translating the device-specific flags
       // to an independent representation in the buf (similiar to how DPDK works)
       // need a new mbuf for the descriptor
@@ -685,7 +689,7 @@ function ixgbe_tx_batch(dev, queue_id, bufs, num_bufs) {
   // cleaning up must be done in batches for performance reasons,
   // so this is unfortunately somewhat complicated
   while (true) {
-    console.log(`cleaning ${clean_index}`);
+    // console.log(`cleaning ${clean_index}`);
     // figure out how many descriptors can be cleaned up
     // cur is always ahead of clean (invariant of our queue)
     let cleanable = cur_index - clean_index;
@@ -720,7 +724,7 @@ function ixgbe_tx_batch(dev, queue_id, bufs, num_bufs) {
       // next descriptor to be cleaned up is one after the one we just cleaned
       clean_index = wrap_ring(cleanup_to, queue.num_entries);
     } else {
-      console.log('failed checking status, NIC should have set this...');
+      // console.log('failed checking status, NIC should have set this...');
       // clean the whole batch or nothing; yes, this leaves some packets in
       // the queue forever if you stop transmitting, but that's not a real concern
       break;
@@ -734,7 +738,7 @@ function ixgbe_tx_batch(dev, queue_id, bufs, num_bufs) {
     const next_index = wrap_ring(cur_index, queue.num_entries);
     // we are full if the next index is the one we are trying to reclaim
     if (clean_index === next_index) {
-      console.log('tx send is full');
+      // console.log('tx send is full');
       break;
     }
     const buf = bufs[sent];
@@ -758,7 +762,7 @@ function ixgbe_tx_batch(dev, queue_id, bufs, num_bufs) {
     // you have to precalculate the pseudo - header checksum
     txd.memView.setUint32(12, buf.size << defines.IXGBE_ADVTXD_PAYLEN_SHIFT, littleEndian);
     cur_index = next_index;
-    console.log(`sent ${cur_index}`);
+    // console.log(`sent ${cur_index}`);
   }
   // send out by advancing tail, i.e., pass control of the bufs to the nic
   // this seems like a textbook case for a release memory order,
@@ -1036,19 +1040,19 @@ function forward(rx_dev, rx_queue, tx_dev, tx_queue) {
   if (num_rx > 0) {
     // touch all packets, otherwise it's a completely unrealistic workload
     // if the packet just stays in L3
-    console.log(`----num rx: ${num_rx}`);
+    // console.log(`----num rx: ${num_rx}`);
     for (let i = 0; i < num_rx; i++) {
       const val = bufs[i].mem.getUint8(50) + 1;
       bufs[i].mem.setUint8(50, val);
     }
     const num_tx = rx_dev.ixy.tx_batch(tx_dev, tx_queue, bufs, num_rx);
-    console.log(`----num tx: ${num_tx}`);
+    // console.log(`----num tx: ${num_tx}`);
 
     // there are two ways to handle the case that packets are not being sent out:
     // either wait on tx or drop them; in this case it's better to drop them,
     // otherwise we accumulate latency
     // TODO double check the correctnes of this slice
-    bufs.slice(num_tx, num_rx - 1).forEach((buf) => {
+    bufs.slice(num_tx, num_rx /*- 1*/).forEach((buf) => {
       pkt_buf_free(buf);
     });
   }
@@ -1141,13 +1145,7 @@ function forwardProgram(argc, argv) {
   stats_init(stats1_old, dev1);
   stats_init(stats2, dev2);
   stats_init(stats2_old, dev2);
-  // TODO remember this is called every 10ms,
-  // so maybe an infinite loop would be better ?
-  // this is non blocking though, if that does any good
-  setInterval(() => {
-    forward(dev1, 0, dev2, 0);
-    forward(dev2, 0, dev1, 0);
-  }, 0);
+
 
   let last_stats_printed = process.hrtime();
   // every second
@@ -1163,6 +1161,42 @@ function forwardProgram(argc, argv) {
       copyStats(stats2_old, stats2);
     }
   }, 1000);
+
+  // TODO remember this is called every 10ms,
+  // so maybe an infinite loop would be better ?
+  // this is non blocking though, if that does any good
+  
+  ///*
+  setInterval(() => {
+    forward(dev1, 0, dev2, 0);
+    forward(dev2, 0, dev1, 0);
+  }, 0);
+  /**/ 
+  
+  // is this faster?
+  // yes, from 61.8% packet caught to 62.9 % ,
+  //so its probably not worth all the extra work with printing times
+  /*
+  let i = 0;
+  while (true) { 
+    forward(dev1, 0, dev2, 0);
+    forward(dev2, 0, dev1, 0);
+    // because it is not non blocking anymore:
+    if (i++ > 2000) { 
+      i = 0;
+      const time = process.hrtime(last_stats_printed);
+    last_stats_printed = process.hrtime();
+    dev1.ixy.read_stats(dev1, stats1);
+    print_stats_diff(stats1, stats1_old, time[0] * 1000000000 + time[1]);
+    copyStats(stats1_old, stats1);
+    if (dev1.ixy.pci_addr !== dev2.ixy.pci_addr) {
+      dev2.ixy.read_stats(dev2, stats2);
+      print_stats_diff(stats2, stats2_old, time[0] * 1000000000 + time[1]);
+      copyStats(stats2_old, stats2);
+    }
+    }
+  }
+  /**/
 }
 /* */
 
