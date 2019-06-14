@@ -705,9 +705,11 @@ function ixgbe_tx_batch(dev, queue_id, bufs, num_bufs) {
     const txd = getTxDescriptorFromVirt(queue.descriptors, cleanup_to);
 
     const { status } = txd.wb;
+    console.log(txd);
     // hardware sets this flag as soon as it's sent out,
     // we can give back all bufs in the batch back to the mempool
     if (status & defines.IXGBE_ADVTXD_STAT_DD) {
+      console.log(`actually starting to clean at cleanup to ${cleanup_to} ; clean index: ${clean_index}`);
       let i = clean_index;
       while (true) {
         const buf = queue.virtual_addresses[i];
@@ -720,6 +722,7 @@ function ixgbe_tx_batch(dev, queue_id, bufs, num_bufs) {
       // next descriptor to be cleaned up is one after the one we just cleaned
       clean_index = wrap_ring(cleanup_to, queue.num_entries);
     } else {
+      console.log('failed checking status, NIC should have set this...');
       // clean the whole batch or nothing; yes, this leaves some packets in
       // the queue forever if you stop transmitting, but that's not a real concern
       break;
@@ -731,11 +734,9 @@ function ixgbe_tx_batch(dev, queue_id, bufs, num_bufs) {
   let sent;
   for (sent = 0; sent < num_bufs; sent++) {
     const next_index = wrap_ring(cur_index, queue.num_entries);
-    console.log(`trying to send ${next_index}`);
-
     // we are full if the next index is the one we are trying to reclaim
     if (clean_index === next_index) {
-      console.log('we`re full');
+      console.log('tx send is full');
       break;
     }
     const buf = bufs[sent];
@@ -1037,7 +1038,6 @@ function forward(rx_dev, rx_queue, tx_dev, tx_queue) {
     console.log(`----num rx: ${num_rx}`);
     for (let i = 0; i < num_rx; i++) {
       const val = bufs[i].mem.getUint8(50) + 1;
-      console.log(`val : ${val}`);
       bufs[i].mem.setUint8(50, val);
     }
     const num_tx = rx_dev.ixy.tx_batch(tx_dev, tx_queue, bufs, num_rx);
