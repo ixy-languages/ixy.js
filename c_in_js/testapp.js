@@ -930,13 +930,13 @@ function stats_init(stats, dev) {
     dev.ixy.read_stats(dev);
   }
 }
-function copyStats(stat1, stat2) {
-  stat1.rx_pkts = stat2.rx_pkts;
-  stat1.tx_pkts = stat2.tx_pkts;
-  stat1.rx_bytes = stat2.rx_bytes;
-  stat1.tx_bytes = stat2.tx_bytes;
-  stat1.rx_dropped_pkts = stat2.rx_dropped_pkts;
-  stat1.device = stat2.device;
+function copyStats(to, from) {
+  to.rx_pkts = from.rx_pkts;
+  to.tx_pkts = from.tx_pkts;
+  to.rx_bytes = from.rx_bytes;
+  to.tx_bytes = from.tx_bytes;
+  to.rx_dropped_pkts = from.rx_dropped_pkts;
+  to.device = from.device;
 }
 
 // see section 4.6.4
@@ -1052,7 +1052,7 @@ function forward(rx_dev, rx_queue, tx_dev, tx_queue) {
     // either wait on tx or drop them; in this case it's better to drop them,
     // otherwise we accumulate latency
     // TODO double check the correctnes of this slice
-    bufs.slice(num_tx, num_rx /*- 1*/).forEach((buf) => {
+    bufs.slice(num_tx, num_rx /* - 1 */).forEach((buf) => {
       pkt_buf_free(buf);
     });
   }
@@ -1125,8 +1125,123 @@ function print_stats_diff(stats_new, stats_old, nanos) {
 
   console.log(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] TX: ${diff_mbit(stats_new.tx_bytes, stats_old.tx_bytes, stats_new.tx_pkts, stats_old.tx_pkts, nanos)} Mbit/s ${diff_mpps(stats_new.tx_pkts, stats_old.tx_pkts, nanos)} Mpps`);
 }
-
+const PKT_SIZE = 60;
 // /*
+pkt_data = [
+  0x01, 0x02, 0x03, 0x04, 0x05, 0x06, // dst MAC
+  0x11, 0x12, 0x13, 0x14, 0x15, 0x16, // src MAC
+  0x08, 0x00, // ether type: IPv4
+  0x45, 0x00, // Version, IHL, TOS
+  (PKT_SIZE - 14) >> 8, // ip len excluding ethernet, high byte
+  (PKT_SIZE - 14) & 0xFF, // ip len exlucding ethernet, low byte
+  0x00, 0x00, 0x00, 0x00, // id, flags, fragmentation
+  0x40, 0x11, 0x00, 0x00, // TTL (64), protocol (UDP), checksum
+  0x0A, 0x00, 0x00, 0x01, // src ip (10.0.0.1)
+  0x0A, 0x00, 0x00, 0x02, // dst ip (10.0.0.2)
+  0x00, 0x2A, 0x05, 0x39, // src and dst ports (42 -> 1337)
+  (PKT_SIZE - 20 - 14) >> 8, // udp len excluding ip & ethernet, high byte
+  (PKT_SIZE - 20 - 14) & 0xFF, // udp len exlucding ip & ethernet, low byte
+  0x00, 0x00, // udp checksum, optional
+  'i', 'x', 'y', // payload
+  // rest of the payload is zero-filled because mempools guarantee empty bufs
+];
+
+// calculate a IP/TCP/UDP checksum
+function calc_ip_checksum(data, len) {
+  if (len % 1) console.error('odd-sized checksums NYI'); // we don't need that
+  let cs = 0;
+  for (let i = 0; i < len / 2; i += 2) {
+    cs += (((data[i] & 0xFF) << 8) | (data[i + 1] & 0xFF));
+    if (cs > 0xFFFF) {
+      cs = (cs & 0xFFFF) + 1; // 16 bit one's complement
+    }
+  }
+  return ~(cs);
+}
+
+function init_mempool() {
+  const NUM_BUFS = 2048;
+  const mempool = memory_allocate_mempool_js(NUM_BUFS, 0);
+  // pre-fill all our packet buffers with some templates that can be modified later
+  // we have to do it like this because sending is async in the hardware; we cannot re-use a buffer immediately
+  const bufs = new Array(NUM_BUFS);
+  for (let buf_id = 0; buf_id < NUM_BUFS; buf_id++) {
+    const buf = pkt_buf_alloc_js(mempool);
+    // todo write these things into the mem
+    buf.size = PKT_SIZE;
+    // memcpy(buf.data, pkt_data, sizeof(pkt_data)); TODO
+    // *(uint16_t*) (buf->data + 24) = calc_ip_checksum(buf->data + 14, 20); TODO
+    bufs[buf_id] = buf;
+  }
+  // return them all to the mempool, all future allocations will return bufs with the data set above
+  for (let buf_id = 0; buf_id < NUM_BUFS; buf_id++) {
+    pkt_buf_free(bufs[buf_id]);
+  }
+
+  return mempool;
+}
+
+function convertHRTimeToNano(time) {
+  return time[0] * 1000000000 + time[1];
+}
+
+// calls ixy_tx_batch until all packets are queued with busy waiting
+function ixy_tx_batch_busy_wait_js(dev, queue_id, bufs, num_bufs) {
+  let num_sent = 0;
+  while ((num_sent += dev.ixy.tx_batch(dev, queue_id, bufs + num_sent, num_bufs - num_sent)) != num_bufs) {
+    // busy wait
+  }
+}
+
+function packet_generator_program(argc, argv) {
+  if (argc !== 2) {
+    console.error(`Usage: ${argv[0]} <pci bus id>\n`);
+    return;
+  }
+
+  const mempool = init_mempool();
+  const dev = ixgbe_init(argv[1], 1, 1);
+
+  let last_stats_printed = convertHRTimeToNano(process.hrtime());
+  const counter = 0;
+  let stats_old;
+  let stats;
+  stats_init(stats, dev);
+  stats_init(stats_old, dev);
+  const seq_num = 0;
+
+  // array of bufs sent out in a batch
+  const bufs = new Array(BATCH_SIZE);
+
+  // tx loop
+  while (true) {
+    // we cannot immediately recycle packets, we need to allocate new packets every time
+    // the old packets might still be used by the NIC: tx is async
+    pkt_buf_alloc_batch_js(mempool, bufs, BATCH_SIZE);
+    for (let i = 0; i < BATCH_SIZE; i++) {
+      // packets can be modified here, make sure to update the checksum when changing the IP header
+      //* (uint32_t*)(bufs[i]->data + PKT_SIZE - 4) = seq_num++; TODO
+    }
+    // the packets could be modified here to generate multiple flows
+    ixy_tx_batch_busy_wait_js(dev, 0, bufs, BATCH_SIZE);
+
+    // don't check time for every packet, this yields +10% performance :)
+    // TODO check if we can get even higher performance by using non blocking
+    if ((counter++ & 0xFFF) == 0) {
+      const time = convertHRTimeToNano(process.hrtime());
+      if (time - last_stats_printed > 1000 * 1000 * 1000) {
+        // every second
+        dev.ixy.read_stats(dev, stats);
+        print_stats_diff(stats, stats_old, time - last_stats_printed);
+        copyStats(stats_old, stats);
+        last_stats_printed = time;
+      }
+    }
+    // track stats
+  }
+}
+
+/* */
 function forwardProgram(argc, argv) {
   if (argc !== 3) {
     console.error(`${argv[0]} forwards packets between two ports.`);
@@ -1153,11 +1268,11 @@ function forwardProgram(argc, argv) {
     const time = process.hrtime(last_stats_printed);
     last_stats_printed = process.hrtime();
     dev1.ixy.read_stats(dev1, stats1);
-    print_stats_diff(stats1, stats1_old, time[0] * 1000000000 + time[1]);
+    print_stats_diff(stats1, stats1_old, convertHRTimeToNano(time));
     copyStats(stats1_old, stats1);
     if (dev1.ixy.pci_addr !== dev2.ixy.pci_addr) {
       dev2.ixy.read_stats(dev2, stats2);
-      print_stats_diff(stats2, stats2_old, time[0] * 1000000000 + time[1]);
+      print_stats_diff(stats2, stats2_old, convertHRTimeToNano(time));
       copyStats(stats2_old, stats2);
     }
   }, 1000);
@@ -1165,24 +1280,24 @@ function forwardProgram(argc, argv) {
   // TODO remember this is called every 10ms,
   // so maybe an infinite loop would be better ?
   // this is non blocking though, if that does any good
-  
-  ///*
+
+  // /*
   setInterval(() => {
     forward(dev1, 0, dev2, 0);
     forward(dev2, 0, dev1, 0);
   }, 0);
-  /**/ 
-  
+  /**/
+
   // is this faster?
   // yes, from 61.8% packet caught to 62.9 % ,
-  //so its probably not worth all the extra work with printing times
+  // so its probably not worth all the extra work with printing times
   /*
   let i = 0;
-  while (true) { 
+  while (true) {
     forward(dev1, 0, dev2, 0);
     forward(dev2, 0, dev1, 0);
     // because it is not non blocking anymore:
-    if (i++ > 2000) { 
+    if (i++ > 2000) {
       i = 0;
       const time = process.hrtime(last_stats_printed);
     last_stats_printed = process.hrtime();
@@ -1196,20 +1311,18 @@ function forwardProgram(argc, argv) {
     }
     }
   }
-  /**/
+  /* */
 }
 /* */
 
-console.log('reset and init...');
-reset_and_init(ixgbe_device);
-
-console.log(util.inspect(ixgbe_device, false, 2, true /* enable colors */));
+/*
+console.log(util.inspect(ixgbe_device, false, 2, true ));
 console.log('printing rx_queue descriptors read from buffer we saved:');
 Object.values(ixgbe_device.rx_queues).forEach((v) => {
   const queueDescriptor = getRxDescriptorFromVirt(v.descriptors);
-  console.log(util.inspect(queueDescriptor, false, null, true /* enable colors */));
+  console.log(util.inspect(queueDescriptor, false, null, true ));
 });
-
+*/
 
 // console.log('ixgbe_device now:');
 // console.log(util.inspect(ixgbe_device, false, null, true));
