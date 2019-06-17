@@ -143,9 +143,9 @@ const defines = {
   IXGBE_ADVTXD_DCMD_IFCS: 0x02000000,
   IXGBE_ADVTXD_DCMD_DEXT: 0x20000000,
   IXGBE_ADVTXD_DTYP_DATA: 0x00300000,
-  IXGBE_TDH: (i) => (0x06010 + ((i) * 0x40)),
-  IXGBE_TXDCTL_ENABLE:0x02000000 ,// Ena specific Tx Queue 
-  
+  IXGBE_TDH: i => (0x06010 + ((i) * 0x40)),
+  IXGBE_TXDCTL_ENABLE: 0x02000000, // Ena specific Tx Queue
+
 
 };
 
@@ -351,6 +351,9 @@ function readDataViewData(dataView, length, offset = 0) {
   ret.forEach((v, i, arr) => {
     arr[i] = dataView.getUint8(i + offset);
   });
+  console.log('-------------data with size'+ length);
+  console.log(ret);
+  return ret;
 }
 
 function readBufferValues(buffer, mempool) {
@@ -362,7 +365,7 @@ function readBufferValues(buffer, mempool) {
   // buf.setUint32(12, 0);
   ret.mempool = mempool;
   ret.mempool_idx = buffer.getUint32(16, littleEndian);
-  ret.size = buffer.getUint32(20, littleEndian);
+  ret.size = buffer.getUint32(20, littleEndian);  // TODO fix this!
 
   // rest of first 64 bytes is empty
 
@@ -496,7 +499,7 @@ function start_rx_queue(ixgbe_device, queue_id) {
 }
 
 function start_tx_queue(dev, queue_id) {
-  console.log('starting tx queue ' + queue_id);
+  console.log(`starting tx queue ${queue_id}`);
 	 queue = dev.tx_queues[queue_id];
   if (queue.num_entries & (queue.num_entries - 1)) {
     throw new Error('number of queue entries must be a power of 2');
@@ -695,7 +698,6 @@ function ixgbe_tx_batch(dev, queue_id, bufs, num_bufs) {
   // cleaning up must be done in batches for performance reasons,
   // so this is unfortunately somewhat complicated
   while (true) {
-    // console.log(`cleaning ${clean_index}`);
     // figure out how many descriptors can be cleaned up
     // cur is always ahead of clean (invariant of our queue)
     let cleanable = cur_index - clean_index;
@@ -717,7 +719,6 @@ function ixgbe_tx_batch(dev, queue_id, bufs, num_bufs) {
     // hardware sets this flag as soon as it's sent out,
     // we can give back all bufs in the batch back to the mempool
     if (status & defines.IXGBE_ADVTXD_STAT_DD) {
-      console.log(`actually starting to clean at cleanup to ${cleanup_to} ; clean index: ${clean_index}`);
       let i = clean_index;
       while (true) {
         const buf = queue.virtual_addresses[i];
@@ -1036,12 +1037,11 @@ function forward(rx_dev, rx_queue, tx_dev, tx_queue) {
   if (num_rx > 0) {
     // touch all packets, otherwise it's a completely unrealistic workload
     // if the packet just stays in L3
-    // console.log(`----num rx: ${num_rx}`);
     for (let i = 0; i < num_rx; i++) {
-      const val = bufs[i].mem.getUint8(50) + 1;
-      bufs[i].mem.setUint8(50, val);
+      const val = bufs[i].data[6] + 1; // this should be the value we have at 70
+      bufs[i].mem.setUint8(70, val);
     }
-    const num_tx = rx_dev.ixy.tx_batch(tx_dev, tx_queue, bufs, num_rx);
+    const num_tx = tx_dev.ixy.tx_batch(tx_dev, tx_queue, bufs, num_rx);
     // console.log(`----num tx: ${num_tx}`);
 
     // there are two ways to handle the case that packets are not being sent out:
@@ -1111,6 +1111,7 @@ function diff_mbit(bytes_new, bytes_old, pkts_new, pkts_old, nanos) {
 }
 
 function print_stats_diff(stats_new, stats_old, nanos) {
+  console.log(stats_new);
   const rxMbits = diff_mbit(stats_new.rx_bytes, stats_old.rx_bytes,
     stats_new.rx_pkts, stats_old.rx_pkts, nanos);
   console.log(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] RX: ${rxMbits} Mbit/s ${diff_mpps(stats_new.rx_pkts, stats_old.rx_pkts, nanos)} Mpps`);
