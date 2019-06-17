@@ -346,16 +346,12 @@ function readDataViewData(dataView, length) {
   ret.forEach((v, i, arr) => {
     arr[i] = dataView.getUint8(i);
   });
-  if (length > 0) {
-    console.log(`we read some data... this array is of length ${ret.length}`);
-    console.log(ret);
-  }
   return ret;
 }
 
 
 // TODO change how pkt_bufs extra info are saved, fully in JS!
-function getPktBuffer(mempool, index, withBufferInfo = false) {
+function getPktBuffer(mempool, index, withBufferInfo = true) {
   const ret = mempool.pkt_buffers[index];
   if (withBufferInfo) {
     ret.data = readDataViewData(ret.mem, ret.size);
@@ -363,11 +359,15 @@ function getPktBuffer(mempool, index, withBufferInfo = false) {
   return ret;
 }
 
+function createPktBuffer(mempool, index, entry_size) {
+  return { mem: new DataView(mempool.base_addr, index * entry_size, entry_size), mempool };
+}
+
 
 function setPktBufData(buffer, data) {
   // data is an 8bit array
   for (let i = 0; i < data.length; i++) {
-    buffer.setUint8(i, data[i]);
+    buffer.mem.setUint8(i, data[i]);
     if (i > 2048) {
       throw new Error('Too large data provided.');
     }
@@ -399,7 +399,7 @@ function memory_allocate_mempool_js(num_entries, entry_size) {
     // physical addresses are not contiguous within a pool, we need to get the mapping
     // minor optimization opportunity: this only needs to be done once per page
     mempool.free_stack[i] = i;
-    const buf = { mempool };
+    const buf = createPktBuffer(mempool, i, entry_size);
     buf.mempool_idx = i;
     buf.size = 0;
     setPktBufData(buf, new Array(entry_size).fill(0));
@@ -420,7 +420,7 @@ function pkt_buf_alloc_batch_js(mempool, num_bufs) {
     // console.log(`entry id: ${entry_id}, offset: ${entry_id * mempool.buf_size}
     // with buf_size of ${ mempool.buf_size }`);
     // console.log(`phys addr in JS: ${addon.virtToPhys(mempool.base_addr)}`);
-    const buf = getPktBuffer(mempool, entry_id, true);
+    const buf = getPktBuffer(mempool, entry_id);
     /*
     buf.mem = new DataView(mempool.base_addr, entry_id * mempool.buf_size, mempool.buf_size);
     buf.buf_addr_phy = addon.dataviewToPhys(buf.mem);
