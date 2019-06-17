@@ -1018,9 +1018,8 @@ function forward(rx_dev, rx_queue, tx_dev, tx_queue) {
     // touch all packets, otherwise it's a completely unrealistic workload
     // if the packet just stays in L3
     for (let i = 0; i < num_rx; i++) {
-      getPktBufData(bufs[i].mem, bufs[i].mempool);
-      const val = bufs[i].data[6] + 1; // this should be the value we have at 70
-      bufs[i].mem.setUint8(70, val);
+      const val = bufs[i].data[6] + 1;
+      bufs[i].mem.setUint8(6, val);
     }
     const num_tx = tx_dev.ixy.tx_batch(tx_dev, tx_queue, bufs, num_rx);
     // console.log(`----num tx: ${num_tx}`);
@@ -1125,15 +1124,15 @@ const pkt_data = [
 
 // calculate a IP/TCP/UDP checksum
 function calc_ip_checksum(data, len, offset = 0) {
-  if (len % 1) console.error('odd-sized checksums NYI'); // we don't need that
+  if (len % 1) throw new Error('odd-sized checksums NYI'); // we don't need that
   let cs = 0;
-  for (let i = 0; i < len / 2; i += 2) {
-    cs += (((data[i + offset] & 0xFF) << 8) | (data[i + 1 + offset] & 0xFF));
+  for (let i = offset; i < (len / 2) + offset; i += 2) {
+    cs += (((data[i] & 0xFF) << 8) | (data[i + 1] & 0xFF));
     if (cs > 0xFFFF) {
       cs = (cs & 0xFFFF) + 1; // 16 bit one's complement
     }
   }
-  return ~(cs);
+  return ~(cs); // this is 16bit
 }
 
 function init_mempool() {
@@ -1145,16 +1144,18 @@ function init_mempool() {
   const bufs = new Array(NUM_BUFS);
   for (let buf_id = 0; buf_id < NUM_BUFS; buf_id++) {
     const buf = pkt_buf_alloc_js(mempool);
-    buf.mem.setUint32(20, PKT_SIZE, littleEndian); // size at byte 20
+    buf.size = PKT_SIZE;
 
     // we just do this with single bytes, as this is not relevant for performance?
-    pkt_data.forEach((v, i) => {
+    /* pkt_data.forEach((v, i) => {
       buf.mem.setUint8(i + 64, v); // data starts at offset 64?
-    });
+    }); */
+    setPktBufData(buf, pkt_data);
     // TODO find a nice way to read the package data and write it
     // TODO double check the offset because above
     // * (uint16_t *)(buf -> data + 24) = calc_ip_checksum(buf -> data + 14, 20);// TODO
-    buf.mem.setUint32(64 + 24, calc_ip_checksum(buf.data, 20, 14), littleEndian);
+    // TODO double check if this is doing what it's supposed to be doing
+    buf.mem.setUint32(24, calc_ip_checksum(buf.data, 20, 14), littleEndian);
 
     bufs[buf_id] = buf;
   }
@@ -1181,7 +1182,7 @@ function ixy_tx_batch_busy_wait_js(dev, queue_id, bufs, num_bufs) {
 
 function packet_generator_program(argc, argv) {
   if (argc !== 2) {
-    console.error(`Usage: ${argv[0]} <pci bus id>\n`);
+    console.error(`Usage: ${argv[0]} <pci bus id>`);
     return;
   }
 
@@ -1204,7 +1205,7 @@ function packet_generator_program(argc, argv) {
     // the old packets might still be used by the NIC: tx is async
     pkt_buf_alloc_batch_js(mempool, bufs, BATCH_SIZE);
     bufs.forEach((buf, i) => {
-      buf.mem.setUint32(64 + PKT_SIZE - 4, i, littleEndian);
+      buf.mem.setUint32(PKT_SIZE - 4, i, littleEndian);
     });
 
     // the packets could be modified here to generate multiple flows
@@ -1324,8 +1325,8 @@ function printPackage(index, bufs) {
   if (buf) {
     console.log('content:');
     let str = '';
-    for (let i = 0; i < buf.mem.byteLength; i++) {
-      str += `00${buf.mem.getUint8(i).toString(16)}`.slice(-2);
+    for (let i = 0; i < buf.data.length; i++) {
+      str += `00${buf.data[i].toString(16)}`.slice(-2);
     }
     console.log(str);
     // const decoder = new StringDecoder('utf8');
