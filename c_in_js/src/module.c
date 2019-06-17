@@ -225,7 +225,7 @@ napi_value shortenPhysLatter(napi_env env, napi_callback_info info)
   }
   return ret;
 }
-
+// TODO we probably can get rid of this
 napi_value addBigInts(napi_env env, napi_callback_info info)
 {
   // printf("-------------------offsetof(struct pkt_buf, data): %d\n",offsetof(struct pkt_buf, data)); it is 64!

@@ -367,8 +367,8 @@ function getPktBuffer(mempool, index, withBufferInfo = false) {
 function setPktBufData(buffer, data) {
   // data is an 8bit array
   for (let i = 0; i < data.length; i++) {
-    buffer.setUint8(64 + i, data[i]);
-    if (i > 2048 - 64) {
+    buffer.setUint8(i, data[i]);
+    if (i > 2048) {
       throw new Error('Too large data provided.');
     }
   }
@@ -458,7 +458,7 @@ function start_rx_queue(ixgbe_device, queue_id) {
     }
     // missing the offset value of this, would it be 64 bytes?
     // set pkt addr
-    rxd.memView.setBigUint64(0, addon.addBigInts(buf.buf_addr_phy, 64), littleEndian);
+    rxd.memView.setBigUint64(0, buf.buf_addr_phy, littleEndian);
     // set hdr addr
     // because of bigint
     // rxd.memView.setBigUint64(8, 0, littleEndian);
@@ -534,7 +534,7 @@ function ixgbe_rx_batch(dev, queue_id, bufs, num_bufs) { // returns number
         throw new Error('failed to allocate new mbuf for rx, you are either leaking memory or your mempool is too small');
       }
       // reset the descriptor
-      desc_ptr.memView.setBigUint64(0, addon.addBigInts(new_buf.buf_addr_phy, 64), littleEndian);
+      desc_ptr.memView.setBigUint64(0, new_buf.buf_addr_phy, littleEndian);
       // this resets the flags
       desc_ptr.memView.setUint32(8, 0, littleEndian);
       desc_ptr.memView.setUint32(12, 0, littleEndian);
@@ -735,7 +735,7 @@ function ixgbe_tx_batch(dev, queue_id, bufs, num_bufs) {
     const txd = getTxDescriptorFromVirt(queue.descriptors, cur_index);
 
     // NIC reads from here
-    txd.memView.setBigUint64(0, addon.addBigInts(buf.buf_addr_phy, 64), littleEndian);
+    txd.memView.setBigUint64(0, buf.buf_addr_phy, littleEndian);
 
     // always the same flags: one buffer (EOP), advanced data descriptor, CRC offload, data length
     txd.memView.setUint32(8, defines.IXGBE_ADVTXD_DCMD_EOP | defines.IXGBE_ADVTXD_DCMD_RS
