@@ -354,6 +354,13 @@ function getBuffer(mempool, index, entry_size) {
   return { mem: new DataView(mempool.base_addr, index * entry_size, entry_size), mempool };
 }
 
+function readDataViewData(dataView, length, offset = 0) {
+  const ret = new Array(length);
+  ret.forEach((v, i, arr) => {
+    arr[i] = dataView.getUint8(i + offset);
+  });
+}
+
 function readBufferValues(buffer, mempool) {
   const ret = { mem: buffer };
 
@@ -367,12 +374,7 @@ function readBufferValues(buffer, mempool) {
 
   // rest of first 64 bytes is empty
 
-  // the rest can be data, but we dont give access via a variable
-
-  // TODO read data
-  // const decoder = new StringDecoder('utf8');
-  // ret.data = decoder.end(buffer);
-  // ^this also includes the first bytes, we will adjust this later TODO
+  ret.data = readDataViewData(buffer, ret.size, 64);
 
   return ret;
 }
@@ -1127,7 +1129,7 @@ function print_stats_diff(stats_new, stats_old, nanos) {
 }
 const PKT_SIZE = 60;
 // /*
-pkt_data = [
+const pkt_data = [
   0x01, 0x02, 0x03, 0x04, 0x05, 0x06, // dst MAC
   0x11, 0x12, 0x13, 0x14, 0x15, 0x16, // src MAC
   0x08, 0x00, // ether type: IPv4
@@ -1147,11 +1149,11 @@ pkt_data = [
 ];
 
 // calculate a IP/TCP/UDP checksum
-function calc_ip_checksum(data, len) {
+function calc_ip_checksum(data, len, offset = 0) {
   if (len % 1) console.error('odd-sized checksums NYI'); // we don't need that
   let cs = 0;
   for (let i = 0; i < len / 2; i += 2) {
-    cs += (((data[i] & 0xFF) << 8) | (data[i + 1] & 0xFF));
+    cs += (((data[i + offset] & 0xFF) << 8) | (data[i + 1 + offset] & 0xFF));
     if (cs > 0xFFFF) {
       cs = (cs & 0xFFFF) + 1; // 16 bit one's complement
     }
@@ -1163,14 +1165,23 @@ function init_mempool() {
   const NUM_BUFS = 2048;
   const mempool = memory_allocate_mempool_js(NUM_BUFS, 0);
   // pre-fill all our packet buffers with some templates that can be modified later
-  // we have to do it like this because sending is async in the hardware; we cannot re-use a buffer immediately
+  // we have to do it like this because sending is async in the hardware;
+  // we cannot re - use a buffer immediately
   const bufs = new Array(NUM_BUFS);
   for (let buf_id = 0; buf_id < NUM_BUFS; buf_id++) {
     const buf = pkt_buf_alloc_js(mempool);
     // todo write these things into the mem
-    buf.size = PKT_SIZE;
-    // memcpy(buf.data, pkt_data, sizeof(pkt_data)); TODO
-    // *(uint16_t*) (buf->data + 24) = calc_ip_checksum(buf->data + 14, 20); TODO
+    buf.mem.setUint32(20, PKT_SIZE, littleEndian); // size at byte 20
+
+    // we just do this with single bytes, as this is not relevant for performance?
+    pkt_data.forEach((v, i) => {
+      buf.mem.setUint8(i + 64, v); // data starts at offset 64?
+    });
+    // TODO find a nice way to read the package data and write it
+    // TODO double check the offset because above
+    // * (uint16_t *)(buf -> data + 24) = calc_ip_checksum(buf -> data + 14, 20);// TODO
+    buf.mem.setUint32(64 + 24, calc_ip_checksum(buf.data, 20, 14), littleEndian);
+
     bufs[buf_id] = buf;
   }
   // return them all to the mempool, all future allocations will return bufs with the data set above
@@ -1203,12 +1214,11 @@ function packet_generator_program(argc, argv) {
   const dev = ixgbe_init(argv[1], 1, 1);
 
   let last_stats_printed = convertHRTimeToNano(process.hrtime());
-  const counter = 0;
+  let counter = 0;
   let stats_old;
   let stats;
   stats_init(stats, dev);
   stats_init(stats_old, dev);
-  const seq_num = 0;
 
   // array of bufs sent out in a batch
   const bufs = new Array(BATCH_SIZE);
@@ -1218,16 +1228,16 @@ function packet_generator_program(argc, argv) {
     // we cannot immediately recycle packets, we need to allocate new packets every time
     // the old packets might still be used by the NIC: tx is async
     pkt_buf_alloc_batch_js(mempool, bufs, BATCH_SIZE);
-    for (let i = 0; i < BATCH_SIZE; i++) {
-      // packets can be modified here, make sure to update the checksum when changing the IP header
-      //* (uint32_t*)(bufs[i]->data + PKT_SIZE - 4) = seq_num++; TODO
-    }
+    bufs.forEach((buf, i) => {
+      buf.mem.setUint32(64 + PKT_SIZE - 4, i, littleEndian);
+    });
+
     // the packets could be modified here to generate multiple flows
     ixy_tx_batch_busy_wait_js(dev, 0, bufs, BATCH_SIZE);
 
     // don't check time for every packet, this yields +10% performance :)
     // TODO check if we can get even higher performance by using non blocking
-    if ((counter++ & 0xFFF) == 0) {
+    if ((counter++ & 0xFFF) === 0) {
       const time = convertHRTimeToNano(process.hrtime());
       if (time - last_stats_printed > 1000 * 1000 * 1000) {
         // every second
