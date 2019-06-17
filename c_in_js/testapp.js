@@ -341,10 +341,10 @@ struct pkt_buf {
 };
 */
 
-function readDataViewData(dataView, length, offset = 0) {
+function readDataViewData(dataView, length) {
   const ret = new Array(length);
   ret.forEach((v, i, arr) => {
-    arr[i] = dataView.getUint8(i + offset);
+    arr[i] = dataView.getUint8(i);
   });
   if (length > 0) {
     console.log(`we read some data... this array is of length ${ret.length}`);
@@ -353,50 +353,18 @@ function readDataViewData(dataView, length, offset = 0) {
   return ret;
 }
 
-function readBufferValues(buffer, mempool) {
-  const ret = { mem: buffer };
 
-  ret.buf_addr_phy = buffer.getBigUint64(0, littleEndian);
-  // let's skip mempool 8 bytes for now?
-  // buf.setUint32(8, 0);
-  // buf.setUint32(12, 0);
-  ret.mempool = mempool;
-  ret.mempool_idx = buffer.getUint32(16, littleEndian);
-  ret.size = buffer.getUint32(20, littleEndian); // TODO fix this!
-  if (ret.size === 0) {
-    // console.info('size of pkt buf is 0...'); TODO temporary
+// TODO change how pkt_bufs extra info are saved, fully in JS!
+function getPktBuffer(mempool, index, withBufferInfo = false) {
+  const ret = mempool.pkt_buffers[index];
+  if (withBufferInfo) {
+    ret.data = readDataViewData(ret.mem, ret.size);
   }
-
-  // rest of first 64 bytes is empty
-
-  ret.data = readDataViewData(buffer, ret.size, 64);
-
   return ret;
 }
 
-function getBuffer(mempool, index, entry_size, withBufferInfo = false) {
-  const mem = new DataView(mempool.base_addr, index * entry_size, entry_size);
-  if (withBufferInfo) {
-    return readBufferValues(mem, mempool);
-  }
-  return { mem, mempool };
-}
 
-
-// i don't think we need mempool at all TODO double check this
-function setBufferValues(buffer, mempool, mempool_idx, size, data, phys = false) {
-  // const vmem = mempool.base_addr;
-  if (phys) { // addon.dataviewToPhys(buffer.mem)
-    // maybe we dont need to do this every time, so only on getBuffer ? TODO validate
-    buffer.setBigUint64(0, phys, littleEndian);
-  }
-  // let's skip mempool 8 bytes for now?
-  // buf.setUint32(8, 0);
-  // buf.setUint32(12, 0);
-
-  buffer.setUint32(16, mempool_idx, littleEndian);
-  buffer.setUint32(20, size, littleEndian);
-
+function setPktBufData(buffer, data) {
   // data is an 8bit array
   for (let i = 0; i < data.length; i++) {
     buffer.setUint8(64 + i, data[i]);
@@ -424,16 +392,19 @@ function memory_allocate_mempool_js(num_entries, entry_size) {
   mempool.base_addr = mem; // buffer that holds mempool
   mempool.free_stack_top = num_entries;
   mempool.free_stack = new Array(num_entries);
+  mempool.pkt_buffers = new Array(num_entries);
 
   for (let i = 0; i < num_entries; i++) {
-    mempool.free_stack[i] = i;
-    const buf = getBuffer(mempool, i, entry_size); // this should do the trick?
-
+    // this is the creation of all the bufs
     // physical addresses are not contiguous within a pool, we need to get the mapping
     // minor optimization opportunity: this only needs to be done once per page
-    setBufferValues(buf.mem, mempool, i, 0,
-      // TODO check if we need to give empty array as data or not
-      new Array(entry_size - 64).fill(0), addon.dataviewToPhys(buf.mem));
+    mempool.free_stack[i] = i;
+    const buf = { mempool };
+    buf.mempool_idx = i;
+    buf.size = 0;
+    setPktBufData(buf, new Array(entry_size).fill(0));
+    buf.buf_addr_phy = addon.dataviewToPhys(buf.mem);
+    mempool.pkt_buffers[i] = buf;
   }
   return mempool;
 }
@@ -449,7 +420,7 @@ function pkt_buf_alloc_batch_js(mempool, num_bufs) {
     // console.log(`entry id: ${entry_id}, offset: ${entry_id * mempool.buf_size}
     // with buf_size of ${ mempool.buf_size }`);
     // console.log(`phys addr in JS: ${addon.virtToPhys(mempool.base_addr)}`);
-    const buf = getBuffer(mempool, entry_id, mempool.buf_size, true);
+    const buf = getPktBuffer(mempool, entry_id, true);
     /*
     buf.mem = new DataView(mempool.base_addr, entry_id * mempool.buf_size, mempool.buf_size);
     buf.buf_addr_phy = addon.dataviewToPhys(buf.mem);
@@ -1047,7 +1018,7 @@ function forward(rx_dev, rx_queue, tx_dev, tx_queue) {
     // touch all packets, otherwise it's a completely unrealistic workload
     // if the packet just stays in L3
     for (let i = 0; i < num_rx; i++) {
-      readBufferValues(bufs[i].mem, bufs[i].mempool);
+      getPktBufData(bufs[i].mem, bufs[i].mempool);
       const val = bufs[i].data[6] + 1; // this should be the value we have at 70
       bufs[i].mem.setUint8(70, val);
     }
