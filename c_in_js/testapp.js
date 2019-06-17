@@ -51,7 +51,7 @@ function set_flags_js(addr, reg, flags) {
 function wait_set_reg_js(addr, reg, val) {
   while ((addon.get_reg_js(addr, reg) & val) !== val) {
     addon.set_reg_js(addr, reg, val);
-    wait(100); // TODO make real waiting, not dumb timeouts
+    wait(100); // TODO change this to non blocking interval
   }
 }
 
@@ -143,6 +143,9 @@ const defines = {
   IXGBE_ADVTXD_DCMD_IFCS: 0x02000000,
   IXGBE_ADVTXD_DCMD_DEXT: 0x20000000,
   IXGBE_ADVTXD_DTYP_DATA: 0x00300000,
+  IXGBE_TDH: (i) => (0x06010 + ((i) * 0x40)),
+  IXGBE_TXDCTL_ENABLE:0x02000000 ,// Ena specific Tx Queue 
+  
 
 };
 
@@ -272,9 +275,6 @@ function init_rx(ixgbe_device) {
     // and impact operations if not setting this flag
     set_flags_js(IXYDevice, defines.IXGBE_SRRCTL(i), defines.IXGBE_SRRCTL_DROP_EN);
     // setup descriptor ring, see section 7.1.9
-    /* TODO get ringsize
-    uint32_t ring_size_bytes = defines.NUM_RX_QUEUE_ENTRIES * sizeof(union ixgbe_adv_rx_desc);
-    */
     const ring_size_bytes = defines.NUM_RX_QUEUE_ENTRIES * 16; // 128bit headers? -> 128/8 bytes
     const mem = {};
     console.log('-----------cstart------------');
@@ -306,14 +306,6 @@ function init_rx(ixgbe_device) {
     addon.set_reg_js(IXYDevice, defines.IXGBE_RDH(i), 0);
     addon.set_reg_js(IXYDevice, defines.IXGBE_RDT(i), 0);
     // private data for the driver, 0-initialized
-    /*
-    TODO: check if we need this to be readable for hardware, because then just reading the values
-    TODO: this might be enough and we dont need create_rx_queue in module.c
-    struct ixgbe_rx_queue *queue = ((struct ixgbe_rx_queue *)(dev->rx_queues)) + i;
-    queue->num_entries = NUM_RX_QUEUE_ENTRIES;
-    queue->rx_index = 0;
-    queue->descriptors = (union ixgbe_adv_rx_desc *)mem.virt;
-    */
     const queue = {
       num_entries: defines.NUM_RX_QUEUE_ENTRIES,
       rx_index: 0,
@@ -393,10 +385,9 @@ function setBufferValues(buffer, mempool, mempool_idx, size, data, phys = false)
   buffer.setUint32(16, mempool_idx, littleEndian);
   buffer.setUint32(20, size, littleEndian);
 
-  // TODO write data
   // data is an 8bit array
   for (let i = 0; i < data.length; i++) {
-    buffer.setUint8(64 + i, data[i], littleEndian);
+    buffer.setUint8(64 + i, data[i]);
     if (i > 2048 - 64) {
       throw new Error('Too large data provided.');
     }
@@ -428,8 +419,8 @@ function memory_allocate_mempool_js(num_entries, entry_size) {
 
     // physical addresses are not contiguous within a pool, we need to get the mapping
     // minor optimization opportunity: this only needs to be done once per page
-    // TODO we should move these into creation later?
-    setBufferValues(buf.mem, mempool, i, 0, 0, addon.dataviewToPhys(buf.mem));
+    setBufferValues(buf.mem, mempool, i, 0,
+      new Array(entry_size - 64).fill(0), addon.dataviewToPhys(buf.mem));
   }
   return mempool;
 }
@@ -504,6 +495,20 @@ function start_rx_queue(ixgbe_device, queue_id) {
   console.log(`at start_rx_queue:\nRDT register: ${addon.get_reg_js(ixgbe_device.addr, defines.IXGBE_RDT(queue_id))}\nRDH register: ${addon.get_reg_js(ixgbe_device.addr, defines.IXGBE_RDH(queue_id))}`);
 }
 
+function start_tx_queue(dev, queue_id) {
+  console.log('starting tx queue ' + queue_id);
+	 queue = dev.tx_queues[queue_id];
+  if (queue.num_entries & (queue.num_entries - 1)) {
+    throw new Error('number of queue entries must be a power of 2');
+  }
+  // tx queue starts out empty
+  addon.set_reg_js(dev.addr, defines.IXGBE_TDH(queue_id), 0);
+  addon.set_reg_js(dev.addr, defines.IXGBE_TDT(queue_id), 0);
+  // enable queue and wait if necessary
+  set_flags_js(dev.addr, defines.IXGBE_TXDCTL(queue_id), defines.IXGBE_TXDCTL_ENABLE);
+  wait_set_reg_js(dev.addr, defines.IXGBE_TXDCTL(queue_id), defines.IXGBE_TXDCTL_ENABLE);
+}
+
 function wrap_ring(index, ring_size) {
   return (index + 1) & (ring_size - 1);
 }
@@ -546,7 +551,6 @@ function ixgbe_rx_batch(dev, queue_id, bufs, num_bufs) { // returns number
         throw new Error('failed to allocate new mbuf for rx, you are either leaking memory or your mempool is too small');
       }
       // reset the descriptor
-      // TODO add the set functions
       desc_ptr.memView.setBigUint64(0, addon.addBigInts(new_buf.buf_addr_phy, 64), littleEndian);
       // this resets the flags
       desc_ptr.memView.setUint32(8, 0, littleEndian);
@@ -664,7 +668,7 @@ void pkt_buf_free(struct pkt_buf* buf) {
 }
 */
 
-function pkt_buf_free(buf) { // TODO check if this works
+function pkt_buf_free(buf) {
   const { mempool } = buf;
   mempool.free_stack[mempool.free_stack_top++] = buf.mempool_idx;
 }
@@ -772,15 +776,6 @@ function ixgbe_tx_batch(dev, queue_id, bufs, num_bufs) {
   addon.set_reg_js(dev.addr, defines.IXGBE_TDT(queue_id), queue.tx_index);
   return sent;
 }
-
-
-/**/
-
-// TODO port ixy-fwd-c as well, then we should be able to get the receive packet part running?
-
-
-// -------------------------------------starting the actual code:--------------------------
-
 
 /*
 struct ixgbe_device {
@@ -1022,8 +1017,7 @@ function reset_and_init(dev) {
     start_rx_queue(dev, i);
   }
   for (let i = 0; i < dev.ixy.num_tx_queues; i++) {
-    // TODO not yet implemented
-    // start_tx_queue(dev, i);
+    start_tx_queue(dev, i);
   }
 
   // skip last step from 4.6.3 - don't want interrupts
@@ -1170,7 +1164,6 @@ function init_mempool() {
   const bufs = new Array(NUM_BUFS);
   for (let buf_id = 0; buf_id < NUM_BUFS; buf_id++) {
     const buf = pkt_buf_alloc_js(mempool);
-    // todo write these things into the mem
     buf.mem.setUint32(20, PKT_SIZE, littleEndian); // size at byte 20
 
     // we just do this with single bytes, as this is not relevant for performance?
