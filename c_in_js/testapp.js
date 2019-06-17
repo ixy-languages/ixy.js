@@ -347,9 +347,9 @@ function readDataViewData(dataView, length, offset = 0) {
     arr[i] = dataView.getUint8(i + offset);
   });
   if (length > 0) {
-    console.log('we read some data... this array is of length ' + ret.length);
+    console.log(`we read some data... this array is of length ${ret.length}`);
     console.log(ret);
-  } 
+  }
   return ret;
 }
 
@@ -363,7 +363,7 @@ function readBufferValues(buffer, mempool) {
   ret.mempool = mempool;
   ret.mempool_idx = buffer.getUint32(16, littleEndian);
   ret.size = buffer.getUint32(20, littleEndian); // TODO fix this!
-  if (ret.size === 0) { 
+  if (ret.size === 0) {
     // console.info('size of pkt buf is 0...'); TODO temporary
   }
 
@@ -510,7 +510,7 @@ function start_rx_queue(ixgbe_device, queue_id) {
 
 function start_tx_queue(dev, queue_id) {
   console.log(`starting tx queue ${queue_id}`);
-	 queue = dev.tx_queues[queue_id];
+	 const queue = dev.tx_queues[queue_id];
   if (queue.num_entries & (queue.num_entries - 1)) {
     throw new Error('number of queue entries must be a power of 2');
   }
@@ -1202,7 +1202,8 @@ function convertHRTimeToNano(time) {
 // calls ixy_tx_batch until all packets are queued with busy waiting
 function ixy_tx_batch_busy_wait_js(dev, queue_id, bufs, num_bufs) {
   let num_sent = 0;
-  while ((num_sent += dev.ixy.tx_batch(dev, queue_id, bufs + num_sent, num_bufs - num_sent)) != num_bufs) {
+  while ((num_sent += dev.ixy.tx_batch(dev, queue_id, bufs + num_sent,
+    num_bufs - num_sent)) != num_bufs) {
     // busy wait
   }
 }
