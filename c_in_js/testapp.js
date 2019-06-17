@@ -510,7 +510,7 @@ function start_rx_queue(ixgbe_device, queue_id) {
 
 function start_tx_queue(dev, queue_id) {
   console.log(`starting tx queue ${queue_id}`);
-	 const queue = dev.tx_queues[queue_id];
+  const queue = dev.tx_queues[queue_id];
   if (queue.num_entries & (queue.num_entries - 1)) {
     throw new Error('number of queue entries must be a power of 2');
   }
