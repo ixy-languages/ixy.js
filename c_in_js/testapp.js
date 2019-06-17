@@ -341,18 +341,15 @@ struct pkt_buf {
 };
 */
 
-function getBuffer(mempool, index, entry_size) {
-  // this should do the trick, returns {mem:dataView,mempool}
-  return { mem: new DataView(mempool.base_addr, index * entry_size, entry_size), mempool };
-}
-
 function readDataViewData(dataView, length, offset = 0) {
   const ret = new Array(length);
   ret.forEach((v, i, arr) => {
     arr[i] = dataView.getUint8(i + offset);
   });
-  console.log('-------------data with size'+ length);
-  console.log(ret);
+  if (length > 0) {
+    console.log('we read some data... this array is of length ' + ret.length);
+    console.log(ret);
+  } 
   return ret;
 }
 
@@ -365,7 +362,10 @@ function readBufferValues(buffer, mempool) {
   // buf.setUint32(12, 0);
   ret.mempool = mempool;
   ret.mempool_idx = buffer.getUint32(16, littleEndian);
-  ret.size = buffer.getUint32(20, littleEndian);  // TODO fix this!
+  ret.size = buffer.getUint32(20, littleEndian); // TODO fix this!
+  if (ret.size === 0) { 
+    // console.info('size of pkt buf is 0...'); TODO temporary
+  }
 
   // rest of first 64 bytes is empty
 
@@ -373,6 +373,15 @@ function readBufferValues(buffer, mempool) {
 
   return ret;
 }
+
+function getBuffer(mempool, index, entry_size, withBufferInfo = false) {
+  const mem = new DataView(mempool.base_addr, index * entry_size, entry_size);
+  if (withBufferInfo) {
+    return readBufferValues(mem, mempool);
+  }
+  return { mem, mempool };
+}
+
 
 // i don't think we need mempool at all TODO double check this
 function setBufferValues(buffer, mempool, mempool_idx, size, data, phys = false) {
@@ -423,6 +432,7 @@ function memory_allocate_mempool_js(num_entries, entry_size) {
     // physical addresses are not contiguous within a pool, we need to get the mapping
     // minor optimization opportunity: this only needs to be done once per page
     setBufferValues(buf.mem, mempool, i, 0,
+      // TODO check if we need to give empty array as data or not
       new Array(entry_size - 64).fill(0), addon.dataviewToPhys(buf.mem));
   }
   return mempool;
@@ -439,7 +449,7 @@ function pkt_buf_alloc_batch_js(mempool, num_bufs) {
     // console.log(`entry id: ${entry_id}, offset: ${entry_id * mempool.buf_size}
     // with buf_size of ${ mempool.buf_size }`);
     // console.log(`phys addr in JS: ${addon.virtToPhys(mempool.base_addr)}`);
-    const buf = readBufferValues(getBuffer(mempool, entry_id, mempool.buf_size).mem, mempool);
+    const buf = getBuffer(mempool, entry_id, mempool.buf_size, true);
     /*
     buf.mem = new DataView(mempool.base_addr, entry_id * mempool.buf_size, mempool.buf_size);
     buf.buf_addr_phy = addon.dataviewToPhys(buf.mem);
@@ -539,8 +549,7 @@ function ixgbe_rx_batch(dev, queue_id, bufs, num_bufs) { // returns number
       // got a packet, read and copy the whole descriptor
       const desc = desc_ptr;
       const buf = queue.virtual_addresses[rx_index];
-      buf.mem.size = desc.upper.length;
-      // TODO check if we need to save this for NIC or not
+      buf.size = desc.upper.length; // TODO check if we need to save this for NIC or not
       // IF yes, then probably we also need to save the mempool
       // buf.mem.setUint32(20, desc.upper.length, littleEndian); // at byte 20
 
@@ -1038,6 +1047,7 @@ function forward(rx_dev, rx_queue, tx_dev, tx_queue) {
     // touch all packets, otherwise it's a completely unrealistic workload
     // if the packet just stays in L3
     for (let i = 0; i < num_rx; i++) {
+      readBufferValues(bufs[i].mem, bufs[i].mempool);
       const val = bufs[i].data[6] + 1; // this should be the value we have at 70
       bufs[i].mem.setUint8(70, val);
     }
@@ -1111,7 +1121,6 @@ function diff_mbit(bytes_new, bytes_old, pkts_new, pkts_old, nanos) {
 }
 
 function print_stats_diff(stats_new, stats_old, nanos) {
-  console.log(stats_new);
   const rxMbits = diff_mbit(stats_new.rx_bytes, stats_old.rx_bytes,
     stats_new.rx_pkts, stats_old.rx_pkts, nanos);
   console.log(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] RX: ${rxMbits} Mbit/s ${diff_mpps(stats_new.rx_pkts, stats_old.rx_pkts, nanos)} Mpps`);

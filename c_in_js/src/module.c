@@ -229,6 +229,9 @@ napi_value shortenPhysLatter(napi_env env, napi_callback_info info)
 napi_value addBigInts(napi_env env, napi_callback_info info)
 {
   // printf("-------------------offsetof(struct pkt_buf, data): %d\n",offsetof(struct pkt_buf, data)); it is 64!
+  // printf("-------------------offsetof(struct pkt_buf, size): %d\n",offsetof(struct pkt_buf, size)); it is 20!
+
+  
   uint64_t num1;
   uint32_t num2asInt;
   napi_status stat;
