@@ -343,8 +343,8 @@ struct pkt_buf {
 
 function readDataViewData(dataView, length) {
   const ret = new Array(length);
-  for (const i in ret) {
-    ret[i] = dataView.getUint8(i);
+  for (let i = 0; i < length; i++) {
+    ret[i] = dataView.getUint8(i); // TODO optimize by reading larger?
   }
   return ret;
 }
@@ -708,7 +708,7 @@ function ixgbe_tx_batch(dev, queue_id, bufs, num_bufs) {
       // next descriptor to be cleaned up is one after the one we just cleaned
       clean_index = wrap_ring(cleanup_to, queue.num_entries);
     } else {
-      // console.log('failed checking status, NIC should have set this...');
+      console.log('failed checking status, NIC should have set this...');
       // clean the whole batch or nothing; yes, this leaves some packets in
       // the queue forever if you stop transmitting, but that's not a real concern
       break;
@@ -722,7 +722,7 @@ function ixgbe_tx_batch(dev, queue_id, bufs, num_bufs) {
     const next_index = wrap_ring(cur_index, queue.num_entries);
     // we are full if the next index is the one we are trying to reclaim
     if (clean_index === next_index) {
-      // console.log('tx send is full');
+      console.error('tx send is full');
       break;
     }
     const buf = bufs[sent];
@@ -735,9 +735,9 @@ function ixgbe_tx_batch(dev, queue_id, bufs, num_bufs) {
     txd.memView.setBigUint64(0, buf.buf_addr_phy, littleEndian);
 
     // always the same flags: one buffer (EOP), advanced data descriptor, CRC offload, data length
-    txd.memView.setUint32(8, defines.IXGBE_ADVTXD_DCMD_EOP | defines.IXGBE_ADVTXD_DCMD_RS
+    txd.memView.setUint32(8, (defines.IXGBE_ADVTXD_DCMD_EOP | defines.IXGBE_ADVTXD_DCMD_RS
       | defines.IXGBE_ADVTXD_DCMD_IFCS | defines.IXGBE_ADVTXD_DCMD_DEXT
-      | defines.IXGBE_ADVTXD_DTYP_DATA | buf.size, littleEndian);
+      | defines.IXGBE_ADVTXD_DTYP_DATA | buf.size), littleEndian);
 
     // no fancy offloading stuff - only the total payload length
     // implement offloading flags here:
