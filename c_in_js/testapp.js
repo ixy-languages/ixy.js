@@ -476,7 +476,8 @@ function start_rx_queue(ixgbe_device, queue_id) {
   addon.set_reg_js(ixgbe_device.addr, defines.IXGBE_RDH(queue_id), 0);
   // was set to 0 before in the init function
   addon.set_reg_js(ixgbe_device.addr, defines.IXGBE_RDT(queue_id), queue.num_entries - 1);
-  console.log(`at start_rx_queue:\nRDT register: ${addon.get_reg_js(ixgbe_device.addr, defines.IXGBE_RDT(queue_id))}\nRDH register: ${addon.get_reg_js(ixgbe_device.addr, defines.IXGBE_RDH(queue_id))}`);
+  console.log(`at start_rx_queue:\nRDT register: ${addon.get_reg_js(ixgbe_device.addr, defines.IXGBE_RDT(queue_id))}
+RDH register: ${addon.get_reg_js(ixgbe_device.addr, defines.IXGBE_RDH(queue_id))}`);
 }
 
 function start_tx_queue(dev, queue_id) {
@@ -518,11 +519,9 @@ function ixgbe_rx_batch(dev, queue_id, bufs, num_bufs) { // returns number
         throw new Error('multi-segment packets are not supported - increase buffer size or decrease MTU');
       }
       // got a packet, read and copy the whole descriptor
-      const desc = desc_ptr;
       const buf = queue.virtual_addresses[rx_index];
-      buf.size = desc.upper.length; // TODO check if we need to save this for NIC or not
-      // IF yes, then probably we also need to save the mempool
-      // buf.mem.setUint32(20, desc.upper.length, littleEndian); // at byte 20
+      buf.size = desc_ptr.upper.length;
+      console.log(`Packet length we got: ${buf.size}`);
 
       // this would be the place to implement RX offloading by translating the device-specific flags
       // to an independent representation in the buf (similiar to how DPDK works)
@@ -870,9 +869,9 @@ function ixgbe_read_stats(dev, stats) {
   const rx_pkts = addon.get_reg_js(dev.addr, defines.IXGBE_GPRC);
   const tx_pkts = addon.get_reg_js(dev.addr, defines.IXGBE_GPTC);
   const rx_bytes = addon.get_reg_js(dev.addr, defines.IXGBE_GORCL);
-  const rx_bytes_first32bits = addon.get_reg_js(dev.addr, defines.IXGBE_GORCH);
+  // const rx_bytes_first32bits = addon.get_reg_js(dev.addr, defines.IXGBE_GORCH);
   const tx_bytes = addon.get_reg_js(dev.addr, defines.IXGBE_GOTCL);
-  const tx_bytes_first32bits = addon.get_reg_js(dev.addr, defines.IXGBE_GOTCH);
+  // const tx_bytes_first32bits = addon.get_reg_js(dev.addr, defines.IXGBE_GOTCH);
   let rx_dropped_pkts = 0;
   for (let i = 0; i < 8; i++) {
     rx_dropped_pkts += addon.get_reg_js(dev.addr,
@@ -1174,9 +1173,9 @@ function convertHRTimeToNano(time) {
 // calls ixy_tx_batch until all packets are queued with busy waiting
 function ixy_tx_batch_busy_wait_js(dev, queue_id, bufs, num_bufs) {
   let num_sent = 0;
-  while ((num_sent += dev.ixy.tx_batch(dev, queue_id, bufs + num_sent,
-    num_bufs - num_sent)) != num_bufs) {
+  while (num_sent !== num_bufs) {
     // busy wait
+    num_sent += dev.ixy.tx_batch(dev, queue_id, bufs + num_sent, num_bufs - num_sent);
   }
 }
 
@@ -1359,9 +1358,9 @@ function lifeSignal() {
 }
 let timer = 0;
 const timerVal = 3000;
-const tmpRDT = -1;
-const tmpRDH = -1;
-const tmpPkgDrops = -1;
+// let tmpRDT = -1;
+// let tmpRDH = -1;
+// let tmpPkgDrops = -1;
 const bufferArrayLength = 512;
 
 function receivePackets() {
