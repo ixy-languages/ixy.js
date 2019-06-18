@@ -871,7 +871,7 @@ function ixgbe_read_stats(dev, stats) {
   const tx_bytes = addon.get_reg_js(dev.addr, defines.IXGBE_GOTCL);
   // const tx_bytes_first32bits = addon.get_reg_js(dev.addr, defines.IXGBE_GOTCH);
   let rx_dropped_pkts = 0;
-  for (let i = 0; i < 2/*8*/; i++) { // we can only have 64bit numbers anyways
+  for (let i = 0; i < 2/* 8 */; i++) { // we can only have 64bit numbers anyways
     rx_dropped_pkts += addon.get_reg_js(dev.addr,
       defines.RXMPC(i)) * (4294967296/* 2^32 aka. 32 bit number */ ** i); // ** is exponential
   }
@@ -1271,9 +1271,9 @@ function packet_generator_program(argc, argv) {
     for (const buf of bufs) {
       buf.mem.setUint32(PKT_SIZE - 4, seq_num++, littleEndian);
       // TODO theres errors are not thrown
-      if (old_seq_num > seq_num) { 
+      if (old_seq_num > seq_num) {
         throw new Error(`We sent packages ordered wrong: seq_num ${seq_num}; old: ${old_seq_num}`);
-      } else if(old_seq_num === seq_num) { 
+      } else if (old_seq_num === seq_num) {
         throw new Error(`We sent multiple packages with the smae seq_num: ${seq_num}`);
       }
       old_seq_num = seq_num;
