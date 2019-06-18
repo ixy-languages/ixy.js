@@ -343,9 +343,9 @@ struct pkt_buf {
 
 function readDataViewData(dataView, length) {
   const ret = new Array(length);
-  ret.forEach((v, i, arr) => {
-    arr[i] = dataView.getUint8(i);
-  });
+  for (const i in ret) {
+    ret[i] = dataView.getUint8(i);
+  }
   return ret;
 }
 
@@ -1025,9 +1025,9 @@ function forward(rx_dev, rx_queue, tx_dev, tx_queue) {
     // either wait on tx or drop them; in this case it's better to drop them,
     // otherwise we accumulate latency
     // TODO double check the correctnes of this slice
-    bufs.slice(num_tx, num_rx /* - 1 */).forEach((buf) => {
+    for (const buf of bufs.slice(num_tx, num_rx /* - 1 /* ? */)) {
       pkt_buf_free(buf);
-    });
+    }
   }
 }
 const MAX_QUEUES = 64;
@@ -1144,7 +1144,7 @@ function init_mempool() {
     buf.size = PKT_SIZE;
 
     // we just do this with single bytes, as this is not relevant for performance?
-    /* pkt_data.forEach((v, i) => {
+    /* pkt_data.REWRITE TO FOR OF/IN((v, i) => {
       buf.mem.setUint8(i + 64, v); // data starts at offset 64?
     }); */
     setPktBufData(buf, pkt_data);
@@ -1187,7 +1187,7 @@ function packet_generator_program(argc, argv) {
   const dev = ixgbe_init(argv[1], 1, 1);
 
   let last_stats_printed = convertHRTimeToNano(process.hrtime());
-  let counter = 0;
+  const counter = 0;
   const stats_old = {};
   const stats = {};
   stats_init(stats, dev);
@@ -1195,13 +1195,13 @@ function packet_generator_program(argc, argv) {
 
   // array of bufs sent out in a batch
   const bufs = new Array(BATCH_SIZE);
-   /*
+  /*
   // tx loop
   while (true) {
     // we cannot immediately recycle packets, we need to allocate new packets every time
     // the old packets might still be used by the NIC: tx is async
     pkt_buf_alloc_batch_js(mempool, bufs, BATCH_SIZE);
-    bufs.forEach((buf, i) => {
+    bufs.REWRITE TO FOR OF/IN((buf, i) => {
       buf.mem.setUint32(PKT_SIZE - 4, i, littleEndian);
     });
 
@@ -1222,7 +1222,7 @@ function packet_generator_program(argc, argv) {
     }
     // track stats
   }
-  /**/
+  /* */
   // non blocking
 
   // tx loop
@@ -1240,7 +1240,7 @@ function packet_generator_program(argc, argv) {
     // we cannot immediately recycle packets, we need to allocate new packets every time
     // the old packets might still be used by the NIC: tx is async
     pkt_buf_alloc_batch_js(mempool, bufs, BATCH_SIZE);
-    bufs.forEach((buf, i) => {
+    bufs.REWRITE TO FOR OF/IN((buf, i) => {
       buf.mem.setUint32(PKT_SIZE - 4, i, littleEndian);
     });
 
@@ -1249,27 +1249,27 @@ function packet_generator_program(argc, argv) {
   }, 0);
   /* */
 
-   // /*
+  // /*
   // non blocking part 2
-// TX 1000!
+  // TX 1000!
   // tx loop
   // TODO look at process.nextTick() for async
   // every second
+  let seq_num = 0;
   setInterval(() => {
     const time = convertHRTimeToNano(process.hrtime());
-      dev.ixy.read_stats(dev, stats);
-      print_stats_diff(stats, stats_old, time - last_stats_printed);
-      copyStats(stats_old, stats);
-      last_stats_printed = time;
+    dev.ixy.read_stats(dev, stats);
+    print_stats_diff(stats, stats_old, time - last_stats_printed);
+    copyStats(stats_old, stats);
+    last_stats_printed = time;
   }, 1000);
-  function sendstuff(){
+  function sendstuff() {
     // we cannot immediately recycle packets, we need to allocate new packets every time
     // the old packets might still be used by the NIC: tx is async
     pkt_buf_alloc_batch_js(mempool, bufs, BATCH_SIZE);
-    bufs.forEach((buf, i) => {
-      buf.mem.setUint32(PKT_SIZE - 4, i, littleEndian);
-    });
-
+    for (const buf of bufs) {
+      buf.mem.setUint32(PKT_SIZE - 4, seq_num++, littleEndian);
+    }
     // the packets could be modified here to generate multiple flows
     ixy_tx_batch_busy_wait_js(dev, 0, bufs, BATCH_SIZE); // TODO check if this can be done async as well!
 
@@ -1427,7 +1427,7 @@ function forwardProgram(argc, argv) {
 /*
 console.log(util.inspect(ixgbe_device, false, 2, true ));
 console.log('printing rx_queue descriptors read from buffer we saved:');
-Object.values(ixgbe_device.rx_queues).forEach((v) => {
+Object.values(ixgbe_device.rx_queues).REWRITE TO FOR OF/IN((v) => {
   const queueDescriptor = getRxDescriptorFromVirt(v.descriptors);
   console.log(util.inspect(queueDescriptor, false, null, true ));
 });
@@ -1490,11 +1490,11 @@ const bufferArrayLength = 512;
 function receivePackets() {
   const bufferArray = new Array(bufferArrayLength);
   const numBufs = ixgbe_device.ixy.rx_batch(ixgbe_device, 0, bufferArray, bufferArrayLength);
-  bufferArray.forEach((buf, index) => {
+  for (const index in bufferArray) {
     if (index <= numBufs) {
-      pkt_buf_free(buf);
+      pkt_buf_free(bufferArray[index]);
     }
-  });
+  }
   /*
   const newRDT = addon.get_reg_js(ixgbe_device.addr, defines.IXGBE_RDT(queue_id));
   const newRDH = addon.get_reg_js(ixgbe_device.addr, defines.IXGBE_RDH(queue_id));
