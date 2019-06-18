@@ -409,8 +409,7 @@ function memory_allocate_mempool_js(num_entries, entry_size) {
   return mempool;
 }
 // another function to port
-function pkt_buf_alloc_batch_js(mempool, num_bufs) {
-  const bufs = new Array(num_bufs);
+function pkt_buf_alloc_batch_js(mempool, bufs, num_bufs) {
   if (mempool.free_stack_top < num_bufs) {
     console.warn(`memory pool ${mempool} only has ${mempool.free_stack_top} free bufs, requested ${num_bufs}`);
     num_bufs = mempool.free_stack_top;
@@ -431,7 +430,8 @@ function pkt_buf_alloc_batch_js(mempool, num_bufs) {
 }
 
 function pkt_buf_alloc_js(mempool) {
-  const buf = pkt_buf_alloc_batch_js(mempool, 1);
+  const bufs = new Array(1);
+  const buf = pkt_buf_alloc_batch_js(mempool, bufs, 1);
   return buf[0];
 }
 
@@ -521,8 +521,6 @@ function ixgbe_rx_batch(dev, queue_id, bufs, num_bufs) { // returns number
       // got a packet, read and copy the whole descriptor
       const buf = queue.virtual_addresses[rx_index];
       buf.size = desc_ptr.upper.length;
-      console.log(`Packet length we got: ${buf.size}`);
-
       // this would be the place to implement RX offloading by translating the device-specific flags
       // to an independent representation in the buf (similiar to how DPDK works)
       // need a new mbuf for the descriptor
@@ -1175,7 +1173,7 @@ function ixy_tx_batch_busy_wait_js(dev, queue_id, bufs, num_bufs) {
   let num_sent = 0;
   while (num_sent !== num_bufs) {
     // busy wait
-    num_sent += dev.ixy.tx_batch(dev, queue_id, bufs + num_sent, num_bufs - num_sent);
+    num_sent += dev.ixy.tx_batch(dev, queue_id, bufs.slice(num_sent), num_bufs - num_sent);
   }
 }
 
@@ -1190,14 +1188,14 @@ function packet_generator_program(argc, argv) {
 
   let last_stats_printed = convertHRTimeToNano(process.hrtime());
   let counter = 0;
-  let stats_old;
-  let stats;
+  const stats_old = {};
+  const stats = {};
   stats_init(stats, dev);
   stats_init(stats_old, dev);
 
   // array of bufs sent out in a batch
   const bufs = new Array(BATCH_SIZE);
-
+   /*
   // tx loop
   while (true) {
     // we cannot immediately recycle packets, we need to allocate new packets every time
@@ -1224,6 +1222,62 @@ function packet_generator_program(argc, argv) {
     }
     // track stats
   }
+  /**/
+  // non blocking
+
+  // tx loop
+  // TODO look at process.nextTick() for async
+  // every second
+  /*
+  setInterval(() => {
+    const time = convertHRTimeToNano(process.hrtime());
+      dev.ixy.read_stats(dev, stats);
+      print_stats_diff(stats, stats_old, time - last_stats_printed);
+      copyStats(stats_old, stats);
+      last_stats_printed = time;
+  }, 1000);
+  setInterval(() => {
+    // we cannot immediately recycle packets, we need to allocate new packets every time
+    // the old packets might still be used by the NIC: tx is async
+    pkt_buf_alloc_batch_js(mempool, bufs, BATCH_SIZE);
+    bufs.forEach((buf, i) => {
+      buf.mem.setUint32(PKT_SIZE - 4, i, littleEndian);
+    });
+
+    // the packets could be modified here to generate multiple flows
+    ixy_tx_batch_busy_wait_js(dev, 0, bufs, BATCH_SIZE); // TODO check if this can be done async as well!
+  }, 0);
+  /* */
+
+   // /*
+  // non blocking part 2
+// TX 1000!
+  // tx loop
+  // TODO look at process.nextTick() for async
+  // every second
+  setInterval(() => {
+    const time = convertHRTimeToNano(process.hrtime());
+      dev.ixy.read_stats(dev, stats);
+      print_stats_diff(stats, stats_old, time - last_stats_printed);
+      copyStats(stats_old, stats);
+      last_stats_printed = time;
+  }, 1000);
+  function sendstuff(){
+    // we cannot immediately recycle packets, we need to allocate new packets every time
+    // the old packets might still be used by the NIC: tx is async
+    pkt_buf_alloc_batch_js(mempool, bufs, BATCH_SIZE);
+    bufs.forEach((buf, i) => {
+      buf.mem.setUint32(PKT_SIZE - 4, i, littleEndian);
+    });
+
+    // the packets could be modified here to generate multiple flows
+    ixy_tx_batch_busy_wait_js(dev, 0, bufs, BATCH_SIZE); // TODO check if this can be done async as well!
+
+    setImmediate(sendstuff);
+  }
+
+  sendstuff();
+  /* */
 }
 
 /* */
@@ -1248,6 +1302,8 @@ function forwardProgram(argc, argv) {
 
 
   let last_stats_printed = process.hrtime();
+  /*
+// TX 18
   // every second
   setInterval(() => {
     const time = process.hrtime(last_stats_printed);
@@ -1266,15 +1322,16 @@ function forwardProgram(argc, argv) {
   // so maybe an infinite loop would be better ?
   // this is non blocking though, if that does any good
 
-  // /*
+
   setInterval(() => {
     forward(dev1, 0, dev2, 0);
     forward(dev2, 0, dev1, 0);
   }, 0);
-  /**/
+  /* */
 
   // is this faster?
   // yes, from 61.8% packet caught to 62.9 % ,
+  // TX 270
   // so its probably not worth all the extra work with printing times
   /*
   let i = 0;
@@ -1282,7 +1339,7 @@ function forwardProgram(argc, argv) {
     forward(dev1, 0, dev2, 0);
     forward(dev2, 0, dev1, 0);
     // because it is not non blocking anymore:
-    if (i++ > 2000) {
+    if (i++ > 20000) {
       i = 0;
       const time = process.hrtime(last_stats_printed);
     last_stats_printed = process.hrtime();
@@ -1296,7 +1353,74 @@ function forwardProgram(argc, argv) {
     }
     }
   }
+/* */
+
+  /*
+  // second async try
+  // seems to perform just like a while loop
+  setInterval(() => {
+    process.nextTick(() => {
+      const time = process.hrtime(last_stats_printed);
+      last_stats_printed = process.hrtime();
+      dev1.ixy.read_stats(dev1, stats1);
+      print_stats_diff(stats1, stats1_old, convertHRTimeToNano(time));
+      copyStats(stats1_old, stats1);
+      if (dev1.ixy.pci_addr !== dev2.ixy.pci_addr) {
+        dev2.ixy.read_stats(dev2, stats2);
+        print_stats_diff(stats2, stats2_old, convertHRTimeToNano(time));
+        copyStats(stats2_old, stats2);
+      }
+    });
+  }, 1000);
+  let i = 0;
+  function forwardStuff() {
+    forward(dev1, 0, dev2, 0);
+    forward(dev2, 0, dev1, 0);
+    // temporary
+    i++;
+    if (i++ > 20000) {
+      i = 0;
+      const time = process.hrtime(last_stats_printed);
+      last_stats_printed = process.hrtime();
+      dev1.ixy.read_stats(dev1, stats1);
+      print_stats_diff(stats1, stats1_old, time[0] * 1000000000 + time[1]);
+      copyStats(stats1_old, stats1);
+      if (dev1.ixy.pci_addr !== dev2.ixy.pci_addr) {
+        dev2.ixy.read_stats(dev2, stats2);
+        print_stats_diff(stats2, stats2_old, time[0] * 1000000000 + time[1]);
+        copyStats(stats2_old, stats2);
+      }
+    }
+    process.nextTick(forwardStuff);
+  }
+  forwardStuff();
+
   /* */
+  // /*
+  // third async try
+  // TX 260, but uses real async!!!
+  setInterval(() => {
+    process.nextTick(() => {
+      const time = process.hrtime(last_stats_printed);
+      last_stats_printed = process.hrtime();
+      dev1.ixy.read_stats(dev1, stats1);
+      print_stats_diff(stats1, stats1_old, convertHRTimeToNano(time));
+      copyStats(stats1_old, stats1);
+      if (dev1.ixy.pci_addr !== dev2.ixy.pci_addr) {
+        dev2.ixy.read_stats(dev2, stats2);
+        print_stats_diff(stats2, stats2_old, convertHRTimeToNano(time));
+        copyStats(stats2_old, stats2);
+      }
+    });
+  }, 1000);
+  function forwardStuff() {
+    forward(dev1, 0, dev2, 0);
+    forward(dev2, 0, dev1, 0);
+    setImmediate(forwardStuff);
+  }
+  forwardStuff();
+
+  /**/
 }
 /* */
 
@@ -1399,4 +1523,14 @@ function receivePackets() {
 
 // setInterval(lifeSignal, 1000);
 // setInterval(receivePackets, 0);
-forwardProgram(3, ['', pciAddr, pciAddr2]);
+const programToRun = 1;
+switch (programToRun) {
+case 0:
+  forwardProgram(3, ['', pciAddr, pciAddr2]);
+  break;
+case 1:
+  packet_generator_program(2, ['', pciAddr]);
+  break;
+default:
+  throw new Error('running no program...');
+}
