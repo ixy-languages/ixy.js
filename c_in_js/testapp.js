@@ -871,7 +871,7 @@ function ixgbe_read_stats(dev, stats) {
   const tx_bytes = addon.get_reg_js(dev.addr, defines.IXGBE_GOTCL);
   // const tx_bytes_first32bits = addon.get_reg_js(dev.addr, defines.IXGBE_GOTCH);
   let rx_dropped_pkts = 0;
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < 2/*8*/; i++) { // we can only have 64bit numbers anyways
     rx_dropped_pkts += addon.get_reg_js(dev.addr,
       defines.RXMPC(i)) * (4294967296/* 2^32 aka. 32 bit number */ ** i); // ** is exponential
   }
@@ -1256,6 +1256,7 @@ function packet_generator_program(argc, argv) {
   // TODO look at process.nextTick() for async
   // every second
   let seq_num = 0;
+  let old_seq_num = -1;
   setInterval(() => {
     const time = convertHRTimeToNano(process.hrtime());
     dev.ixy.read_stats(dev, stats);
@@ -1269,6 +1270,13 @@ function packet_generator_program(argc, argv) {
     pkt_buf_alloc_batch_js(mempool, bufs, BATCH_SIZE);
     for (const buf of bufs) {
       buf.mem.setUint32(PKT_SIZE - 4, seq_num++, littleEndian);
+      // TODO theres errors are not thrown
+      if (old_seq_num > seq_num) { 
+        throw new Error(`We sent packages ordered wrong: seq_num ${seq_num}; old: ${old_seq_num}`);
+      } else if(old_seq_num === seq_num) { 
+        throw new Error(`We sent multiple packages with the smae seq_num: ${seq_num}`);
+      }
+      old_seq_num = seq_num;
     }
     // the packets could be modified here to generate multiple flows
     ixy_tx_batch_busy_wait_js(dev, 0, bufs, BATCH_SIZE); // TODO check if this can be done async as well!
