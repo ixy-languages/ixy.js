@@ -715,7 +715,6 @@ function ixgbe_tx_batch(dev, queue_id, bufs, num_bufs) {
     }
   }
   queue.clean_index = clean_index;
-
   // step 2: send out as many of our packets as possible
   let sent;
   for (sent = 0; sent < num_bufs; sent++) {
