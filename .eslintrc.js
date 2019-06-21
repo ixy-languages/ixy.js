@@ -1,6 +1,7 @@
 module.exports = {
-  extends: ["eslint:recommended", "airbnb"],
+  extends: ["eslint:recommended", "airbnb", "babel"],
   rules: {
+    "babel/valid-typeof": 1,
     indent: ["warn", 2],
     quotes: [
       "error",

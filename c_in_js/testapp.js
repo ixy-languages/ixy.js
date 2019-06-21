@@ -452,10 +452,7 @@ function start_rx_queue(ixgbe_device, queue_id) {
     // set pkt addr
     rxd.memView.setBigUint64(0, buf.buf_addr_phy, littleEndian);
     // set hdr addr
-    // because of bigint
-    // rxd.memView.setBigUint64(8, 0, littleEndian);
-    rxd.memView.setUint32(8, 0, littleEndian);
-    rxd.memView.setUint32(12, 0, littleEndian);
+    rxd.memView.setBigUint64(8, 0n, littleEndian);
 
     // we need to return the virtual address in the rx function
     // which the descriptor doesn't know by default
@@ -525,8 +522,7 @@ function ixgbe_rx_batch(dev, queue_id, bufs, num_bufs) { // returns number
       // reset the descriptor
       desc_ptr.memView.setBigUint64(0, new_buf.buf_addr_phy, littleEndian);
       // this resets the flags
-      desc_ptr.memView.setUint32(8, 0, littleEndian);
-      desc_ptr.memView.setUint32(12, 0, littleEndian);
+      desc_ptr.memView.setUint64(8, 0n, littleEndian);
 
       queue.virtual_addresses[rx_index] = new_buf;
       bufs[buf_index] = buf;
