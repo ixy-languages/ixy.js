@@ -50,6 +50,13 @@ function wait_set_reg_js(addr, reg, val) {
   }
 }
 
+function wait_clear_reg_js(addr, reg, val) {
+  while ((addon.get_reg_js(addr, reg) & val) !== 0) {
+    clear_flags_js(addr, reg, val);
+    wait(100); // TODO change this to non blocking interval
+  }
+}
+
 
 const defines = {
   IXGBE_RXCTRL: 0x03000,
@@ -861,7 +868,7 @@ function reset_and_init(dev) {
 
   // section 4.6.3.2
   addon.set_reg_js(dev.addr, defines.IXGBE_CTRL, defines.IXGBE_CTRL_RST_MASK);
-  addon.wait_clear_reg_js(dev.addr, defines.IXGBE_CTRL, defines.IXGBE_CTRL_RST_MASK);
+  wait_clear_reg_js(dev.addr, defines.IXGBE_CTRL, defines.IXGBE_CTRL_RST_MASK);
   wait(100); // why do we do this?
   // section 4.6.3.1 - disable interrupts again after reset
   addon.set_reg_js(dev.addr, defines.IXGBE_EIMC, 0x7FFFFFFF);
