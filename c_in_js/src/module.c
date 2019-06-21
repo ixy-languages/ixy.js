@@ -1,9 +1,6 @@
 // include to build into node
 #include <node_api.h>
 
-//include to use original c code
-#include "original_c_src/memory.c"
-
 #include <inttypes.h>
 //including just everything so that nothings missing (for C functions added/copy pasted)
 #include <assert.h>
@@ -17,8 +14,27 @@
 
 #include <stdint.h>
 
-#include "original_c_src/log.h"
+#define check_err(expr, op) ({\
+	int64_t result = (int64_t) (expr);\
+	if ((int64_t) result == -1LL) {\
+		int err = errno;\
+		char buf[512];\
+		strerror_r(err, buf, sizeof(buf));\
+		fprintf(stderr, "[ERROR] %s:%d %s(): Failed to %s: %s\n", __FILE__, __LINE__, __func__, op, buf);\
+		exit(err);\
+	}\
+	result;\
+})
 
+#ifndef NDEBUG
+#define debug(fmt, ...) do {\
+	fprintf(stderr, "[DEBUG] %s:%d %s(): " fmt "\n", __FILE__, __LINE__, __func__, ##__VA_ARGS__);\
+} while(0)
+#else
+#define debug(fmt, ...) do {} while(0)
+#undef assert
+#define assert(expr) (void) (expr)
+#endif
 
 int pci_open_resource(const char *pci_addr, const char *resource)
 {
@@ -30,6 +46,71 @@ int pci_open_resource(const char *pci_addr, const char *resource)
 }
 //endof magic memory
 
+struct dma_memory
+{
+  void *virt;
+  uintptr_t phy;
+};
+
+// translate a virtual address to a physical one via /proc/self/pagemap
+static uintptr_t virt_to_phys(void *virt)
+{
+  long pagesize = sysconf(_SC_PAGESIZE);
+  int fd = check_err(open("/proc/self/pagemap", O_RDONLY), "getting pagemap");
+  // pagemap is an array of pointers for each normal-sized page
+  check_err(lseek(fd, (uintptr_t)virt / pagesize * sizeof(uintptr_t), SEEK_SET), "getting pagemap");
+  uintptr_t phy = 0;
+  check_err(read(fd, &phy, sizeof(phy)), "translating address");
+  close(fd);
+  if (!phy)
+  {
+    error("failed to translate virtual address %p to physical address", virt);
+  }
+  // bits 0-54 are the page number
+  return (phy & 0x7fffffffffffffULL) * pagesize + ((uintptr_t)virt) % pagesize;
+}
+
+static uint32_t huge_pg_id;
+#define HUGE_PAGE_BITS 21
+#define HUGE_PAGE_SIZE (1 << HUGE_PAGE_BITS)
+
+// allocate memory suitable for DMA access in huge pages
+// this requires hugetlbfs to be mounted at /mnt/huge
+// not using anonymous hugepages because hugetlbfs can give us multiple pages with contiguous virtual addresses
+// allocating anonymous pages would require manual remapping which is more annoying than handling files
+struct dma_memory memory_allocate_dma(size_t size, bool require_contiguous)
+{
+  // round up to multiples of 2 MB if necessary, this is the wasteful part
+  // this could be fixed by co-locating allocations on the same page until a request would be too large
+  // when fixing this: make sure to align on 128 byte boundaries (82599 dma requirement)
+  if (size % HUGE_PAGE_SIZE)
+  {
+    size = ((size >> HUGE_PAGE_BITS) + 1) << HUGE_PAGE_BITS;
+  }
+  if (require_contiguous && size > HUGE_PAGE_SIZE)
+  {
+    // this is the place to implement larger contiguous physical mappings if that's ever needed
+    error("could not map physically contiguous memory");
+  }
+  // unique filename, C11 stdatomic.h requires a too recent gcc, we want to support gcc 4.8
+  uint32_t id = __sync_fetch_and_add(&huge_pg_id, 1);
+  char path[PATH_MAX];
+  snprintf(path, PATH_MAX, "/mnt/huge/ixy-%d-%d", getpid(), id);
+  // temporary file, will be deleted to prevent leaks of persistent pages
+  int fd = check_err(open(path, O_CREAT | O_RDWR, S_IRWXU), "open hugetlbfs file, check that /mnt/huge is mounted");
+  check_err(ftruncate(fd, (off_t)size), "allocate huge page memory, check hugetlbfs configuration");
+  void *virt_addr = (void *)check_err(mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_HUGETLB, fd, 0), "mmap hugepage");
+  // never swap out DMA memory
+  check_err(mlock(virt_addr, size), "disable swap for DMA memory");
+  // don't keep it around in the hugetlbfs
+  close(fd);
+  unlink(path);
+  return (struct dma_memory){
+      .virt = virt_addr,
+      .phy = virt_to_phys(virt_addr)};
+}
+
+// if we can export virt and phys here, we don't need virtToPhys
 napi_value getDmaMem(napi_env env, napi_callback_info info)
 {
   bool requireContigious;
@@ -117,12 +198,9 @@ napi_value dataviewToPhys(napi_env env, napi_callback_info info)
   {
     napi_throw_error(env, NULL, "Failed to get virtual Memory from Dataview.");
   }
-  uintptr_t oldPhysPointer = virt_to_phys(virt);           // TODO double check, but apparently offset is already added!
-  uintptr_t physPointer = virt_to_phys(virt) + byteOffset; // TODO check if we need to multiply with 8 or so to get to bytes
-  //printf("Byte offset: %d\nOriginal phys addr: %016" PRIxPTR "\n-----New Phys Addr: %016" PRIxPTR "\n", byteOffset, oldPhysPointer, physPointer);
+  uintptr_t physPointer = virt_to_phys(virt); // TODO double check, but apparently offset is already added!
   napi_value ret;
-  //hoping physical pointers are 64bit, else we need to handle every function that needs this value in C as well
-  stat = napi_create_bigint_uint64(env, oldPhysPointer, &ret);
+  stat = napi_create_bigint_uint64(env, physPointer, &ret);
   if (stat != napi_ok)
   {
     napi_throw_error(env, NULL, "Failed to write PhysAddr into bigint.");
@@ -260,36 +338,36 @@ napi_value getIDs(napi_env env, napi_callback_info info)
 
 void remove_driver(const char *pci_addr) // for now C is fine but at some point well put this into JS
 {
-    char path[PATH_MAX];
-    snprintf(path, PATH_MAX, "/sys/bus/pci/devices/%s/driver/unbind", pci_addr);
-    int fd = open(path, O_WRONLY);
-    if (fd == -1)
-    {
-      debug("no driver loaded");
-      return;
-    }
-    if (write(fd, pci_addr, strlen(pci_addr)) != (ssize_t)strlen(pci_addr))
-    {
-      warn("failed to unload driver for device %s", pci_addr);
-    }
-    check_err(close(fd), "close");
+  char path[PATH_MAX];
+  snprintf(path, PATH_MAX, "/sys/bus/pci/devices/%s/driver/unbind", pci_addr);
+  int fd = open(path, O_WRONLY);
+  if (fd == -1)
+  {
+    debug("no driver loaded");
+    return;
+  }
+  if (write(fd, pci_addr, strlen(pci_addr)) != (ssize_t)strlen(pci_addr))
+  {
+    warn("failed to unload driver for device %s", pci_addr);
+  }
+  check_err(close(fd), "close");
 }
 
 void enable_dma(const char *pci_addr)
 {
-    char path[PATH_MAX];
-    snprintf(path, PATH_MAX, "/sys/bus/pci/devices/%s/config", pci_addr);
-    int fd = check_err(open(path, O_RDWR), "open pci config");
-    // write to the command register (offset 4) in the PCIe config space
-    // bit 2 is "bus master enable", see PCIe 3.0 specification section 7.5.1.1
-    assert(lseek(fd, 4, SEEK_SET) == 4);
-    uint16_t dma = 0;
-    assert(read(fd, &dma, 2) == 2);
-    dma |= 1 << 2;
-    assert(lseek(fd, 4, SEEK_SET) == 4);
-    assert(write(fd, &dma, 2) == 2);
-    check_err(close(fd), "close");
-    printf("enabled dma...\n");
+  char path[PATH_MAX];
+  snprintf(path, PATH_MAX, "/sys/bus/pci/devices/%s/config", pci_addr);
+  int fd = check_err(open(path, O_RDWR), "open pci config");
+  // write to the command register (offset 4) in the PCIe config space
+  // bit 2 is "bus master enable", see PCIe 3.0 specification section 7.5.1.1
+  assert(lseek(fd, 4, SEEK_SET) == 4);
+  uint16_t dma = 0;
+  assert(read(fd, &dma, 2) == 2);
+  dma |= 1 << 2;
+  assert(lseek(fd, 4, SEEK_SET) == 4);
+  assert(write(fd, &dma, 2) == 2);
+  check_err(close(fd), "close");
+  printf("enabled dma...\n");
 }
 
 //endof copypastas
@@ -408,7 +486,7 @@ napi_value Init(napi_env env, napi_value exports)
   {
     napi_throw_error(env, NULL, "Unable to populate exports");
   }
-  // add set_reg to the export 
+  // add set_reg to the export
   status = napi_create_function(env, NULL, 0, set_reg_js, NULL, &fn); // USED
   if (status != napi_ok)
   {
@@ -443,7 +521,7 @@ napi_value Init(napi_env env, napi_value exports)
   if (status != napi_ok)
   {
     napi_throw_error(env, NULL, "Unable to populate exports");
-  } // add virtToPhys to the export
+  }                                                                   // add virtToPhys to the export
   status = napi_create_function(env, NULL, 0, virtToPhys, NULL, &fn); // USED
   if (status != napi_ok)
   {
