@@ -287,7 +287,7 @@ function init_rx(ixgbe_device) {
     // rogue memory accesses on premature DMA activation
     const virtMemView = new DataView(mem.virt);
     for (let count = 0; count < ring_size_bytes; count++) {
-      virtMemView.setUint32(count / 4, 0xFFFFFFFF, littleEndian);
+      virtMemView.setBigUint64(count / 8, BigInt(0xFFFFFFFFFFFFFFFF), littleEndian);
     }
     const PhysBeginning = Number(mem.phy) & 0xFFFFFFFF;
     const PhysEnding = Number(mem.phy >> BigInt(32));
@@ -586,7 +586,7 @@ function init_tx(dev) {
     // rogue memory accesses on premature DMA activation
     const virtMemView = new DataView(mem.virt);
     for (let count = 0; count < ring_size_bytes; count++) {
-      virtMemView.setUint32(count / 4, 0xFFFFFFFF, littleEndian);
+      virtMemView.setBigUint64(count / 8, BigInt(0xFFFFFFFFFFFFFFFF), littleEndian);
     }
     const PhysBeginning = Number(mem.phy) & 0xFFFFFFFF;
     const PhysEnding = Number(mem.phy >> BigInt(32));
