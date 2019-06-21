@@ -287,18 +287,10 @@ function init_rx(ixgbe_device) {
     for (let count = 0; count < ring_size_bytes; count++) {
       virtMemView.setUint32(count / 4, 0xFFFFFFFF, littleEndian);
     }
-    // for now there is no obvious way to use bigint in a smart way, even within the long library
-    console.log('-----------cstart------------');
-    const shortenedPhys = addon.shortenPhys(mem.phy);
-    const shortenedPhysLatter = addon.shortenPhysLatter(mem.phy);
-    console.log('-----------c--end------------');
-    // switch order, little endian has this confused?
-    addon.set_reg_js(IXYDevice, defines.IXGBE_RDBAL(i), shortenedPhys);
-    addon.set_reg_js(IXYDevice, defines.IXGBE_RDBAH(i), shortenedPhysLatter);
-    /*
-    addon.set_reg_js(IXYDevice, defines.IXGBE_RDBAL(i), shortenedPhysLatter);
-    addon.set_reg_js(IXYDevice, defines.IXGBE_RDBAH(i), shortenedPhys);
-    */
+    const PhysBeginning = Number(mem.phy) & 0xFFFFFFFF;
+    const PhysEnding = Number(mem.phy >> 32n);
+    addon.set_reg_js(IXYDevice, defines.IXGBE_RDBAL(i), PhysBeginning);
+    addon.set_reg_js(IXYDevice, defines.IXGBE_RDBAH(i), PhysEnding);
     addon.set_reg_js(IXYDevice, defines.IXGBE_RDLEN(i), ring_size_bytes);
     console.log(`rx ring ${i} phy addr: ${mem.phy}`);
     console.log(`rx ring ${i} virt addr: ${mem.virt}`);
@@ -456,6 +448,7 @@ function start_rx_queue(ixgbe_device, queue_id) {
     if (!buf) {
       throw new Error('failed to allocate rx descriptor');
     }
+    // missing the offset value of this, would it be 64 bytes?
     // set pkt addr
     rxd.memView.setBigUint64(0, buf.buf_addr_phy, littleEndian);
     // set hdr addr
@@ -597,15 +590,10 @@ function init_tx(dev) {
     for (let count = 0; count < ring_size_bytes; count++) {
       virtMemView.setUint32(count / 4, 0xFFFFFFFF, littleEndian);
     }
-
-    // for now there is no obvious way to use bigint in a smart way, even within the long library
-    console.log('-----------cstart------------');
-    const shortenedPhys = addon.shortenPhys(mem.phy);
-    const shortenedPhysLatter = addon.shortenPhysLatter(mem.phy);
-    console.log('-----------c--end------------');
-    // switch order, little endian has this confused?
-    addon.set_reg_js(dev.addr, defines.IXGBE_TDBAL(i), shortenedPhys);
-    addon.set_reg_js(dev.addr, defines.IXGBE_TDBAH(i), shortenedPhysLatter);
+    const PhysBeginning = Number(mem.phy) & 0xFFFFFFFF;
+    const PhysEnding = Number(mem.phy >> 32n);
+    addon.set_reg_js(dev.addr, defines.IXGBE_TDBAL(i), PhysBeginning);
+    addon.set_reg_js(dev.addr, defines.IXGBE_TDBAH(i), PhysEnding);
 
     addon.set_reg_js(dev.addr, defines.IXGBE_TDLEN(i), ring_size_bytes);
 
@@ -750,9 +738,6 @@ function ixgbe_tx_batch(dev, queue_id, bufs, num_bufs) {
   // this seems like a textbook case for a release memory order,
   // but Intel's driver doesn't even use a compiler barrier here
   addon.set_reg_js(dev.addr, defines.IXGBE_TDT(queue_id), queue.tx_index);
-  if (sent !== 32) {
-    console.log(`only sent: ${sent}, not 32`);
-  }
   return sent;
 }
 
@@ -1265,22 +1250,11 @@ function packet_generator_program(argc, argv) {
     copyStats(stats_old, stats);
     last_stats_printed = time;
   }, 1000);
-  const str_check = new Array();
   function sendstuff() {
     // we cannot immediately recycle packets, we need to allocate new packets every time
     // the old packets might still be used by the NIC: tx is async
     pkt_buf_alloc_batch_js(mempool, bufs, BATCH_SIZE);
     for (const buf of bufs) {
-      let str = '';
-      for (let i = 4; i > 0; i--) { 
-        str += buf.data[PKT_SIZE - i]+' . ';
-      }
-      if (str_check.includes(buf.buf_addr_phy)) {
-        //console.log('double pkt phys addr: ' +buf.buf_addr_phy+' its data: '+ str);
-      } else {
-        str_check.push(buf.buf_addr_phy);
-      }
-
       buf.mem.setUint32(PKT_SIZE - 4, seq_num++, littleEndian);
       // TODO theres errors are not thrown
       if (old_seq_num > seq_num) {
