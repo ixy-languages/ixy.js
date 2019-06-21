@@ -19,17 +19,6 @@
 
 #include "original_c_src/log.h"
 
-int isLittleEndian()
-{
-  int i = 1;
-  char *p = (char *)&i;
-
-  if (p[0] == 1)
-    return 1 /*LITTLE_ENDIAN*/;
-  else
-    return 0 /*BIG_ENDIAN*/;
-}
-
 //functions to print bits
 //use like this:   SHOW(int, 1);
 void print_byte_as_bits(char val)
@@ -168,8 +157,6 @@ napi_value dataviewToPhys(napi_env env, napi_callback_info info)
   }
   return ret;
 }
-
-
 
 // what we want to implement to use in JS:
 void setReg32(const uint8_t *addr, int32_t reg, uint32_t value)
