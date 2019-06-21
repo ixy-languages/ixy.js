@@ -1,7 +1,6 @@
 module.exports = {
-  extends: ["eslint:recommended", "airbnb", "babel"],
+  extends: ["eslint:recommended", "airbnb"],
   rules: {
-    "babel/valid-typeof": 1,
     indent: ["warn", 2],
     quotes: [
       "error",
@@ -32,5 +31,8 @@ module.exports = {
   },
   parserOptions: {
     parser: "babel-eslint"
-  }
+  },
+  'globals':{
+    'BigInt':true
+  },
 };

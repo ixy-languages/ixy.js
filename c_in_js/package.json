@@ -16,5 +16,6 @@
     "node": ">=8.4.0"
   },
   "author": "Sebastian Di Luzio <sebastian.di-luzio@tum.de>",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {}
 }

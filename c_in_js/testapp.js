@@ -288,7 +288,7 @@ function init_rx(ixgbe_device) {
       virtMemView.setUint32(count / 4, 0xFFFFFFFF, littleEndian);
     }
     const PhysBeginning = Number(mem.phy) & 0xFFFFFFFF;
-    const PhysEnding = Number(mem.phy >> 32n);
+    const PhysEnding = Number(mem.phy >> BigInt(32));
     addon.set_reg_js(IXYDevice, defines.IXGBE_RDBAL(i), PhysBeginning);
     addon.set_reg_js(IXYDevice, defines.IXGBE_RDBAH(i), PhysEnding);
     addon.set_reg_js(IXYDevice, defines.IXGBE_RDLEN(i), ring_size_bytes);
@@ -452,7 +452,7 @@ function start_rx_queue(ixgbe_device, queue_id) {
     // set pkt addr
     rxd.memView.setBigUint64(0, buf.buf_addr_phy, littleEndian);
     // set hdr addr
-    rxd.memView.setBigUint64(8, 0n, littleEndian);
+    rxd.memView.setBigUint64(8, BigInt(0), littleEndian);
 
     // we need to return the virtual address in the rx function
     // which the descriptor doesn't know by default
@@ -522,7 +522,7 @@ function ixgbe_rx_batch(dev, queue_id, bufs, num_bufs) { // returns number
       // reset the descriptor
       desc_ptr.memView.setBigUint64(0, new_buf.buf_addr_phy, littleEndian);
       // this resets the flags
-      desc_ptr.memView.setUint64(8, 0n, littleEndian);
+      desc_ptr.memView.setUint64(8, BigInt(0), littleEndian);
 
       queue.virtual_addresses[rx_index] = new_buf;
       bufs[buf_index] = buf;
@@ -587,7 +587,7 @@ function init_tx(dev) {
       virtMemView.setUint32(count / 4, 0xFFFFFFFF, littleEndian);
     }
     const PhysBeginning = Number(mem.phy) & 0xFFFFFFFF;
-    const PhysEnding = Number(mem.phy >> 32n);
+    const PhysEnding = Number(mem.phy >> BigInt(32));
     addon.set_reg_js(dev.addr, defines.IXGBE_TDBAL(i), PhysBeginning);
     addon.set_reg_js(dev.addr, defines.IXGBE_TDBAH(i), PhysEnding);
 
