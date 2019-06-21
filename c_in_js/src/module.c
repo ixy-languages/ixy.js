@@ -417,7 +417,7 @@ napi_value Init(napi_env env, napi_value exports)
     napi_throw_error(env, NULL, "Unable to populate exports");
   }
   // add getIXYAddr to the export
-  status = napi_create_function(env, NULL, 0, getIXYAddr, NULL, &fn);
+  status = napi_create_function(env, NULL, 0, getIXYAddr, NULL, &fn); // USED
   if (status != napi_ok)
   {
     napi_throw_error(env, NULL, "Unable to wrap native function");
@@ -428,8 +428,8 @@ napi_value Init(napi_env env, napi_value exports)
   {
     napi_throw_error(env, NULL, "Unable to populate exports");
   }
-  // add set_reg to the export
-  status = napi_create_function(env, NULL, 0, set_reg_js, NULL, &fn);
+  // add set_reg to the export 
+  status = napi_create_function(env, NULL, 0, set_reg_js, NULL, &fn); // USED
   if (status != napi_ok)
   {
     napi_throw_error(env, NULL, "Unable to wrap native function");
@@ -441,7 +441,7 @@ napi_value Init(napi_env env, napi_value exports)
     napi_throw_error(env, NULL, "Unable to populate exports");
   }
   // add get_reg to the export
-  status = napi_create_function(env, NULL, 0, get_reg_js, NULL, &fn);
+  status = napi_create_function(env, NULL, 0, get_reg_js, NULL, &fn); // USED
   if (status != napi_ok)
   {
     napi_throw_error(env, NULL, "Unable to wrap native function");
@@ -453,7 +453,7 @@ napi_value Init(napi_env env, napi_value exports)
     napi_throw_error(env, NULL, "Unable to populate exports");
   }
   // add getDmaMem to the export
-  status = napi_create_function(env, NULL, 0, getDmaMem, NULL, &fn);
+  status = napi_create_function(env, NULL, 0, getDmaMem, NULL, &fn); // USED
   if (status != napi_ok)
   {
     napi_throw_error(env, NULL, "Unable to wrap native function");
@@ -464,7 +464,7 @@ napi_value Init(napi_env env, napi_value exports)
   {
     napi_throw_error(env, NULL, "Unable to populate exports");
   } // add virtToPhys to the export
-  status = napi_create_function(env, NULL, 0, virtToPhys, NULL, &fn);
+  status = napi_create_function(env, NULL, 0, virtToPhys, NULL, &fn); // USED
   if (status != napi_ok)
   {
     napi_throw_error(env, NULL, "Unable to wrap native function");
@@ -476,7 +476,7 @@ napi_value Init(napi_env env, napi_value exports)
     napi_throw_error(env, NULL, "Unable to populate exports");
   }
   // add virtToPhys to the export
-  status = napi_create_function(env, NULL, 0, dataviewToPhys, NULL, &fn);
+  status = napi_create_function(env, NULL, 0, dataviewToPhys, NULL, &fn); // USED
   if (status != napi_ok)
   {
     napi_throw_error(env, NULL, "Unable to wrap native function");
