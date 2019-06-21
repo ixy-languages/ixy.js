@@ -1,9 +1,4 @@
-const util = require('util');
-// const { StringDecoder } = require('string_decoder');
 const addon = require('./build/Release/exported_module'); // eslint-disable-line import/no-unresolved
-
-
-// const jstruct = require('js-struct');
 
 // check if little or big endian
 const littleEndian = (function lE() {
@@ -737,82 +732,6 @@ function ixgbe_tx_batch(dev, queue_id, bufs, num_bufs) {
   return sent;
 }
 
-/*
-struct ixgbe_device {
-    struct ixy_device ixy;
-    uint8_t* addr;
-    void* rx_queues;
-    void* tx_queues;
-};
-struct ixy_device {
-  const char* pci_addr;
-  const char* driver_name;
-  uint16_t num_rx_queues;
-  uint16_t num_tx_queues;
-  uint32_t (*rx_batch) (struct ixy_device* dev, uint16_t queue_id,
-    struct pkt_buf* bufs[], uint32_t num_bufs);
-  uint32_t (*tx_batch) (struct ixy_device* dev, uint16_t queue_id,
-    struct pkt_buf* bufs[], uint32_t num_bufs);
-  void (*read_stats) (struct ixy_device* dev, struct device_stats* stats);
-  void (*set_promisc) (struct ixy_device* dev, bool enabled);
-  uint32_t (*get_link_speed) (const struct ixy_device* dev);
-};
-*/
-const ixgbe_device = {
-  ixy: {
-    pci_addr: pciAddr,
-    driver_name: 'ixy.js',
-    num_rx_queues: 1,
-    num_tx_queues: 1,
-    rx_batch: ixgbe_rx_batch,
-    tx_batch: ixgbe_tx_batch,
-    read_stats: () => { },
-    set_promisc: () => { },
-    get_link_speed: () => { },
-  },
-  addr: null,
-  dataView: null,
-  phAddr: null,
-  rx_queues: [],
-  tx_queues: [],
-};
-
-ixgbe_device.rx_queues = new Array(ixgbe_device.ixy.num_rx_queues);
-ixgbe_device.tx_queues = new Array(ixgbe_device.ixy.num_rx_queues);
-
-
-// get IXY memory
-ixgbe_device.addr = addon.getIXYAddr(ixgbe_device.ixy.pci_addr);
-const IXYDevice = ixgbe_device.addr;
-// create a View on the IXY memory, which is RO
-ixgbe_device.dataView = new DataView(IXYDevice);
-/*
-const IXYView = ixgbe_device.dataView;
-console.log(`The 32bit before changing: ${IXYView.getUint32(0x200, littleEndian)}`);
-console.log('-----------cstart------------');
-// we need to call a C function to actually write to this memory
-addon.set_reg_js(IXYDevice, 0x200, 2542);
-console.log('-----------c--end------------');
-console.log(`The 32bit after changing: ${IXYView.getUint32(0x200, littleEndian)}`);
-console.log('trying to change value to 20 via JS..');
-IXYView.setUint32(0x200, 20, littleEndian);
-console.log(`The 32bit after JS changing: ${IXYView.getUint32(0x200, littleEndian)}`);
-
-
-const dmaMem = addon.getDmaMem(20, true);
-const dmaView = new DataView(dmaMem);
-console.log(`dma at byte 0 : ${dmaView.getUint32(0, littleEndian)}`);
-console.log('trying to change value to 20 via JS..');
-dmaView.setUint32(0, 20, littleEndian);
-console.log(`dma at byte 0 after JS change : ${dmaView.getUint32(0, littleEndian)}`);
-const physicalAddress = addon.virtToPhys(dmaMem);
-console.log(`Physical address: ${physicalAddress}`);
-*/
-
-function print_stats(stats) {
-  console.log(`rx_pkts: ${stats.rx_pkts} | tx_pkts: ${stats.tx_pkts} | rx_bytes: ${stats.rx_bytes} | tx_bytes: ${stats.tx_bytes}`);
-}
-
 function ixgbe_get_link_speed(dev) {
   const links = addon.get_reg_js(dev.addr, defines.IXGBE_LINKS);
   if (!(links & defines.IXGBE_LINKS_UP)) {
@@ -829,8 +748,6 @@ function ixgbe_get_link_speed(dev) {
     return 0;
   }
 }
-
-ixgbe_device.ixy.get_link_speed = ixgbe_get_link_speed;
 
 function printRXErrors(dev) {
   console.log(`Error counter: ${addon.get_reg_js(dev.addr, defines.FCCRC)}`);
@@ -871,7 +788,6 @@ function ixgbe_read_stats(dev, stats) {
     // print_stats(stats);
   }
 }
-ixgbe_device.ixy.read_stats = ixgbe_read_stats;
 
 // initializes a stat struct and clears the stats on the device
 function stats_init(stats, dev) {
@@ -1412,107 +1328,9 @@ function forwardProgram(argc, argv) {
 
   /**/
 }
-/* */
-
-/*
-console.log(util.inspect(ixgbe_device, false, 2, true ));
-console.log('printing rx_queue descriptors read from buffer we saved:');
-Object.values(ixgbe_device.rx_queues).REWRITE TO FOR OF/IN((v) => {
-  const queueDescriptor = getRxDescriptorFromVirt(v.descriptors);
-  console.log(util.inspect(queueDescriptor, false, null, true ));
-});
-*/
-
-// console.log('ixgbe_device now:');
-// console.log(util.inspect(ixgbe_device, false, null, true));
-const stats = {};
-
-function buf2hex(buffer) { // buffer is an ArrayBuffer
-  return Array.prototype.map.call(new Uint8Array(buffer), x => `00${x.toString(16)}`.slice(-2)).join('');
-}
-
-function printPackage(index, bufs) {
-  console.log(`package at index ${index} :`);
-  const buf = bufs[index];
-  console.log(util.inspect(buf, false, 1, true));
-  if (buf) {
-    console.log('content:');
-    let str = '';
-    for (let i = 0; i < buf.data.length; i++) {
-      str += `00${buf.data[i].toString(16)}`.slice(-2);
-    }
-    console.log(str);
-    // const decoder = new StringDecoder('utf8');
-    // console.log(decoder.write(bufferArray[0].mem));
-    // console.log('content as hex (sliced at 60 Byte because currently all buffers):');
-    // console.log(buf2hex(buf.mem.buffer).slice(0, 60 * 2));
-  }
-}
-const queue_id = 0;
-
-function printOurPackages(bufs) {
-  ixgbe_device.ixy.read_stats(ixgbe_device, stats);
-  console.log('buffer array, should be packages we got:');
-  // console.log(util.inspect(bufferArray, false, null, true));
-  printPackage(0, bufs);
-  // printPackage(4, bufs);
-
-  console.log(`RDT register: ${addon.get_reg_js(ixgbe_device.addr, defines.IXGBE_RDT(queue_id))}\nRDH register: ${addon.get_reg_js(ixgbe_device.addr, defines.IXGBE_RDH(queue_id))}`);
 
 
-  console.log('our rx_queues:');
-  console.log(util.inspect(ixgbe_device.rx_queues[queue_id].mempool, false, 0, true));
-}
-stats_init(stats, ixgbe_device);
 
-// setInterval(printOurPackages, 5000);
-
-function lifeSignal() {
-  console.log('.');
-}
-let timer = 0;
-const timerVal = 3000;
-// let tmpRDT = -1;
-// let tmpRDH = -1;
-// let tmpPkgDrops = -1;
-const bufferArrayLength = 512;
-
-function receivePackets() {
-  const bufferArray = new Array(bufferArrayLength);
-  const numBufs = ixgbe_device.ixy.rx_batch(ixgbe_device, 0, bufferArray, bufferArrayLength);
-  for (const index in bufferArray) {
-    if (index <= numBufs) {
-      pkt_buf_free(bufferArray[index]);
-    }
-  }
-  /*
-  const newRDT = addon.get_reg_js(ixgbe_device.addr, defines.IXGBE_RDT(queue_id));
-  const newRDH = addon.get_reg_js(ixgbe_device.addr, defines.IXGBE_RDH(queue_id));
-
-  if (tmpRDH !== newRDH || tmpRDT !== newRDT) {
-    tmpRDH = newRDH;
-    tmpRDT = newRDT;
-    console.log(`RDT register: ${tmpRDT}\nRDH register: ${tmpRDH}`);
-  }
-  */
-  /*
-  const pkgDrops = addon.get_reg_js(ixgbe_device.addr, defines.RXMPC(0));
-  if (pkgDrops !== tmpPkgDrops) {
-    tmpPkgDrops = pkgDrops;
-    console.log(`Missed Packets Error counter: ${tmpPkgDrops}`);
-  }
-  */
-
-  timer += 1;
-  if (timer >= timerVal) {
-    // printOurPackages();
-    ixgbe_read_stats(ixgbe_device);
-    timer = 0;
-  }
-}
-
-// setInterval(lifeSignal, 1000);
-// setInterval(receivePackets, 0);
 const programToRun = 1;
 switch (programToRun) {
 case 0:
