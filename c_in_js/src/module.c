@@ -1,18 +1,15 @@
 // include to build into node
 #include <node_api.h>
 
-#include <inttypes.h>
 //including just everything so that nothings missing (for C functions added/copy pasted)
+
 #include <assert.h>
 #include <errno.h>
 #include <linux/limits.h>
 #include <stdio.h>
 #include <sys/file.h>
 #include <sys/mman.h>
-#include <sys/stat.h>
 #include <unistd.h>
-
-#include <stdint.h>
 
 #define check_err(expr, op) ({\
 	int64_t result = (int64_t) (expr);\
