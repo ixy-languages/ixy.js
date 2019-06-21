@@ -1085,7 +1085,6 @@ function packet_generator_program(argc, argv) {
   const dev = ixgbe_init(argv[1], 1, 1);
 
   let last_stats_printed = convertHRTimeToNano(process.hrtime());
-  const counter = 0;
   const stats_old = {};
   const stats = {};
   stats_init(stats, dev);
@@ -1094,6 +1093,7 @@ function packet_generator_program(argc, argv) {
   // array of bufs sent out in a batch
   const bufs = new Array(BATCH_SIZE);
   /*
+    let counter = 0;
   // tx loop
   while (true) {
     // we cannot immediately recycle packets, we need to allocate new packets every time
@@ -1143,7 +1143,8 @@ function packet_generator_program(argc, argv) {
     });
 
     // the packets could be modified here to generate multiple flows
-    ixy_tx_batch_busy_wait_js(dev, 0, bufs, BATCH_SIZE); // TODO check if this can be done async as well!
+    ixy_tx_batch_busy_wait_js(dev, 0, bufs, BATCH_SIZE);
+    // TODO check if this can be done async as well!
   }, 0);
   /* */
 
@@ -1177,7 +1178,8 @@ function packet_generator_program(argc, argv) {
       old_seq_num = seq_num;
     }
     // the packets could be modified here to generate multiple flows
-    ixy_tx_batch_busy_wait_js(dev, 0, bufs, BATCH_SIZE); // TODO check if this can be done async as well!
+    ixy_tx_batch_busy_wait_js(dev, 0, bufs, BATCH_SIZE);
+    // TODO check if this can be done async as well!
 
     setImmediate(sendstuff);
   }
@@ -1328,7 +1330,6 @@ function forwardProgram(argc, argv) {
 
   /**/
 }
-
 
 
 const programToRun = 1;
