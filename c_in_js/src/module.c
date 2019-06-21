@@ -188,7 +188,6 @@ napi_value get_reg_js(napi_env env, napi_callback_info info)
   return ret;
 }
 
-// endof receiving packages
 napi_value getIDs(napi_env env, napi_callback_info info)
 {
   napi_status stat;
@@ -258,25 +257,9 @@ napi_value getIDs(napi_env env, napi_callback_info info)
     return testReturnVal;
   }
 }
-#define IXGBE_EIMC 0x00888      // WO
-#define IXGBE_EIAC 0x00810      // RW
-#define IXGBE_EIAM 0x00890      // RW
-#define IXGBE_EITR 0x00820      // RW (bits 3-11 could be interesting to test?)
-#define IXGBE_EICR 0x00800      // RW1C (bits 0:15 interesting?) docs: 8.2.3.5.1
-#define IXGBE_LLITHRESH 0x0EC90 // RW, 8.2.3.5.14 , 0-25:0, 26-31: 000101b
-#define IXGBE_IVAR_MISC 0x00A00 // RW, 8.2.3.5.17 , 6:0 : X, 7: 0 , 14:8 : X , 15:1 , 31:16 : 0
-#define IXGBE_VLNCTRL 0x05088   // RW, 8.2.3.7.2 , 15:0 0x8100 , 27:16 reserved : ?? , 30:28 : 0 (lets try to change these) , 31: reserved
-#define IXGBE_LEDCTL 0x00200    // RW 8.2.3.1.6
 
-int regUsed = IXGBE_LEDCTL;
-
-// tmp copypastas
-bool turnoffRMDr = false;
-bool turnoffEBLDMA = false;
 void remove_driver(const char *pci_addr) // for now C is fine but at some point well put this into JS
 {
-  if (!turnoffRMDr)
-  {
     char path[PATH_MAX];
     snprintf(path, PATH_MAX, "/sys/bus/pci/devices/%s/driver/unbind", pci_addr);
     int fd = open(path, O_WRONLY);
@@ -290,13 +273,10 @@ void remove_driver(const char *pci_addr) // for now C is fine but at some point 
       warn("failed to unload driver for device %s", pci_addr);
     }
     check_err(close(fd), "close");
-  }
 }
 
 void enable_dma(const char *pci_addr)
 {
-  if (!turnoffEBLDMA)
-  {
     char path[PATH_MAX];
     snprintf(path, PATH_MAX, "/sys/bus/pci/devices/%s/config", pci_addr);
     int fd = check_err(open(path, O_RDWR), "open pci config");
@@ -310,7 +290,6 @@ void enable_dma(const char *pci_addr)
     assert(write(fd, &dma, 2) == 2);
     check_err(close(fd), "close");
     printf("enabled dma...\n");
-  }
 }
 
 //endof copypastas
@@ -399,13 +378,14 @@ napi_value set_reg_js(napi_env env, napi_callback_info info)
   return NULL;
 }
 
+// This part just exposes our C functions to Node
 napi_value Init(napi_env env, napi_value exports)
 {
   napi_status status;
   napi_value fn;
 
   // adding my getIDs to get PCI id stuff
-  status = napi_create_function(env, NULL, 0, getIDs, NULL, &fn);
+  status = napi_create_function(env, NULL, 0, getIDs, NULL, &fn); // maybe use later?
   if (status != napi_ok)
   {
     napi_throw_error(env, NULL, "Unable to wrap native function");
