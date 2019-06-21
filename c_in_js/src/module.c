@@ -1,8 +1,4 @@
-// include to build into node
 #include <node_api.h>
-
-//including just everything so that nothings missing (for C functions added/copy pasted)
-
 #include <assert.h>
 #include <errno.h>
 #include <linux/limits.h>
@@ -41,13 +37,6 @@ int pci_open_resource(const char *pci_addr, const char *resource)
   int fd = check_err(open(path, O_RDWR), "open pci resource");
   return fd;
 }
-//endof magic memory
-
-struct dma_memory
-{
-  void *virt;
-  uintptr_t phy;
-};
 
 // translate a virtual address to a physical one via /proc/self/pagemap
 static uintptr_t virt_to_phys(void *virt)
@@ -75,7 +64,7 @@ static uint32_t huge_pg_id;
 // this requires hugetlbfs to be mounted at /mnt/huge
 // not using anonymous hugepages because hugetlbfs can give us multiple pages with contiguous virtual addresses
 // allocating anonymous pages would require manual remapping which is more annoying than handling files
-struct dma_memory memory_allocate_dma(size_t size, bool require_contiguous)
+void *  memory_allocate_dma(size_t size, bool require_contiguous)
 {
   // round up to multiples of 2 MB if necessary, this is the wasteful part
   // this could be fixed by co-locating allocations on the same page until a request would be too large
@@ -102,12 +91,9 @@ struct dma_memory memory_allocate_dma(size_t size, bool require_contiguous)
   // don't keep it around in the hugetlbfs
   close(fd);
   unlink(path);
-  return (struct dma_memory){
-      .virt = virt_addr,
-      .phy = virt_to_phys(virt_addr)};
+   return virt_addr;
 }
 
-// if we can export virt and phys here, we don't need virtToPhys
 napi_value getDmaMem(napi_env env, napi_callback_info info)
 {
   bool requireContigious;
@@ -132,9 +118,7 @@ napi_value getDmaMem(napi_env env, napi_callback_info info)
   }
   size_t size = (size_t)size32;
   printf("trying to allocate dma in size of %zd, contigious? %d\n", size, requireContigious);
-  struct dma_memory dmaMem = memory_allocate_dma(size, requireContigious);
-  void *virtualAddress = dmaMem.virt; // change this function later on, to do only whats actually needed to be done in C
-  printf("Physical adress in C: 0x%012lX\n", dmaMem.phy);
+  void *virtualAddress = memory_allocate_dma(size, requireContigious);
   napi_value ret;
   stat = napi_create_external_arraybuffer(env, virtualAddress, size, NULL, NULL, &ret);
   if (stat != napi_ok)
