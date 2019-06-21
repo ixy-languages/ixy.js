@@ -19,34 +19,6 @@
 
 #include "original_c_src/log.h"
 
-//functions to print bits
-//use like this:   SHOW(int, 1);
-void print_byte_as_bits(char val)
-{
-  for (int i = 7; 0 <= i; i--)
-  {
-    printf("%c", (val & (1 << i)) ? '1' : '0');
-  }
-}
-
-void print_bits(char *ty, char *val, unsigned char *bytes, size_t num_bytes)
-{
-  printf("(%*s) %*s = [ ", 15, ty, 16, val);
-  for (size_t i = 0; i < num_bytes; i++)
-  {
-    print_byte_as_bits(bytes[i]);
-    printf(" ");
-  }
-  printf("]\n");
-}
-
-#define SHOW(T, V)                                      \
-  do                                                    \
-  {                                                     \
-    T x = V;                                            \
-    print_bits(#T, #V, (unsigned char *)&x, sizeof(x)); \
-  } while (0)
-//endof bit stuff
 
 int pci_open_resource(const char *pci_addr, const char *resource)
 {
@@ -343,66 +315,6 @@ void enable_dma(const char *pci_addr)
 
 //endof copypastas
 
-// let's keep this for debugging purposes
-napi_value printBits(napi_env env, napi_callback_info info)
-{
-  napi_status stat;
-  size_t argc = 2;
-  napi_value argv[2];
-
-  stat = napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-  if (stat != napi_ok)
-  {
-    napi_throw_error(env, NULL, "Failed to parse arguments");
-  }
-  char *pci_addr = malloc(12); // "0000:03:00.0"
-  size_t size;
-  stat = napi_get_value_string_utf8(env, argv[0], pci_addr, 13, &size); // for some reason we need to use length 13 not 12, to get 12 bytes
-  if (stat != napi_ok)
-  {
-    napi_throw_error(env, NULL, "Invalid string of length 12, the PCI adress, was passed as first argument");
-  }
-  char *regi = malloc(10); // "IXGBE_EICR"
-  size_t size2;
-  stat = napi_get_value_string_utf8(env, argv[1], regi, 11, &size);
-  if (stat != napi_ok)
-  {
-    napi_throw_error(env, NULL, "Invalid reg input");
-  }
-
-  remove_driver(pci_addr); // we added this to see if it works now
-  enable_dma(pci_addr);    // do we need this to actually be able to write there?
-
-  //this is what we need to get the root adress
-  int fd = pci_open_resource(pci_addr, "resource0");
-  debug("fd we got: %d\n", fd);
-  struct stat stat2;
-  check_err(fstat(fd, &stat2), "stat pci resource");
-  printf("Size of the stat: %d\n", stat2.st_size);
-
-  uint8_t *pci_map_resource_js = check_err(mmap(NULL, stat2.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0), "mmap pci resource");
-  uint32_t filepointer = getReg32(pci_map_resource_js, 0xB2 /*regi*/);
-
-  printf("%d :: our resource at 0x%x\n", filepointer, 0xB2 /*regi*/);
-  SHOW(uint32_t, filepointer);
-  /*printf("%x", filepointer[1]);
-  SHOW(uint8_t, filepointer[1]);
-  uint16_t *bitFP = filepointer;
-  printf("%x", bitFP[0]);
-  SHOW(uint16_t, bitFP[0]);
-  uint32_t *bitFP2 = filepointer;
-  printf("%x", bitFP2[0]);
-  SHOW(uint32_t, bitFP2[0]);
-
-  napi_value testReturnVal;
-  stat = napi_create_external_arraybuffer(env, (void *)filepointer, stat2.st_size, NULL, NULL, &testReturnVal);
-  if (stat != napi_ok)
-  {
-    napi_throw_error(env, NULL, "Failed our external buffer creation");
-  }
-  return testReturnVal;
-  */
-}
 // endof trying
 
 /**
@@ -492,18 +404,6 @@ napi_value Init(napi_env env, napi_value exports)
   napi_status status;
   napi_value fn;
 
-  //adding my 32 bit print function
-  status = napi_create_function(env, NULL, 0, printBits, NULL, &fn);
-  if (status != napi_ok)
-  {
-    napi_throw_error(env, NULL, "Unable to wrap native function");
-  }
-
-  status = napi_set_named_property(env, exports, "printBits", fn);
-  if (status != napi_ok)
-  {
-    napi_throw_error(env, NULL, "Unable to populate exports");
-  }
   // adding my getIDs to get PCI id stuff
   status = napi_create_function(env, NULL, 0, getIDs, NULL, &fn);
   if (status != napi_ok)
