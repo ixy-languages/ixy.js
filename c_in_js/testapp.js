@@ -524,7 +524,7 @@ function ixgbe_rx_batch(dev, queue_id, bufs, num_bufs) { // returns number
       // reset the descriptor
       desc_ptr.memView.setBigUint64(0, new_buf.buf_addr_phy, littleEndian);
       // this resets the flags
-      desc_ptr.memView.setUint64(8, BigInt(0), littleEndian);
+      desc_ptr.memView.setBigUint64(8, BigInt(0), littleEndian);
 
       queue.virtual_addresses[rx_index] = new_buf;
       bufs[buf_index] = buf;
@@ -1339,7 +1339,7 @@ function forwardProgram(argc, argv) {
 }
 
 
-const programToRun = 1;
+const programToRun = 0;
 switch (programToRun) {
 case 0:
   forwardProgram(3, ['', pciAddr, pciAddr2]);
