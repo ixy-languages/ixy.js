@@ -549,12 +549,6 @@ function ixgbe_rx_batch(dev, queue_id, bufs, num_bufs) { // returns number
 }
 
 
-/*
-now lets port this:
-*/
-// /* // remove the leftmost comment slashes to deactivate
-
-
 // see section 4.6.8
 function init_tx(dev) {
   // crc offload and small packet padding
@@ -998,10 +992,12 @@ function print_stats_diff(stats_new, stats_old, nanos) {
   console.log(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] RX: ${rxMbits} Mbit/s ${diff_mpps(stats_new.rx_pkts, stats_old.rx_pkts, nanos)} Mpps`);
   const droprate = (stats_new.rx_dropped_pkts - stats_old.rx_dropped_pkts)
     / (stats_new.rx_pkts - stats_old.rx_pkts);
-  console.log(`Packages actually getting received: ${(1 - droprate) * 100}% ; droprate: ${droprate * 100}%`);
-  console.log(`So our actual rate is ${rxMbits * (1 - droprate)} Mbits/s`);
-
+  console.log(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] Packages actually getting received: ${(1 - droprate) * 100}% ; droprate: ${droprate * 100}%`);
+  console.log(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] So our actual rate is ${rxMbits * (1 - droprate)} Mbits/s`);
   console.log(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] TX: ${diff_mbit(stats_new.tx_bytes, stats_old.tx_bytes, stats_new.tx_pkts, stats_old.tx_pkts, nanos)} Mbit/s ${diff_mpps(stats_new.tx_pkts, stats_old.tx_pkts, nanos)} Mpps`);
+  console.log(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] RX_pkts: ${stats_new.rx_pkts - stats_old.rx_pkts} ; TX_pkts: ${stats_new.tx_pkts - stats_old.tx_pkts}`);
+
+  console.log('----- ----- ----- -----');
 }
 const PKT_SIZE = 60;
 // /*
@@ -1339,7 +1335,7 @@ function forwardProgram(argc, argv) {
 }
 
 
-const programToRun = 0;
+const programToRun = 1;
 switch (programToRun) {
 case 0:
   forwardProgram(3, ['', pciAddr, pciAddr2]);
