@@ -247,6 +247,7 @@ napi_value get_reg_js(napi_env env, napi_callback_info info)
   return ret;
 }
 
+// TODO check if this can be done with a js mmap
 napi_value getIDs(napi_env env, napi_callback_info info)
 {
   napi_status stat;
@@ -316,7 +317,7 @@ napi_value getIDs(napi_env env, napi_callback_info info)
     return testReturnVal;
   }
 }
-
+// TODO js
 void remove_driver(const char *pci_addr) // for now C is fine but at some point well put this into JS
 {
   char path[PATH_MAX];
@@ -333,7 +334,7 @@ void remove_driver(const char *pci_addr) // for now C is fine but at some point 
   }
   check_err(close(fd), "close");
 }
-
+// todo js
 void enable_dma(const char *pci_addr)
 {
   char path[PATH_MAX];
@@ -355,6 +356,8 @@ void enable_dma(const char *pci_addr)
 
 // endof trying
 
+
+// TODO check if we actually use this
 /**
  * This will give us an ArrayBuffer in JS, which points to the Network Card installed in the PCI Address we provide
  * */

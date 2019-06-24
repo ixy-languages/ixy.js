@@ -413,7 +413,7 @@ function pkt_buf_alloc_batch_js(mempool, bufs, num_bufs) {
     // console.log(`entry id: ${entry_id}, offset: ${entry_id * mempool.buf_size}
     // with buf_size of ${ mempool.buf_size }`);
     // console.log(`phys addr in JS: ${addon.virtToPhys(mempool.base_addr)}`);
-    const buf = getPktBuffer(mempool, entry_id);
+    const buf = getPktBuffer(mempool, entry_id, false);
     /*
     buf.mem = new DataView(mempool.base_addr, entry_id * mempool.buf_size, mempool.buf_size);
     buf.buf_addr_phy = addon.dataviewToPhys(buf.mem);
@@ -488,7 +488,7 @@ function start_tx_queue(dev, queue_id) {
 function wrap_ring(index, ring_size) {
   return (index + 1) & (ring_size - 1);
 }
-
+let pkt_count = 0;
 
 // section 1.8.2 and 7.1
 // try to receive a single packet if one is available, non-blocking
@@ -545,6 +545,7 @@ function ixgbe_rx_batch(dev, queue_id, bufs, num_bufs) { // returns number
     addon.set_reg_js(dev.addr, defines.IXGBE_RDT(queue_id), last_rx_index);
     queue.rx_index = rx_index;
   }
+  pkt_count += buf_index;
   return buf_index; // number of packets stored in bufs; buf_index points to the next index
 }
 
@@ -773,7 +774,7 @@ function ixgbe_read_stats(dev, stats) {
   let rx_dropped_pkts = 0;
   for (let i = 0; i < 2/* 8 */; i++) { // we can only have 64bit numbers anyways
     rx_dropped_pkts += addon.get_reg_js(dev.addr,
-      defines.RXMPC(i)) * (4294967296/* 2^32 aka. 32 bit number */ ** i); // ** is exponential
+      defines.RXMPC(i));//* (4294967296/* 2^32 aka. 32 bit number */ ** i); // ** is exponential
   }
   // console.log(`${dev.ixy.pci_addr} stats:\nrx_pkts: ${rx_pkts} | tx_pkts: ${tx_pkts}
   // | rx_bytes: ${ rx_bytes } | rx_bytes_first32bits: ${ rx_bytes_first32bits }
@@ -914,7 +915,7 @@ function forward(rx_dev, rx_queue, tx_dev, tx_queue) {
     // touch all packets, otherwise it's a completely unrealistic workload
     // if the packet just stays in L3
     for (let i = 0; i < num_rx; i++) {
-      const val = bufs[i].data[6] + 1;
+      const val = bufs[i].mem.getUint8(6) + 1;
       bufs[i].mem.setUint8(6, val);
     }
     const num_tx = tx_dev.ixy.tx_batch(tx_dev, tx_queue, bufs, num_rx);
@@ -987,6 +988,7 @@ function diff_mbit(bytes_new, bytes_old, pkts_new, pkts_old, nanos) {
 }
 
 function print_stats_diff(stats_new, stats_old, nanos) {
+  console.log(`all pkts got: ${pkt_count}`);
   const rxMbits = diff_mbit(stats_new.rx_bytes, stats_old.rx_bytes,
     stats_new.rx_pkts, stats_old.rx_pkts, nanos);
   console.log(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] RX: ${rxMbits} Mbit/s ${diff_mpps(stats_new.rx_pkts, stats_old.rx_pkts, nanos)} Mpps`);
@@ -1171,7 +1173,7 @@ function packet_generator_program(argc, argv) {
     // the old packets might still be used by the NIC: tx is async
     pkt_buf_alloc_batch_js(mempool, bufs, BATCH_SIZE);
     for (const buf of bufs) {
-      buf.mem.setUint32(PKT_SIZE - 4, seq_num++, littleEndian);
+      buf.mem.setBigUint64(PKT_SIZE - 8, BigInt(seq_num++), littleEndian); // TODO BIGINT?
       // TODO theres errors are not thrown
       if (old_seq_num > seq_num) {
         throw new Error(`We sent packages ordered wrong: seq_num ${seq_num}; old: ${old_seq_num}`);
@@ -1335,7 +1337,7 @@ function forwardProgram(argc, argv) {
 }
 
 
-const programToRun = 1;
+const programToRun = 0;
 switch (programToRun) {
 case 0:
   forwardProgram(3, ['', pciAddr, pciAddr2]);
