@@ -39,22 +39,27 @@ default:
 
 // we want to initialize rx queues, and change functions to the JS equivalent
 
+function get_reg_js(addr, reg) {
+  const dv = new DataView(addr);
+  return dv.getUint32(reg, littleEndian);
+}
+
 function clear_flags_js(addr, reg, flags) {
-  addon.set_reg_js(addr, reg, addon.get_reg_js(addr, reg) & ~flags);
+  addon.set_reg_js(addr, reg, get_reg_js(addr, reg) & ~flags);
 }
 function set_flags_js(addr, reg, flags) {
-  addon.set_reg_js(addr, reg, addon.get_reg_js(addr, reg) | flags);
+  addon.set_reg_js(addr, reg, get_reg_js(addr, reg) | flags);
 }
 
 function wait_set_reg_js(addr, reg, val) {
-  while ((addon.get_reg_js(addr, reg) & val) !== val) {
+  while ((get_reg_js(addr, reg) & val) !== val) {
     addon.set_reg_js(addr, reg, val);
     wait(100); // TODO change this to non blocking interval
   }
 }
 
 function wait_clear_reg_js(addr, reg, val) {
-  while ((addon.get_reg_js(addr, reg) & val) !== 0) {
+  while ((get_reg_js(addr, reg) & val) !== 0) {
     clear_flags_js(addr, reg, val);
     wait(100); // TODO change this to non blocking interval
   }
@@ -272,7 +277,7 @@ function init_rx(ixgbe_device) {
     // enable advanced rx descriptors,
     // we could also get away with legacy descriptors, but they aren't really easier
     addon.set_reg_js(IXYDevice, defines.IXGBE_SRRCTL(i),
-      (addon.get_reg_js(IXYDevice, defines.IXGBE_SRRCTL(i)) & ~defines.IXGBE_SRRCTL_DESCTYPE_MASK)
+      (get_reg_js(IXYDevice, defines.IXGBE_SRRCTL(i)) & ~defines.IXGBE_SRRCTL_DESCTYPE_MASK)
       | defines.IXGBE_SRRCTL_DESCTYPE_ADV_ONEBUF);
     // drop_en causes the nic to drop packets if no rx descriptors are available
     // instead of buffering them
@@ -587,7 +592,7 @@ function init_tx(dev) {
     // see 7.2.3.4.1 and 7.2.3.5 for an explanation of these values and how to find good ones
     // we just use the defaults from DPDK here,
     // but this is a potentially interesting point for optimizations
-    let txdctl = addon.get_reg_js(dev.addr, defines.IXGBE_TXDCTL(i));
+    let txdctl = get_reg_js(dev.addr, defines.IXGBE_TXDCTL(i));
     // there are no defines for this in ixgbe_type.h for some reason
     // pthresh: 6:0, hthresh: 14:8, wthresh: 22:16
     txdctl &= ~(0x3F | (0x3F << 8) | (0x3F << 16)); // clear bits
@@ -726,7 +731,7 @@ function ixgbe_tx_batch(dev, queue_id, bufs, num_bufs) {
 }
 
 function ixgbe_get_link_speed(dev) {
-  const links = addon.get_reg_js(dev.addr, defines.IXGBE_LINKS);
+  const links = get_reg_js(dev.addr, defines.IXGBE_LINKS);
   if (!(links & defines.IXGBE_LINKS_UP)) {
     return 0;
   }
@@ -743,12 +748,12 @@ function ixgbe_get_link_speed(dev) {
 }
 
 function printRXErrors(dev) {
-  console.info(`Error counter: ${addon.get_reg_js(dev.addr, defines.FCCRC)}`);
-  console.info(`CRC Error counter: ${addon.get_reg_js(dev.addr, defines.CRCERRS)}`);
-  console.info(`Illegal byte Error counter: ${addon.get_reg_js(dev.addr, defines.ILLERRC)}`);
-  console.info(`Error Byte counter: ${addon.get_reg_js(dev.addr, defines.ERRBC)}`);
+  console.info(`Error counter: ${get_reg_js(dev.addr, defines.FCCRC)}`);
+  console.info(`CRC Error counter: ${get_reg_js(dev.addr, defines.CRCERRS)}`);
+  console.info(`Illegal byte Error counter: ${get_reg_js(dev.addr, defines.ILLERRC)}`);
+  console.info(`Error Byte counter: ${get_reg_js(dev.addr, defines.ERRBC)}`);
   for (let i = 0; i < 8; i++) {
-    console.info(`Missed Packets Error counter(${i}): ${addon.get_reg_js(dev.addr, defines.RXMPC(i))}`);
+    console.info(`Missed Packets Error counter(${i}): ${get_reg_js(dev.addr, defines.RXMPC(i))}`);
   }
 }
 
@@ -756,15 +761,15 @@ function printRXErrors(dev) {
 // stats may be NULL to just reset the counters
 function ixgbe_read_stats(dev, stats) {
   // const dev = IXY_TO_IXGBE(ixy); // do we want to do this?
-  const rx_pkts = addon.get_reg_js(dev.addr, defines.IXGBE_GPRC);
-  const tx_pkts = addon.get_reg_js(dev.addr, defines.IXGBE_GPTC);
-  const rx_bytes = addon.get_reg_js(dev.addr, defines.IXGBE_GORCL);
-  // const rx_bytes_first32bits = addon.get_reg_js(dev.addr, defines.IXGBE_GORCH);
-  const tx_bytes = addon.get_reg_js(dev.addr, defines.IXGBE_GOTCL);
-  // const tx_bytes_first32bits = addon.get_reg_js(dev.addr, defines.IXGBE_GOTCH);
+  const rx_pkts = get_reg_js(dev.addr, defines.IXGBE_GPRC);
+  const tx_pkts = get_reg_js(dev.addr, defines.IXGBE_GPTC);
+  const rx_bytes = get_reg_js(dev.addr, defines.IXGBE_GORCL);
+  // const rx_bytes_first32bits = get_reg_js(dev.addr, defines.IXGBE_GORCH);
+  const tx_bytes = get_reg_js(dev.addr, defines.IXGBE_GOTCL);
+  // const tx_bytes_first32bits = get_reg_js(dev.addr, defines.IXGBE_GOTCH);
   let rx_dropped_pkts = 0;
   for (let i = 0; i < 2/* 8 */; i++) { // we can only have 64bit numbers anyways
-    rx_dropped_pkts += addon.get_reg_js(dev.addr,
+    rx_dropped_pkts += get_reg_js(dev.addr,
       defines.RXMPC(i));//* (4294967296/* 2^32 aka. 32 bit number */ ** i); // ** is exponential
   }
   // console.info(`${dev.ixy.pci_addr} stats:\nrx_pkts: ${rx_pkts} | tx_pkts: ${tx_pkts}
@@ -813,10 +818,10 @@ function init_link(dev) {
   // should already be set by the eeprom config,
   // maybe we shouldn't override it here to support weirdo nics?
   addon.set_reg_js(dev.addr, defines.IXGBE_AUTOC,
-    (addon.get_reg_js(dev.addr, defines.IXGBE_AUTOC) & ~defines.IXGBE_AUTOC_LMS_MASK)
+    (get_reg_js(dev.addr, defines.IXGBE_AUTOC) & ~defines.IXGBE_AUTOC_LMS_MASK)
     | defines.IXGBE_AUTOC_LMS_10G_SERIAL);
   addon.set_reg_js(dev.addr, defines.IXGBE_AUTOC,
-    (addon.get_reg_js(dev.addr, defines.IXGBE_AUTOC) & ~defines.IXGBE_AUTOC_10G_PMA_PMD_MASK)
+    (get_reg_js(dev.addr, defines.IXGBE_AUTOC) & ~defines.IXGBE_AUTOC_10G_PMA_PMD_MASK)
     | defines.IXGBE_AUTOC_10G_XAUI);
   // negotiate link
   set_flags_js(dev.addr, defines.IXGBE_AUTOC, defines.IXGBE_AUTOC_AN_RESTART);
@@ -984,17 +989,17 @@ function diff_mbit(bytes_new, bytes_old, pkts_new, pkts_old, nanos) {
 /*
 let profile;
 profiler.startProfiling('1', true);
-/**/ 
+/* */
 // endof v8 profiler stuff
 function print_stats_diff(stats_new, stats_old, nanos) {
   // v8 profiler stuff
   /*
   profile = profiler.stopProfiling('1');
   console.log(JSON.stringify(profile, null, 2));
-    profile.delete(); 
+    profile.delete();
   profiler.startProfiling('1', true);
-  
-  /**/
+
+  /* */
   // endof v8 profiler stuff
   const rxMbits = diff_mbit(stats_new.rx_bytes, stats_old.rx_bytes,
     stats_new.rx_pkts, stats_old.rx_pkts, nanos);
@@ -1350,7 +1355,7 @@ function forwardProgram(argc, argv) {
 }
 
 
-const programToRun = 1;
+const programToRun = 0;
 switch (programToRun) {
 case 0:
   forwardProgram(3, ['', pciAddr, pciAddr2]);
