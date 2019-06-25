@@ -1,4 +1,6 @@
 const addon = require('./build/Release/exported_module'); // eslint-disable-line import/no-unresolved
+const profiler = require("v8-profiler");
+
 
 // check if little or big endian
 const littleEndian = (function lE() {
@@ -777,7 +779,6 @@ function ixgbe_read_stats(dev, stats) {
     stats.rx_dropped_pkts += rx_dropped_pkts;
     stats.pkts_sent = dev.pkts_sent,
     stats.pkts_rec = dev.pkts_rec;
-    // print_stats(stats);
   }
 }
 
@@ -979,6 +980,11 @@ function diff_mbit(bytes_new, bytes_old, pkts_new, pkts_old, nanos) {
 }
 
 function print_stats_diff(stats_new, stats_old, nanos) {
+// v8 profiler stuff
+const snapshot = profiler.takeSnapshot();
+console.log(snapshot.getHeader());
+  
+  // endof v8 profiler stuff
   const rxMbits = diff_mbit(stats_new.rx_bytes, stats_old.rx_bytes,
     stats_new.rx_pkts, stats_old.rx_pkts, nanos);
   const rxMpps = diff_mpps(stats_new.rx_pkts, stats_old.rx_pkts, nanos);
