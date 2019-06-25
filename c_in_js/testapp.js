@@ -488,7 +488,6 @@ function start_tx_queue(dev, queue_id) {
 function wrap_ring(index, ring_size) {
   return (index + 1) & (ring_size - 1);
 }
-let pkt_count = 0;
 
 // section 1.8.2 and 7.1
 // try to receive a single packet if one is available, non-blocking
@@ -545,7 +544,7 @@ function ixgbe_rx_batch(dev, queue_id, bufs, num_bufs) { // returns number
     addon.set_reg_js(dev.addr, defines.IXGBE_RDT(queue_id), last_rx_index);
     queue.rx_index = rx_index;
   }
-  pkt_count += buf_index;
+  dev.pkts_rec += buf_index;
   return buf_index; // number of packets stored in bufs; buf_index points to the next index
 }
 
@@ -731,6 +730,7 @@ function ixgbe_tx_batch(dev, queue_id, bufs, num_bufs) {
   // this seems like a textbook case for a release memory order,
   // but Intel's driver doesn't even use a compiler barrier here
   addon.set_reg_js(dev.addr, defines.IXGBE_TDT(queue_id), queue.tx_index);
+  dev.pkts_sent += sent;
   return sent;
 }
 
@@ -787,6 +787,8 @@ function ixgbe_read_stats(dev, stats) {
     stats.rx_bytes += rx_bytes;
     stats.tx_bytes += tx_bytes;
     stats.rx_dropped_pkts += rx_dropped_pkts;
+    stats.pkts_sent = dev.pkts_sent,
+      stats.pkts_rec =dev.pkts_rec;
     // print_stats(stats);
   }
 }
@@ -812,6 +814,8 @@ function copyStats(to, from) {
   to.tx_bytes = from.tx_bytes;
   to.rx_dropped_pkts = from.rx_dropped_pkts;
   to.device = from.device;
+  to.pkts_sent = from.pkts_sent;
+  to.pkts_rec = from.pkts_rec;
 }
 
 // see section 4.6.4
@@ -961,6 +965,8 @@ function ixgbe_init(pci_addr, num_rx_queues, num_tx_queues) {
     phAddr: null,
     rx_queues: [],
     tx_queues: [],
+    pkts_sent:0,
+    pkts_rec:0,
   };
 
   ixgbe_dev.rx_queues = new Array(ixgbe_dev.ixy.num_rx_queues);
@@ -988,7 +994,7 @@ function diff_mbit(bytes_new, bytes_old, pkts_new, pkts_old, nanos) {
 }
 
 function print_stats_diff(stats_new, stats_old, nanos) {
-  console.log(`all pkts got: ${pkt_count}`);
+  console.log(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] RX packet count: ${stats_new.pkts_rec} ; TX packet count: ${stats_new.pkts_sent}`);
   const rxMbits = diff_mbit(stats_new.rx_bytes, stats_old.rx_bytes,
     stats_new.rx_pkts, stats_old.rx_pkts, nanos);
   console.log(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] RX: ${rxMbits} Mbit/s ${diff_mpps(stats_new.rx_pkts, stats_old.rx_pkts, nanos)} Mpps`);
@@ -998,6 +1004,7 @@ function print_stats_diff(stats_new, stats_old, nanos) {
   console.log(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] So our actual rate is ${rxMbits * (1 - droprate)} Mbits/s`);
   console.log(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] TX: ${diff_mbit(stats_new.tx_bytes, stats_old.tx_bytes, stats_new.tx_pkts, stats_old.tx_pkts, nanos)} Mbit/s ${diff_mpps(stats_new.tx_pkts, stats_old.tx_pkts, nanos)} Mpps`);
   console.log(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] RX_pkts: ${stats_new.rx_pkts - stats_old.rx_pkts} ; TX_pkts: ${stats_new.tx_pkts - stats_old.tx_pkts}`);
+  console.log(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] RX packet difference: ${stats_new.pkts_rec-stats_old.pkts_rec} ; TX packet difference: ${stats_new.pkts_sent-stats_old.pkts_sent}`);
 
   console.log('----- ----- ----- -----');
 }
