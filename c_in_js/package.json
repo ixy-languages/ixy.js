@@ -5,6 +5,7 @@
   "main": "testapp.js",
   "scripts": {
     "start": "npm i && node-gyp configure build && node testapp.js",
+    "perf": "npm i && node-gyp configure build && 0x testapp.js",
     "all": "npm i --unsafe perm && sudo ./setup-hugetlbfs.sh && npm run start ",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -17,5 +18,9 @@
   },
   "author": "Sebastian Di Luzio <sebastian.di-luzio@tum.de>",
   "license": "MIT",
-  "devDependencies": {}
+  "devDependencies": {},
+  "dependencies": {
+    "0x": "^4.8.2",
+    "v8-profiler-node8": "^6.0.1"
+  }
 }

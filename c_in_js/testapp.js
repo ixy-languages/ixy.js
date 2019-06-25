@@ -1,5 +1,6 @@
-const addon = require('./build/Release/exported_module'); // eslint-disable-line import/no-unresolved
 const profiler = require('v8-profiler-node8');
+const fs = require('fs');
+const addon = require('./build/Release/exported_module'); // eslint-disable-line import/no-unresolved
 
 
 // check if little or big endian
@@ -978,12 +979,22 @@ function diff_mbit(bytes_new, bytes_old, pkts_new, pkts_old, nanos) {
   return (((bytes_new - bytes_old) / 1000000.0 / (nanos / 1000000000.0)) * 8
     + diff_mpps(pkts_new, pkts_old, nanos) * 20 * 8);
 }
-
-function print_stats_diff(stats_new, stats_old, nanos) {
 // v8 profiler stuff
-const snapshot = profiler.takeSnapshot();
-console.log(snapshot.getHeader());
+
+/*
+let profile;
+profiler.startProfiling('1', true);
+/**/ 
+// endof v8 profiler stuff
+function print_stats_diff(stats_new, stats_old, nanos) {
+  // v8 profiler stuff
+  /*
+  profile = profiler.stopProfiling('1');
+  console.log(JSON.stringify(profile, null, 2));
+    profile.delete(); 
+  profiler.startProfiling('1', true);
   
+  /**/
   // endof v8 profiler stuff
   const rxMbits = diff_mbit(stats_new.rx_bytes, stats_old.rx_bytes,
     stats_new.rx_pkts, stats_old.rx_pkts, nanos);
