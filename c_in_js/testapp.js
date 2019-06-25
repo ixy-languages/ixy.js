@@ -1,5 +1,5 @@
 const addon = require('./build/Release/exported_module'); // eslint-disable-line import/no-unresolved
-const profiler = require("v8-profiler");
+const profiler = require('v8-profiler-node8');
 
 
 // check if little or big endian

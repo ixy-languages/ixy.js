@@ -24,5 +24,8 @@
     "eslint-plugin-import": "^2.17.3",
     "eslint-plugin-jsx-a11y": "^6.2.1",
     "eslint-plugin-react": "^7.13.0"
+  },
+  "dependencies": {
+    "v8-profiler-node8": "^6.0.1"
   }
 }
