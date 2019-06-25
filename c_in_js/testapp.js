@@ -265,7 +265,7 @@ function init_rx(ixgbe_device) {
 
   // per-queue config, same for all queues
   for (let i = 0; i < num_of_queues; i++) {
-    console.log(`initializing rx queue ${i}`);
+    console.info(`initializing rx queue ${i}`);
     // enable advanced rx descriptors,
     // we could also get away with legacy descriptors, but they aren't really easier
     addon.set_reg_js(IXYDevice, defines.IXGBE_SRRCTL(i),
@@ -279,10 +279,8 @@ function init_rx(ixgbe_device) {
     // setup descriptor ring, see section 7.1.9
     const ring_size_bytes = defines.NUM_RX_QUEUE_ENTRIES * 16; // 128bit headers? -> 128/8 bytes
     const mem = {};
-    console.log('-----------cstart------------');
     mem.virt = addon.getDmaMem(ring_size_bytes, true);
     mem.phy = addon.virtToPhys(mem.virt);
-    console.log('-----------c--end------------');
     // neat trick from Snabb: initialize to 0xFF to prevent
     // rogue memory accesses on premature DMA activation
     const virtMemView = new DataView(mem.virt);
@@ -294,8 +292,8 @@ function init_rx(ixgbe_device) {
     addon.set_reg_js(IXYDevice, defines.IXGBE_RDBAL(i), PhysBeginning);
     addon.set_reg_js(IXYDevice, defines.IXGBE_RDBAH(i), PhysEnding);
     addon.set_reg_js(IXYDevice, defines.IXGBE_RDLEN(i), ring_size_bytes);
-    console.log(`rx ring ${i} phy addr: ${mem.phy}`);
-    console.log(`rx ring ${i} virt addr: ${mem.virt}`);
+    console.info(`rx ring ${i} phy addr: ${mem.phy}`);
+    console.info(`rx ring ${i} virt addr: ${mem.virt}`);
     // set ring to empty at start
     addon.set_reg_js(IXYDevice, defines.IXGBE_RDH(i), 0);
     addon.set_reg_js(IXYDevice, defines.IXGBE_RDT(i), 0);
@@ -410,9 +408,7 @@ function pkt_buf_alloc_batch_js(mempool, bufs, num_bufs) {
   }
   for (let i = 0; i < num_bufs; i++) {
     const entry_id = mempool.free_stack[--mempool.free_stack_top];
-    // console.log(`entry id: ${entry_id}, offset: ${entry_id * mempool.buf_size}
     // with buf_size of ${ mempool.buf_size }`);
-    // console.log(`phys addr in JS: ${addon.virtToPhys(mempool.base_addr)}`);
     const buf = getPktBuffer(mempool, entry_id, false);
     /*
     buf.mem = new DataView(mempool.base_addr, entry_id * mempool.buf_size, mempool.buf_size);
@@ -430,7 +426,7 @@ function pkt_buf_alloc_js(mempool) {
 }
 
 function start_rx_queue(ixgbe_device, queue_id) {
-  console.log(`starting rx queue ${queue_id}`);
+  console.info(`starting rx queue ${queue_id}`);
   const queue = ixgbe_device.rx_queues[queue_id];
   // 2048 as pktbuf size is strictly speaking incorrect:
   // we need a few headers (1 cacheline), so there's only 1984 bytes left for the device
@@ -467,12 +463,10 @@ function start_rx_queue(ixgbe_device, queue_id) {
   addon.set_reg_js(ixgbe_device.addr, defines.IXGBE_RDH(queue_id), 0);
   // was set to 0 before in the init function
   addon.set_reg_js(ixgbe_device.addr, defines.IXGBE_RDT(queue_id), queue.num_entries - 1);
-  console.log(`at start_rx_queue:\nRDT register: ${addon.get_reg_js(ixgbe_device.addr, defines.IXGBE_RDT(queue_id))}
-RDH register: ${addon.get_reg_js(ixgbe_device.addr, defines.IXGBE_RDH(queue_id))}`);
 }
 
 function start_tx_queue(dev, queue_id) {
-  console.log(`starting tx queue ${queue_id}`);
+  console.info(`starting tx queue ${queue_id}`);
   const queue = dev.tx_queues[queue_id];
   if (queue.num_entries & (queue.num_entries - 1)) {
     throw new Error('number of queue entries must be a power of 2');
@@ -532,7 +526,6 @@ function ixgbe_rx_batch(dev, queue_id, bufs, num_bufs) { // returns number
       last_rx_index = rx_index;
       rx_index = wrap_ring(rx_index, queue.num_entries);
     } else {
-      // console.log('status & defines.IXGBE_RXDADV_STAT_DD is FALSE');
       break;
     }
   }
@@ -567,15 +560,13 @@ function init_tx(dev) {
 
   // per-queue config for all queues
   for (let i = 0; i < dev.ixy.num_tx_queues; i++) {
-    console.log(`initializing tx queue ${i}`);
+    console.info(`initializing tx queue ${i}`);
 
     // setup descriptor ring, see section 7.1.9
     const ring_size_bytes = defines.NUM_TX_QUEUE_ENTRIES * 16; // 128bit headers? -> 128/8 bytes
     const mem = {};
-    console.log('-----------cstart------------');
     mem.virt = addon.getDmaMem(ring_size_bytes, true);
     mem.phy = addon.virtToPhys(mem.virt);
-    console.log('-----------c--end------------');
     // neat trick from Snabb: initialize to 0xFF to prevent
     // rogue memory accesses on premature DMA activation
     const virtMemView = new DataView(mem.virt);
@@ -687,7 +678,6 @@ function ixgbe_tx_batch(dev, queue_id, bufs, num_bufs) {
       // next descriptor to be cleaned up is one after the one we just cleaned
       clean_index = wrap_ring(cleanup_to, queue.num_entries);
     } else {
-      console.log('failed checking status, NIC should have set this...');
       // clean the whole batch or nothing; yes, this leaves some packets in
       // the queue forever if you stop transmitting, but that's not a real concern
       break;
@@ -700,7 +690,6 @@ function ixgbe_tx_batch(dev, queue_id, bufs, num_bufs) {
     const next_index = wrap_ring(cur_index, queue.num_entries);
     // we are full if the next index is the one we are trying to reclaim
     if (clean_index === next_index) {
-      console.error('tx send is full');
       break;
     }
     const buf = bufs[sent];
@@ -724,7 +713,6 @@ function ixgbe_tx_batch(dev, queue_id, bufs, num_bufs) {
     // you have to precalculate the pseudo - header checksum
     txd.memView.setUint32(12, buf.size << defines.IXGBE_ADVTXD_PAYLEN_SHIFT, littleEndian);
     cur_index = next_index;
-    // console.log(`sent ${cur_index}`);
   }
   // send out by advancing tail, i.e., pass control of the bufs to the nic
   // this seems like a textbook case for a release memory order,
@@ -752,12 +740,12 @@ function ixgbe_get_link_speed(dev) {
 }
 
 function printRXErrors(dev) {
-  console.log(`Error counter: ${addon.get_reg_js(dev.addr, defines.FCCRC)}`);
-  console.log(`CRC Error counter: ${addon.get_reg_js(dev.addr, defines.CRCERRS)}`);
-  console.log(`Illegal byte Error counter: ${addon.get_reg_js(dev.addr, defines.ILLERRC)}`);
-  console.log(`Error Byte counter: ${addon.get_reg_js(dev.addr, defines.ERRBC)}`);
+  console.info(`Error counter: ${addon.get_reg_js(dev.addr, defines.FCCRC)}`);
+  console.info(`CRC Error counter: ${addon.get_reg_js(dev.addr, defines.CRCERRS)}`);
+  console.info(`Illegal byte Error counter: ${addon.get_reg_js(dev.addr, defines.ILLERRC)}`);
+  console.info(`Error Byte counter: ${addon.get_reg_js(dev.addr, defines.ERRBC)}`);
   for (let i = 0; i < 8; i++) {
-    console.log(`Missed Packets Error counter(${i}): ${addon.get_reg_js(dev.addr, defines.RXMPC(i))}`);
+    console.info(`Missed Packets Error counter(${i}): ${addon.get_reg_js(dev.addr, defines.RXMPC(i))}`);
   }
 }
 
@@ -776,10 +764,10 @@ function ixgbe_read_stats(dev, stats) {
     rx_dropped_pkts += addon.get_reg_js(dev.addr,
       defines.RXMPC(i));//* (4294967296/* 2^32 aka. 32 bit number */ ** i); // ** is exponential
   }
-  // console.log(`${dev.ixy.pci_addr} stats:\nrx_pkts: ${rx_pkts} | tx_pkts: ${tx_pkts}
+  // console.info(`${dev.ixy.pci_addr} stats:\nrx_pkts: ${rx_pkts} | tx_pkts: ${tx_pkts}
   // | rx_bytes: ${ rx_bytes } | rx_bytes_first32bits: ${ rx_bytes_first32bits }
   // | tx_bytes: ${ tx_bytes } | tx_bytes_first32bits: ${ tx_bytes_first32bits }`);
-  // console.log(`link speed: ${ixgbe_device.ixy.get_link_speed(ixgbe_device)}`);
+  // console.info(`link speed: ${ixgbe_device.ixy.get_link_speed(ixgbe_device)}`);
   // printRXErrors(dev);
   if (stats) {
     stats.rx_pkts += rx_pkts;
@@ -788,7 +776,7 @@ function ixgbe_read_stats(dev, stats) {
     stats.tx_bytes += tx_bytes;
     stats.rx_dropped_pkts += rx_dropped_pkts;
     stats.pkts_sent = dev.pkts_sent,
-      stats.pkts_rec =dev.pkts_rec;
+    stats.pkts_rec = dev.pkts_rec;
     // print_stats(stats);
   }
 }
@@ -833,35 +821,34 @@ function init_link(dev) {
   // datasheet wants us to wait for the link here, but we can continue and wait afterwards
 }
 
-// console.log('running init_rx...');
 // init_rx(ixgbe_device); // we want to do this in the reset and init
 
 function ixgbe_set_promisc(dev, enabled) {
   if (enabled) {
-    console.log('enabling promisc mode');
+    console.info('enabling promisc mode');
     set_flags_js(dev.addr, defines.IXGBE_FCTRL, defines.IXGBE_FCTRL_MPE | defines.IXGBE_FCTRL_UPE);
   } else {
-    console.log('disabling promisc mode');
+    console.info('disabling promisc mode');
     clear_flags_js(dev.addr, defines.IXGBE_FCTRL, defines.IXGBE_FCTRL_MPE
       | defines.IXGBE_FCTRL_UPE);
   }
 }
 
 function wait_for_link(dev) {
-  console.log('Waiting for link...');
+  console.info('Waiting for link...');
   let max_wait = 1000; // 10 seconds in ms
   const poll_interval = 10; // 10 ms in ms
   while (!(dev.ixy.get_link_speed(dev)) && max_wait > 0) {
     wait(poll_interval);
     max_wait -= poll_interval;
   }
-  console.log(`Link speed is ${dev.ixy.get_link_speed(dev)} Mbit/s`);
+  console.info(`Link speed is ${dev.ixy.get_link_speed(dev)} Mbit/s`);
 }
 
 
 // see section 4.6.3
 function reset_and_init(dev) {
-  console.log(`Resetting device ${dev.ixy.pci_addr}`);
+  console.info(`Resetting device ${dev.ixy.pci_addr}`);
   // section 4.6.3.1 - disable all interrupts
   addon.set_reg_js(dev.addr, defines.IXGBE_EIMC, 0x7FFFFFFF);
 
@@ -872,7 +859,7 @@ function reset_and_init(dev) {
   // section 4.6.3.1 - disable interrupts again after reset
   addon.set_reg_js(dev.addr, defines.IXGBE_EIMC, 0x7FFFFFFF);
 
-  console.log(`Initializing device ${dev.ixy.pci_addr}`);
+  console.info(`Initializing device ${dev.ixy.pci_addr}`);
 
   // section 4.6.3 - Wait for EEPROM auto read completion
   wait_set_reg_js(dev.addr, defines.IXGBE_EEC, defines.IXGBE_EEC_ARD);
@@ -923,8 +910,6 @@ function forward(rx_dev, rx_queue, tx_dev, tx_queue) {
       bufs[i].mem.setUint8(6, val);
     }
     const num_tx = tx_dev.ixy.tx_batch(tx_dev, tx_queue, bufs, num_rx);
-    // console.log(`----num tx: ${num_tx}`);
-
     // there are two ways to handle the case that packets are not being sent out:
     // either wait on tx or drop them; in this case it's better to drop them,
     // otherwise we accumulate latency
@@ -965,8 +950,8 @@ function ixgbe_init(pci_addr, num_rx_queues, num_tx_queues) {
     phAddr: null,
     rx_queues: [],
     tx_queues: [],
-    pkts_sent:0,
-    pkts_rec:0,
+    pkts_sent: 0,
+    pkts_rec: 0,
   };
 
   ixgbe_dev.rx_queues = new Array(ixgbe_dev.ixy.num_rx_queues);
@@ -994,19 +979,19 @@ function diff_mbit(bytes_new, bytes_old, pkts_new, pkts_old, nanos) {
 }
 
 function print_stats_diff(stats_new, stats_old, nanos) {
-  console.log(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] RX packet count: ${stats_new.pkts_rec} ; TX packet count: ${stats_new.pkts_sent}`);
   const rxMbits = diff_mbit(stats_new.rx_bytes, stats_old.rx_bytes,
     stats_new.rx_pkts, stats_old.rx_pkts, nanos);
-  console.log(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] RX: ${rxMbits} Mbit/s ${diff_mpps(stats_new.rx_pkts, stats_old.rx_pkts, nanos)} Mpps`);
-  const droprate = (stats_new.rx_dropped_pkts - stats_old.rx_dropped_pkts)
+  const rxMpps = diff_mpps(stats_new.rx_pkts, stats_old.rx_pkts, nanos);
+  const recRate = (stats_new.pkts_rec - stats_old.pkts_rec)
     / (stats_new.rx_pkts - stats_old.rx_pkts);
-  console.log(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] Packages actually getting received: ${(1 - droprate) * 100}% ; droprate: ${droprate * 100}%`);
-  console.log(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] So our actual rate is ${rxMbits * (1 - droprate)} Mbits/s`);
-  console.log(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] TX: ${diff_mbit(stats_new.tx_bytes, stats_old.tx_bytes, stats_new.tx_pkts, stats_old.tx_pkts, nanos)} Mbit/s ${diff_mpps(stats_new.tx_pkts, stats_old.tx_pkts, nanos)} Mpps`);
-  console.log(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] RX_pkts: ${stats_new.rx_pkts - stats_old.rx_pkts} ; TX_pkts: ${stats_new.tx_pkts - stats_old.tx_pkts}`);
-  console.log(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] RX packet difference: ${stats_new.pkts_rec-stats_old.pkts_rec} ; TX packet difference: ${stats_new.pkts_sent-stats_old.pkts_sent}`);
-
-  console.log('----- ----- ----- -----');
+  console.info(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] RX: ${rxMbits * recRate} Mbits/s ${rxMpps * recRate} Mpps`);
+  console.info(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] TX: ${diff_mbit(stats_new.tx_bytes, stats_old.tx_bytes, stats_new.tx_pkts, stats_old.tx_pkts, nanos)} Mbit/s ${diff_mpps(stats_new.tx_pkts, stats_old.tx_pkts, nanos)} Mpps`);
+  console.info(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] RX packets : ${stats_new.pkts_rec - stats_old.pkts_rec}`);
+  console.info(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] TX packets : ${stats_new.pkts_sent - stats_old.pkts_sent}`);
+  console.info(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] according to NIC: RX: ${rxMbits} Mbit/s ${rxMpps} Mpps`);
+  console.info(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] according to NIC: RX_pkts: ${stats_new.rx_pkts - stats_old.rx_pkts} ; TX_pkts: ${stats_new.tx_pkts - stats_old.tx_pkts}`);
+  console.info(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] Packages actually getting received: ${recRate * 100}% ; droprate: ${(1 - recRate) * 100}%`);
+  console.info('----- ----- ----- -----');
 }
 const PKT_SIZE = 60;
 // /*
@@ -1062,7 +1047,11 @@ function init_mempool() {
     // TODO double check the offset because above
     // * (uint16_t *)(buf -> data + 24) = calc_ip_checksum(buf -> data + 14, 20);// TODO
     // TODO double check if this is doing what it's supposed to be doing
-    buf.mem.setUint32(24, calc_ip_checksum(buf.data, 20, 14), littleEndian);
+    const data = new Array(20);
+    for (let i = 0; i < 20; i++) {
+      data[i] = buf.mem.getUint8(i);
+    }
+    buf.mem.setUint32(24, calc_ip_checksum(data, 20, 14), littleEndian);
 
     bufs[buf_id] = buf;
   }
@@ -1344,7 +1333,7 @@ function forwardProgram(argc, argv) {
 }
 
 
-const programToRun = 0;
+const programToRun = 1;
 switch (programToRun) {
 case 0:
   forwardProgram(3, ['', pciAddr, pciAddr2]);
