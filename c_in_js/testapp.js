@@ -39,28 +39,32 @@ default:
 
 // we want to initialize rx queues, and change functions to the JS equivalent
 
-function get_reg_js(addr, reg) {
-  const dv = new DataView(addr);
-  return dv.getUint32(reg, littleEndian);
+function get_reg_js(dev, reg) {
+  const ret = dev.dataView.getUint32(reg, littleEndian);
+  const cRet = addon.get_reg_js(dev.addr, reg);
+  if (ret != cRet) { 
+    console.log(`we got ${ret} but C gave us ${cRet}`);
+  }
+  return dev.dataView.getUint32(reg, littleEndian);
 }
 
-function clear_flags_js(addr, reg, flags) {
-  addon.set_reg_js(addr, reg, get_reg_js(addr, reg) & ~flags);
+function clear_flags_js(dev, reg, flags) {
+  addon.set_reg_js(dev.addr, reg, get_reg_js(dev, reg) & ~flags);
 }
-function set_flags_js(addr, reg, flags) {
-  addon.set_reg_js(addr, reg, get_reg_js(addr, reg) | flags);
+function set_flags_js(dev, reg, flags) {
+  addon.set_reg_js(dev.addr, reg, get_reg_js(dev, reg) | flags);
 }
 
-function wait_set_reg_js(addr, reg, val) {
-  while ((get_reg_js(addr, reg) & val) !== val) {
-    addon.set_reg_js(addr, reg, val);
+function wait_set_reg_js(dev, reg, val) {
+  while ((get_reg_js(dev, reg) & val) !== val) {
+    addon.set_reg_js(dev.addr, reg, val);
     wait(100); // TODO change this to non blocking interval
   }
 }
 
-function wait_clear_reg_js(addr, reg, val) {
-  while ((get_reg_js(addr, reg) & val) !== 0) {
-    clear_flags_js(addr, reg, val);
+function wait_clear_reg_js(dev, reg, val) {
+  while ((get_reg_js(dev, reg) & val) !== 0) {
+    clear_flags_js(dev.addr, reg, val);
     wait(100); // TODO change this to non blocking interval
   }
 }
@@ -258,18 +262,18 @@ function init_rx(ixgbe_device) {
   // make sure that rx is disabled while re-configuring it
   // the datasheet also wants us to disable some crypto-offloading
   // related rx paths(but we don't care about them)
-  clear_flags_js(IXYDevice, defines.IXGBE_RXCTRL, defines.IXGBE_RXCTRL_RXEN);
+  clear_flags_js(ixgbe_device, defines.IXGBE_RXCTRL, defines.IXGBE_RXCTRL_RXEN);
   // no fancy dcb or vt, just a single 128kb packet buffer for us
   addon.set_reg_js(IXYDevice, defines.IXGBE_RXPBSIZE(0), defines.IXGBE_RXPBSIZE_128KB);
   for (let i = 1; i < 8; i++) {
     addon.set_reg_js(IXYDevice, defines.IXGBE_RXPBSIZE(i), 0);
   }
   // always enable CRC offloading
-  set_flags_js(IXYDevice, defines.IXGBE_HLREG0, defines.IXGBE_HLREG0_RXCRCSTRP);
-  set_flags_js(IXYDevice, defines.IXGBE_RDRXCTL, defines.IXGBE_RDRXCTL_CRCSTRIP);
+  set_flags_js(ixgbe_device, defines.IXGBE_HLREG0, defines.IXGBE_HLREG0_RXCRCSTRP);
+  set_flags_js(ixgbe_device, defines.IXGBE_RDRXCTL, defines.IXGBE_RDRXCTL_CRCSTRIP);
 
   // accept broadcast packets
-  set_flags_js(IXYDevice, defines.IXGBE_FCTRL, defines.IXGBE_FCTRL_BAM);
+  set_flags_js(ixgbe_device, defines.IXGBE_FCTRL, defines.IXGBE_FCTRL_BAM);
 
   // per-queue config, same for all queues
   for (let i = 0; i < num_of_queues; i++) {
@@ -277,13 +281,13 @@ function init_rx(ixgbe_device) {
     // enable advanced rx descriptors,
     // we could also get away with legacy descriptors, but they aren't really easier
     addon.set_reg_js(IXYDevice, defines.IXGBE_SRRCTL(i),
-      (get_reg_js(IXYDevice, defines.IXGBE_SRRCTL(i)) & ~defines.IXGBE_SRRCTL_DESCTYPE_MASK)
+      (get_reg_js(ixgbe_device, defines.IXGBE_SRRCTL(i)) & ~defines.IXGBE_SRRCTL_DESCTYPE_MASK)
       | defines.IXGBE_SRRCTL_DESCTYPE_ADV_ONEBUF);
     // drop_en causes the nic to drop packets if no rx descriptors are available
     // instead of buffering them
     // a single overflowing queue can fill up the whole buffer
     // and impact operations if not setting this flag
-    set_flags_js(IXYDevice, defines.IXGBE_SRRCTL(i), defines.IXGBE_SRRCTL_DROP_EN);
+    set_flags_js(ixgbe_device, defines.IXGBE_SRRCTL(i), defines.IXGBE_SRRCTL_DROP_EN);
     // setup descriptor ring, see section 7.1.9
     const ring_size_bytes = defines.NUM_RX_QUEUE_ENTRIES * 16; // 128bit headers? -> 128/8 bytes
     const mem = {};
@@ -316,16 +320,16 @@ function init_rx(ixgbe_device) {
   }
 
   // last step is to set some magic bits mentioned in the last sentence in 4.6.7
-  set_flags_js(IXYDevice, defines.IXGBE_CTRL_EXT, defines.IXGBE_CTRL_EXT_NS_DIS);
+  set_flags_js(ixgbe_device, defines.IXGBE_CTRL_EXT, defines.IXGBE_CTRL_EXT_NS_DIS);
   // this flag probably refers to a broken feature: it's reserved
   // and initialized as '1' but it must be set to '0'
   // there isn't even a constant in 'defines' for this flag
   for (let i = 0; i < num_of_queues; i++) {
-    clear_flags_js(IXYDevice, defines.IXGBE_DCA_RXCTRL(i), 1 << 12);
+    clear_flags_js(ixgbe_device, defines.IXGBE_DCA_RXCTRL(i), 1 << 12);
   }
 
   // start RX
-  set_flags_js(IXYDevice, defines.IXGBE_RXCTRL, defines.IXGBE_RXCTRL_RXEN);
+  set_flags_js(ixgbe_device, defines.IXGBE_RXCTRL, defines.IXGBE_RXCTRL_RXEN);
 }
 
 // create and read buffer methods
@@ -465,8 +469,8 @@ function start_rx_queue(ixgbe_device, queue_id) {
     queue.virtual_addresses[i] = buf;
   }
   // enable queue and wait if necessary
-  set_flags_js(ixgbe_device.addr, defines.IXGBE_RXDCTL(queue_id), defines.IXGBE_RXDCTL_ENABLE);
-  wait_set_reg_js(ixgbe_device.addr, defines.IXGBE_RXDCTL(queue_id), defines.IXGBE_RXDCTL_ENABLE);
+  set_flags_js(ixgbe_device, defines.IXGBE_RXDCTL(queue_id), defines.IXGBE_RXDCTL_ENABLE);
+  wait_set_reg_js(ixgbe_device, defines.IXGBE_RXDCTL(queue_id), defines.IXGBE_RXDCTL_ENABLE);
   // rx queue starts out full
   addon.set_reg_js(ixgbe_device.addr, defines.IXGBE_RDH(queue_id), 0);
   // was set to 0 before in the init function
@@ -483,8 +487,8 @@ function start_tx_queue(dev, queue_id) {
   addon.set_reg_js(dev.addr, defines.IXGBE_TDH(queue_id), 0);
   addon.set_reg_js(dev.addr, defines.IXGBE_TDT(queue_id), 0);
   // enable queue and wait if necessary
-  set_flags_js(dev.addr, defines.IXGBE_TXDCTL(queue_id), defines.IXGBE_TXDCTL_ENABLE);
-  wait_set_reg_js(dev.addr, defines.IXGBE_TXDCTL(queue_id), defines.IXGBE_TXDCTL_ENABLE);
+  set_flags_js(dev, defines.IXGBE_TXDCTL(queue_id), defines.IXGBE_TXDCTL_ENABLE);
+  wait_set_reg_js(dev, defines.IXGBE_TXDCTL(queue_id), defines.IXGBE_TXDCTL_ENABLE);
 }
 
 function wrap_ring(index, ring_size) {
@@ -553,7 +557,7 @@ function ixgbe_rx_batch(dev, queue_id, bufs, num_bufs) { // returns number
 // see section 4.6.8
 function init_tx(dev) {
   // crc offload and small packet padding
-  set_flags_js(dev.addr, defines.IXGBE_HLREG0, defines.IXGBE_HLREG0_TXCRCEN
+  set_flags_js(dev, defines.IXGBE_HLREG0, defines.IXGBE_HLREG0_TXCRCEN
     | defines.IXGBE_HLREG0_TXPADEN);
 
   // set default buffer size allocations
@@ -564,7 +568,7 @@ function init_tx(dev) {
   }
   // required when not using DCB/VTd
   addon.set_reg_js(dev.addr, defines.IXGBE_DTXMXSZRQ, 0xFFFF);
-  clear_flags_js(dev.addr, defines.IXGBE_RTTDCS, defines.IXGBE_RTTDCS_ARBDIS);
+  clear_flags_js(dev, defines.IXGBE_RTTDCS, defines.IXGBE_RTTDCS_ARBDIS);
 
   // per-queue config for all queues
   for (let i = 0; i < dev.ixy.num_tx_queues; i++) {
@@ -592,7 +596,7 @@ function init_tx(dev) {
     // see 7.2.3.4.1 and 7.2.3.5 for an explanation of these values and how to find good ones
     // we just use the defaults from DPDK here,
     // but this is a potentially interesting point for optimizations
-    let txdctl = get_reg_js(dev.addr, defines.IXGBE_TXDCTL(i));
+    let txdctl = get_reg_js(dev, defines.IXGBE_TXDCTL(i));
     // there are no defines for this in ixgbe_type.h for some reason
     // pthresh: 6:0, hthresh: 14:8, wthresh: 22:16
     txdctl &= ~(0x3F | (0x3F << 8) | (0x3F << 16)); // clear bits
@@ -731,7 +735,7 @@ function ixgbe_tx_batch(dev, queue_id, bufs, num_bufs) {
 }
 
 function ixgbe_get_link_speed(dev) {
-  const links = get_reg_js(dev.addr, defines.IXGBE_LINKS);
+  const links = get_reg_js(dev, defines.IXGBE_LINKS);
   if (!(links & defines.IXGBE_LINKS_UP)) {
     return 0;
   }
@@ -761,15 +765,15 @@ function printRXErrors(dev) {
 // stats may be NULL to just reset the counters
 function ixgbe_read_stats(dev, stats) {
   // const dev = IXY_TO_IXGBE(ixy); // do we want to do this?
-  const rx_pkts = get_reg_js(dev.addr, defines.IXGBE_GPRC);
-  const tx_pkts = get_reg_js(dev.addr, defines.IXGBE_GPTC);
-  const rx_bytes = get_reg_js(dev.addr, defines.IXGBE_GORCL);
+  const rx_pkts = get_reg_js(dev, defines.IXGBE_GPRC);
+  const tx_pkts = get_reg_js(dev, defines.IXGBE_GPTC);
+  const rx_bytes = get_reg_js(dev, defines.IXGBE_GORCL);
   // const rx_bytes_first32bits = get_reg_js(dev.addr, defines.IXGBE_GORCH);
-  const tx_bytes = get_reg_js(dev.addr, defines.IXGBE_GOTCL);
+  const tx_bytes = get_reg_js(dev, defines.IXGBE_GOTCL);
   // const tx_bytes_first32bits = get_reg_js(dev.addr, defines.IXGBE_GOTCH);
   let rx_dropped_pkts = 0;
   for (let i = 0; i < 2/* 8 */; i++) { // we can only have 64bit numbers anyways
-    rx_dropped_pkts += get_reg_js(dev.addr,
+    rx_dropped_pkts += get_reg_js(dev,
       defines.RXMPC(i));//* (4294967296/* 2^32 aka. 32 bit number */ ** i); // ** is exponential
   }
   // console.info(`${dev.ixy.pci_addr} stats:\nrx_pkts: ${rx_pkts} | tx_pkts: ${tx_pkts}
@@ -818,13 +822,13 @@ function init_link(dev) {
   // should already be set by the eeprom config,
   // maybe we shouldn't override it here to support weirdo nics?
   addon.set_reg_js(dev.addr, defines.IXGBE_AUTOC,
-    (get_reg_js(dev.addr, defines.IXGBE_AUTOC) & ~defines.IXGBE_AUTOC_LMS_MASK)
+    (get_reg_js(dev, defines.IXGBE_AUTOC) & ~defines.IXGBE_AUTOC_LMS_MASK)
     | defines.IXGBE_AUTOC_LMS_10G_SERIAL);
   addon.set_reg_js(dev.addr, defines.IXGBE_AUTOC,
-    (get_reg_js(dev.addr, defines.IXGBE_AUTOC) & ~defines.IXGBE_AUTOC_10G_PMA_PMD_MASK)
+    (get_reg_js(dev, defines.IXGBE_AUTOC) & ~defines.IXGBE_AUTOC_10G_PMA_PMD_MASK)
     | defines.IXGBE_AUTOC_10G_XAUI);
   // negotiate link
-  set_flags_js(dev.addr, defines.IXGBE_AUTOC, defines.IXGBE_AUTOC_AN_RESTART);
+  set_flags_js(dev, defines.IXGBE_AUTOC, defines.IXGBE_AUTOC_AN_RESTART);
   // datasheet wants us to wait for the link here, but we can continue and wait afterwards
 }
 
@@ -833,10 +837,10 @@ function init_link(dev) {
 function ixgbe_set_promisc(dev, enabled) {
   if (enabled) {
     console.info('enabling promisc mode');
-    set_flags_js(dev.addr, defines.IXGBE_FCTRL, defines.IXGBE_FCTRL_MPE | defines.IXGBE_FCTRL_UPE);
+    set_flags_js(dev, defines.IXGBE_FCTRL, defines.IXGBE_FCTRL_MPE | defines.IXGBE_FCTRL_UPE);
   } else {
     console.info('disabling promisc mode');
-    clear_flags_js(dev.addr, defines.IXGBE_FCTRL, defines.IXGBE_FCTRL_MPE
+    clear_flags_js(dev, defines.IXGBE_FCTRL, defines.IXGBE_FCTRL_MPE
       | defines.IXGBE_FCTRL_UPE);
   }
 }
@@ -861,7 +865,7 @@ function reset_and_init(dev) {
 
   // section 4.6.3.2
   addon.set_reg_js(dev.addr, defines.IXGBE_CTRL, defines.IXGBE_CTRL_RST_MASK);
-  wait_clear_reg_js(dev.addr, defines.IXGBE_CTRL, defines.IXGBE_CTRL_RST_MASK);
+  wait_clear_reg_js(dev, defines.IXGBE_CTRL, defines.IXGBE_CTRL_RST_MASK);
   wait(100); // why do we do this?
   // section 4.6.3.1 - disable interrupts again after reset
   addon.set_reg_js(dev.addr, defines.IXGBE_EIMC, 0x7FFFFFFF);
@@ -869,10 +873,10 @@ function reset_and_init(dev) {
   console.info(`Initializing device ${dev.ixy.pci_addr}`);
 
   // section 4.6.3 - Wait for EEPROM auto read completion
-  wait_set_reg_js(dev.addr, defines.IXGBE_EEC, defines.IXGBE_EEC_ARD);
+  wait_set_reg_js(dev, defines.IXGBE_EEC, defines.IXGBE_EEC_ARD);
 
   // section 4.6.3 - Wait for DMA initialization done (RDRXCTL.DMAIDONE)
-  wait_set_reg_js(dev.addr, defines.IXGBE_RDRXCTL, defines.IXGBE_RDRXCTL_DMAIDONE);
+  wait_set_reg_js(dev, defines.IXGBE_RDRXCTL, defines.IXGBE_RDRXCTL_DMAIDONE);
 
   // section 4.6.4 - initialize link (auto negotiation)
   init_link(dev);
@@ -966,9 +970,8 @@ function ixgbe_init(pci_addr, num_rx_queues, num_tx_queues) {
 
   // get IXY memory
   ixgbe_dev.addr = addon.getIXYAddr(ixgbe_dev.ixy.pci_addr);
-  const IXYDev = ixgbe_dev.addr;
   // create a View on the IXY memory, which is RO
-  ixgbe_dev.dataView = new DataView(IXYDev);
+  ixgbe_dev.dataView = new DataView(ixgbe_dev.addr);
 
   reset_and_init(ixgbe_dev);
   return ixgbe_dev;
@@ -1355,7 +1358,7 @@ function forwardProgram(argc, argv) {
 }
 
 
-const programToRun = 0;
+const programToRun = 1;
 switch (programToRun) {
 case 0:
   forwardProgram(3, ['', pciAddr, pciAddr2]);
