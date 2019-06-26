@@ -37,15 +37,21 @@ default:
   pciAddr2 = null;
 }
 
-// we want to initialize rx queues, and change functions to the JS equivalent
-
 function get_reg_js(dev, reg) {
+  /*
+  // first dv.get then c seems to break c as well, dv and c seem to differ at times, but not always...
   const ret = dev.dataView.getUint32(reg, littleEndian);
   const cRet = addon.get_reg_js(dev.addr, reg);
-  if (ret != cRet) { 
-    console.log(`we got ${ret} but C gave us ${cRet}`);
+
+  if (ret != cRet) {
+    console.log(`---------------------------------------------------------------we got ${ret} but C gave us ${cRet}`);
+    return cRet;
   }
-  return dev.dataView.getUint32(reg, littleEndian);
+  console.log(`C and JS agree: ${ret}`);
+  return ret;
+  */
+
+  return addon.get_reg_js(dev.addr, reg);
 }
 
 function clear_flags_js(dev, reg, flags) {
@@ -162,6 +168,40 @@ const defines = {
 
 
 };
+class RxDescriptor {
+  constructor(virtMem, index = 0) {
+    this.memView = new DataView(virtMem, index * 16, 16);
+  }
+
+  pkt_addr() { return this.memView.getBigUint64(0, littleEndian); }
+
+  hdr_addr() { return this.memView.getBigUint64(8, littleEndian); }
+
+  lower() {
+    return {
+      lo_dword: {
+        data: () => this.memView.getUint32(0, littleEndian),
+        hs_rss: {
+          pkt_info: () => this.memView.getUint16(0, littleEndian),
+          hdr_info: () => this.memView.getUint16(2, littleEndian),
+        },
+      },
+      hi_dword: {
+        rss: () => this.memView.getUint32(4, littleEndian),
+        ip_id: () => this.memView.getUint16(4, littleEndian),
+        csum: () => this.memView.getUint16(6, littleEndian),
+      },
+    };
+  }
+
+  upper() {
+    return {
+      status_error: () => this.memView.getUint32(8, littleEndian),
+      length: () => this.memView.getUint16(12, littleEndian),
+      vlan: () => this.memView.getUint16(14, littleEndian),
+    };
+  }
+}
 
 const getRxDescriptorFromVirt = (virtMem, index = 0) => {
   const descriptor = {};
@@ -203,23 +243,23 @@ union ixgbe_adv_rx_desc {
   } wb; // writeback
 };
   */
-  descriptor.pkt_addr = dataView.getBigUint64(0, littleEndian);
-  descriptor.hdr_addr = dataView.getBigUint64(8, littleEndian);
+  descriptor.memView = dataView;
+  descriptor.pkt_addr = () => descriptor.memView.getBigUint64(0, littleEndian);
+  descriptor.hdr_addr = () => descriptor.memView.getBigUint64(8, littleEndian);
   descriptor.lower = {};
   descriptor.lower.lo_dword = {};
-  descriptor.lower.lo_dword.data = dataView.getUint32(0, littleEndian);
+  descriptor.lower.lo_dword.data = () => descriptor.memView.getUint32(0, littleEndian);
   descriptor.lower.lo_dword.hs_rss = {};
-  descriptor.lower.lo_dword.hs_rss.pkt_info = dataView.getUint16(0, littleEndian);
-  descriptor.lower.lo_dword.hs_rss.hdr_info = dataView.getUint16(2, littleEndian);
+  descriptor.lower.lo_dword.hs_rss.pkt_info = () => descriptor.memView.getUint16(0, littleEndian);
+  descriptor.lower.lo_dword.hs_rss.hdr_info = () => descriptor.memView.getUint16(2, littleEndian);
   descriptor.lower.hi_dword = {};
-  descriptor.lower.hi_dword.rss = dataView.getUint32(4, littleEndian);
-  descriptor.lower.hi_dword.ip_id = dataView.getUint16(4, littleEndian);
-  descriptor.lower.hi_dword.csum = dataView.getUint16(6, littleEndian);
+  descriptor.lower.hi_dword.rss = () => descriptor.memView.getUint32(4, littleEndian);
+  descriptor.lower.hi_dword.ip_id = () => descriptor.memView.getUint16(4, littleEndian);
+  descriptor.lower.hi_dword.csum = () => descriptor.memView.getUint16(6, littleEndian);
   descriptor.upper = {};
-  descriptor.upper.status_error = dataView.getUint32(8, littleEndian);
-  descriptor.upper.length = dataView.getUint16(12, littleEndian);
-  descriptor.upper.vlan = dataView.getUint16(14, littleEndian);
-  descriptor.memView = dataView;
+  descriptor.upper.status_error = () => descriptor.memView.getUint32(8, littleEndian);
+  descriptor.upper.length = () => descriptor.memView.getUint16(12, littleEndian);
+  descriptor.upper.vlan = () => descriptor.memView.getUint16(14, littleEndian);
   return descriptor;
 };
 
@@ -412,7 +452,7 @@ function memory_allocate_mempool_js(num_entries, entry_size) {
   }
   return mempool;
 }
-// another function to port
+
 function pkt_buf_alloc_batch_js(mempool, bufs, num_bufs) {
   if (mempool.free_stack_top < num_bufs) {
     console.warn(`memory pool ${mempool} only has ${mempool.free_stack_top} free bufs, requested ${num_bufs}`);
@@ -420,12 +460,7 @@ function pkt_buf_alloc_batch_js(mempool, bufs, num_bufs) {
   }
   for (let i = 0; i < num_bufs; i++) {
     const entry_id = mempool.free_stack[--mempool.free_stack_top];
-    // with buf_size of ${ mempool.buf_size }`);
     const buf = getPktBuffer(mempool, entry_id, false);
-    /*
-    buf.mem = new DataView(mempool.base_addr, entry_id * mempool.buf_size, mempool.buf_size);
-    buf.buf_addr_phy = addon.dataviewToPhys(buf.mem);
-    */
     bufs[i] = buf;
   }
   return bufs;
@@ -1358,7 +1393,7 @@ function forwardProgram(argc, argv) {
 }
 
 
-const programToRun = 1;
+const programToRun = 0;
 switch (programToRun) {
 case 0:
   forwardProgram(3, ['', pciAddr, pciAddr2]);
