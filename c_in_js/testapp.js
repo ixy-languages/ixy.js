@@ -202,98 +202,6 @@ class RxDescriptor {
     };
   }
 }
-
-const getRxDescriptorFromVirt = (virtMem, index = 0) => {
-  const descriptor = {};
-  const dataView = new DataView(virtMem, index * 16, 16);
-  /* ixgbe_adv_rx_desc:
-union ixgbe_adv_rx_desc {
-  struct
-  {
-    __le64 pkt_addr; // Packet buffer address
-    __le64 hdr_addr; // Header buffer address
-  } read;
-  struct
-  {
-    struct
-    {
-      union {
-        __le32 data;
-        struct
-        {
-          __le16 pkt_info; // RSS, Pkt type
-          __le16 hdr_info; // Splithdr, hdrlen
-        } hs_rss;
-      } lo_dword;
-      union {
-        __le32 rss; // RSS Hash
-        struct
-        {
-          __le16 ip_id; // IP id
-          __le16 csum;  // Packet Checksum
-        } csum_ip;
-      } hi_dword;
-    } lower;
-    struct
-    {
-      __le32 status_error; // ext status/error
-      __le16 length;       // Packet length
-      __le16 vlan;         // VLAN tag
-    } upper;
-  } wb; // writeback
-};
-  */
-  descriptor.memView = dataView;
-  descriptor.pkt_addr = () => descriptor.memView.getBigUint64(0, littleEndian);
-  descriptor.hdr_addr = () => descriptor.memView.getBigUint64(8, littleEndian);
-  descriptor.lower = {};
-  descriptor.lower.lo_dword = {};
-  descriptor.lower.lo_dword.data = () => descriptor.memView.getUint32(0, littleEndian);
-  descriptor.lower.lo_dword.hs_rss = {};
-  descriptor.lower.lo_dword.hs_rss.pkt_info = () => descriptor.memView.getUint16(0, littleEndian);
-  descriptor.lower.lo_dword.hs_rss.hdr_info = () => descriptor.memView.getUint16(2, littleEndian);
-  descriptor.lower.hi_dword = {};
-  descriptor.lower.hi_dword.rss = () => descriptor.memView.getUint32(4, littleEndian);
-  descriptor.lower.hi_dword.ip_id = () => descriptor.memView.getUint16(4, littleEndian);
-  descriptor.lower.hi_dword.csum = () => descriptor.memView.getUint16(6, littleEndian);
-  descriptor.upper = {};
-  descriptor.upper.status_error = () => descriptor.memView.getUint32(8, littleEndian);
-  descriptor.upper.length = () => descriptor.memView.getUint16(12, littleEndian);
-  descriptor.upper.vlan = () => descriptor.memView.getUint16(14, littleEndian);
-  return descriptor;
-};
-
-function getTxDescriptorFromVirt(virtMem, index = 0) {
-  const descriptor = {};
-  const dataView = new DataView(virtMem, index * 16, 16);
-  /*
-  // Transmit Descriptor - Advanced
-  union ixgbe_adv_tx_desc {
-    struct {
-      __le64 buffer_addr; // Address of descriptor's data buf
-      __le32 cmd_type_len;
-      __le32 olinfo_status;
-    } read;
-    struct {
-      __le64 rsvd; // Reserved
-      __le32 nxtseq_seed;
-      __le32 status;
-    } wb;
-  };
-  */
-  descriptor.read = {};
-  descriptor.read.buffer_addr = dataView.getBigUint64(0, littleEndian);
-  descriptor.read.cmd_type_len = dataView.getUint32(8, littleEndian);
-  descriptor.read.olinfo_status = dataView.getUint32(12, littleEndian);
-  descriptor.wb = {};
-  descriptor.wb.rsvd = dataView.getBigUint64(0, littleEndian);
-  descriptor.wb.nxtseq_seed = dataView.getUint32(8, littleEndian);
-  descriptor.wb.status = dataView.getUint32(12, littleEndian);
-
-  descriptor.memView = dataView;
-  return descriptor;
-}
-
 class TxDescriptor {
   constructor(virtMem, index = 0) {
     this.memView = new DataView(virtMem, index * 16, 16);
@@ -306,7 +214,7 @@ class TxDescriptor {
       olinfo_status: () => this.memView.getUint32(12, littleEndian),
     };
   }
-  
+
 
   wb() {
     return {
@@ -733,9 +641,9 @@ function ixgbe_tx_batch(dev, queue_id, bufs, num_bufs) {
     if (cleanup_to >= queue.num_entries) {
       cleanup_to -= queue.num_entries;
     }
-    const txd = getTxDescriptorFromVirt(queue.descriptors, cleanup_to);
+    const txd = new TxDescriptor(queue.descriptors, cleanup_to);
 
-    const { status } = txd.wb;
+    const status = txd.wb().status();
     // hardware sets this flag as soon as it's sent out,
     // we can give back all bufs in the batch back to the mempool
     if (status & defines.IXGBE_ADVTXD_STAT_DD) {
@@ -769,7 +677,7 @@ function ixgbe_tx_batch(dev, queue_id, bufs, num_bufs) {
     // remember virtual address to clean it up later
     queue.virtual_addresses[cur_index] = buf;
     queue.tx_index = wrap_ring(queue.tx_index, queue.num_entries);
-    const txd = getTxDescriptorFromVirt(queue.descriptors, cur_index);
+    const txd = new TxDescriptor(queue.descriptors, cur_index);
 
     // NIC reads from here
     txd.memView.setBigUint64(0, buf.buf_addr_phy, littleEndian);
