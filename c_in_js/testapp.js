@@ -493,7 +493,6 @@ function start_rx_queue(ixgbe_device, queue_id) {
     if (!buf) {
       throw new Error('failed to allocate rx descriptor');
     }
-    // missing the offset value of this, would it be 64 bytes?
     // set pkt addr
     rxd.memView.setBigUint64(0, buf.buf_addr_phy, littleEndian);
     // set hdr addr
@@ -544,14 +543,14 @@ function ixgbe_rx_batch(dev, queue_id, bufs, num_bufs) { // returns number
   for (buf_index = 0; buf_index < num_bufs; buf_index++) {
     // rx descriptors are explained in 7.1.5
     const desc_ptr = getRxDescriptorFromVirt(queue.descriptors, rx_index);
-    const status = desc_ptr.upper.status_error;
+    const status = desc_ptr.upper.status_error();
     if (status & defines.IXGBE_RXDADV_STAT_DD) {
       if (!(status & defines.IXGBE_RXDADV_STAT_EOP)) {
         throw new Error('multi-segment packets are not supported - increase buffer size or decrease MTU');
       }
       // got a packet, read and copy the whole descriptor
       const buf = queue.virtual_addresses[rx_index];
-      buf.size = desc_ptr.upper.length;
+      buf.size = desc_ptr.upper.length();
       // this would be the place to implement RX offloading by translating the device-specific flags
       // to an independent representation in the buf (similiar to how DPDK works)
       // need a new mbuf for the descriptor
