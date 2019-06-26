@@ -264,6 +264,8 @@ union ixgbe_adv_rx_desc {
 };
 
 function getTxDescriptorFromVirt(virtMem, index = 0) {
+  const descriptor = {};
+  const dataView = new DataView(virtMem, index * 16, 16);
   /*
   // Transmit Descriptor - Advanced
   union ixgbe_adv_tx_desc {
@@ -279,8 +281,6 @@ function getTxDescriptorFromVirt(virtMem, index = 0) {
     } wb;
   };
   */
-  const descriptor = {};
-  const dataView = new DataView(virtMem, index * 16, 16);
   descriptor.read = {};
   descriptor.read.buffer_addr = dataView.getBigUint64(0, littleEndian);
   descriptor.read.cmd_type_len = dataView.getUint32(8, littleEndian);
@@ -293,6 +293,31 @@ function getTxDescriptorFromVirt(virtMem, index = 0) {
   descriptor.memView = dataView;
   return descriptor;
 }
+
+class TxDescriptor {
+  constructor(virtMem, index = 0) {
+    this.memView = new DataView(virtMem, index * 16, 16);
+  }
+
+  read() {
+    return {
+      buffer_addr: () => this.memView.getBigUint64(0, littleEndian),
+      cmd_type_len: () => this.memView.getUint32(8, littleEndian),
+      olinfo_status: () => this.memView.getUint32(12, littleEndian),
+    };
+  }
+  
+
+  wb() {
+    return {
+      rsvd: () => this.memView.getBigUint64(0, littleEndian),
+      nxtseq_seed: () => this.memView.getUint32(8, littleEndian),
+      status: () => this.memView.getUint32(12, littleEndian),
+    };
+  }
+}
+
+
 // see section 4.6.7
 // it looks quite complicated in the data sheet, but it's actually
 // really easy because we don't need fancy features
