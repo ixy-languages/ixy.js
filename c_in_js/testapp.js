@@ -175,10 +175,6 @@ function init_rx(ixgbe_device) {
     mem.phy = addon.virtToPhys(mem.virt);
     // neat trick from Snabb: initialize to 0xFF to prevent
     // rogue memory accesses on premature DMA activation
-    /*const virtMemView = new DataView(mem.virt);
-    for (let count = 0; count < ring_size_bytes; count++) {
-      virtMemView.setBigUint64(count / 8, BigInt(0xFFFFFFFFFFFFFFFF), littleEndian);
-    } */
     const virtMemView = new Uint32Array(mem.virt);
     for (let count = 0; count < ring_size_bytes; count++) {
       virtMemView[count / 4] = 0xFFFFFFFF;
@@ -463,10 +459,6 @@ function init_tx(dev) {
     mem.phy = addon.virtToPhys(mem.virt);
     // neat trick from Snabb: initialize to 0xFF to prevent
     // rogue memory accesses on premature DMA activation
-    /*const virtMemView = new DataView(mem.virt);
-    for (let count = 0; count < ring_size_bytes; count++) {
-      virtMemView.setBigUint64(count / 8, BigInt(0xFFFFFFFFFFFFFFFF), littleEndian);
-    } */
     const virtMemView = new Uint32Array(mem.virt);
     for (let count = 0; count < ring_size_bytes; count++) {
       virtMemView[count / 4] = 0xFFFFFFFF;
