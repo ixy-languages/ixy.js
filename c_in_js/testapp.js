@@ -195,7 +195,7 @@ function init_rx(ixgbe_device) {
     const queue = {
       num_entries: defines.NUM_RX_QUEUE_ENTRIES,
       rx_index: 0,
-      descriptors: mem.virt,
+      descriptors: new DataView(mem.virt),
       virtual_addresses: new Array(defines.NUM_RX_QUEUE_ENTRIES),
     };
     ixgbe_device.rx_queues[i] = queue;
@@ -339,9 +339,9 @@ function start_rx_queue(ixgbe_device, queue_id) {
       throw new Error('failed to allocate rx descriptor');
     }
     // set pkt addr
-    rxd.memView.setBigUint64(0, buf.buf_addr_phy, littleEndian);
+    rxd.memView.setBigUint64(0 + rxd.offset, buf.buf_addr_phy, littleEndian);
     // set hdr addr
-    rxd.memView.setBigUint64(8, BigInt(0)/* 0n */, littleEndian); // TODO rewrite to 1n syntax before running, but keep at BigInt(1) syntax because otherwise eslint will not work
+    rxd.memView.setBigUint64(8 + rxd.offset, BigInt(0)/* 0n */, littleEndian); // TODO rewrite to 1n syntax before running, but keep at BigInt(1) syntax because otherwise eslint will not work
 
     // we need to return the virtual address in the rx function
     // which the descriptor doesn't know by default
@@ -407,9 +407,9 @@ function ixgbe_rx_batch(dev, queue_id, bufs, num_bufs) { // returns number
         throw new Error('failed to allocate new mbuf for rx, you are either leaking memory or your mempool is too small');
       }
       // reset the descriptor
-      desc_ptr.memView.setBigUint64(0, new_buf.buf_addr_phy, littleEndian);
+      desc_ptr.memView.setBigUint64(0 + desc_ptr.offset, new_buf.buf_addr_phy, littleEndian);
       // this resets the flags
-      desc_ptr.memView.setBigUint64(8, BigInt(0)/* 0n */, littleEndian); // TODO rewrite to 1n syntax before running, but keep at BigInt(1) syntax because otherwise eslint will not work
+      desc_ptr.memView.setBigUint64(8 + desc_ptr.offset, BigInt(0)/* 0n */, littleEndian); // TODO rewrite to 1n syntax before running, but keep at BigInt(1) syntax because otherwise eslint will not work
       queue.virtual_addresses[rx_index] = new_buf;
       bufs[buf_index] = buf;
       // want to read the next one in the next iteration,
@@ -485,7 +485,7 @@ function init_tx(dev) {
     // private data for the driver, 0-initialized
     const queue = {
       num_entries: defines.NUM_TX_QUEUE_ENTRIES,
-      descriptors: mem.virt,
+      descriptors: new DataView(mem.virt),
       // position to clean up descriptors that where sent out by the nic
       clean_index: 0,
       // position to insert packets for transmission
@@ -590,10 +590,10 @@ function ixgbe_tx_batch(dev, queue_id, bufs, num_bufs) {
     const txd = new TxDescriptor(queue.descriptors, cur_index);
 
     // NIC reads from here
-    txd.memView.setBigUint64(0, buf.buf_addr_phy, littleEndian);
+    txd.memView.setBigUint64(0 + txd.offset, buf.buf_addr_phy, littleEndian);
 
     // always the same flags: one buffer (EOP), advanced data descriptor, CRC offload, data length
-    txd.memView.setUint32(8, (defines.IXGBE_ADVTXD_DCMD_EOP | defines.IXGBE_ADVTXD_DCMD_RS
+    txd.memView.setUint32(8 + txd.offset, (defines.IXGBE_ADVTXD_DCMD_EOP | defines.IXGBE_ADVTXD_DCMD_RS
       | defines.IXGBE_ADVTXD_DCMD_IFCS | defines.IXGBE_ADVTXD_DCMD_DEXT
       | defines.IXGBE_ADVTXD_DTYP_DATA | buf.size), littleEndian);
 
@@ -602,7 +602,7 @@ function ixgbe_tx_batch(dev, queue_id, bufs, num_bufs) {
     // * ip checksum offloading is trivial: just set the offset
     // * tcp/udp checksum offloading is more annoying,
     // you have to precalculate the pseudo - header checksum
-    txd.memView.setUint32(12, buf.size << defines.IXGBE_ADVTXD_PAYLEN_SHIFT, littleEndian);
+    txd.memView.setUint32(12 + txd.offset, buf.size << defines.IXGBE_ADVTXD_PAYLEN_SHIFT, littleEndian);
     cur_index = next_index;
   }
   // send out by advancing tail, i.e., pass control of the bufs to the nic
