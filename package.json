@@ -5,7 +5,8 @@
   "main": "testapp.js",
   "scripts": {
     "start": "npm i && node-gyp configure build && node testapp.js",
-    "perf": "npm i && node-gyp configure build && 0x testapp.js",
+    "perf": "npm i && node-gyp configure build && 0x testapp.js -D flamegraphs/{timestamp}",
+    "perfk": "npm i && node-gyp configure build && 0x testapp.js -D flamegraphs/{timestamp} --kernel-tracing",
     "all": "npm i --unsafe perm && sudo ./setup-hugetlbfs.sh && npm run start ",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -27,7 +28,6 @@
     "eslint-plugin-react": "^7.13.0"
   },
   "dependencies": {
-    "0x": "^4.8.2",
-    "v8-profiler-node8": "^6.0.1"
+    "0x": "^4.8.2"
   }
 }
