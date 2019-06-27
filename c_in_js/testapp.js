@@ -180,7 +180,7 @@ function init_rx(ixgbe_device) {
       virtMemView[count / 4] = 0xFFFFFFFF;
     }
     const PhysBeginning = Number(mem.phy) & 0xFFFFFFFF;
-    const PhysEnding = Number(mem.phy >> BigInt(32));
+    const PhysEnding = Number(mem.phy >> 32n);
     addon.set_reg_js(IXYDevice, defines.IXGBE_RDBAL(i), PhysBeginning);
     addon.set_reg_js(IXYDevice, defines.IXGBE_RDBAH(i), PhysEnding);
     addon.set_reg_js(IXYDevice, defines.IXGBE_RDLEN(i), ring_size_bytes);
@@ -339,7 +339,7 @@ function start_rx_queue(ixgbe_device, queue_id) {
     // set pkt addr
     rxd.memView.setBigUint64(0, buf.buf_addr_phy, littleEndian);
     // set hdr addr
-    rxd.memView.setBigUint64(8, BigInt(0), littleEndian);
+    rxd.memView.setBigUint64(8, 0n, littleEndian);
 
     // we need to return the virtual address in the rx function
     // which the descriptor doesn't know by default
@@ -407,7 +407,7 @@ function ixgbe_rx_batch(dev, queue_id, bufs, num_bufs) { // returns number
       // reset the descriptor
       desc_ptr.memView.setBigUint64(0, new_buf.buf_addr_phy, littleEndian);
       // this resets the flags
-      desc_ptr.memView.setBigUint64(8, BigInt(0), littleEndian);
+      desc_ptr.memView.setBigUint64(8, 0n, littleEndian);
 
       queue.virtual_addresses[rx_index] = new_buf;
       bufs[buf_index] = buf;
@@ -464,7 +464,7 @@ function init_tx(dev) {
       virtMemView[count / 4] = 0xFFFFFFFF;
     }
     const PhysBeginning = Number(mem.phy) & 0xFFFFFFFF;
-    const PhysEnding = Number(mem.phy >> BigInt(32));
+    const PhysEnding = Number(mem.phy >> 32n);
     addon.set_reg_js(dev.addr, defines.IXGBE_TDBAL(i), PhysBeginning);
     addon.set_reg_js(dev.addr, defines.IXGBE_TDBAH(i), PhysEnding);
 
@@ -1067,7 +1067,7 @@ function packet_generator_program(argc, argv) {
   // tx loop
   // TODO look at process.nextTick() for async
   // every second
-  let seq_num = 0;
+  let seq_num = 0n;
   let old_seq_num = -1;
   setInterval(() => {
     const time = convertHRTimeToNano(process.hrtime());
@@ -1081,7 +1081,7 @@ function packet_generator_program(argc, argv) {
     // the old packets might still be used by the NIC: tx is async
     pkt_buf_alloc_batch_js(mempool, bufs, BATCH_SIZE);
     for (const buf of bufs) {
-      buf.mem.setBigUint64(PKT_SIZE - 8, BigInt(seq_num++), littleEndian); // TODO BIGINT?
+      buf.mem.setBigUint64(PKT_SIZE - 8, seq_num++, littleEndian); // TODO BIGINT?
       // TODO theres errors are not thrown
       if (old_seq_num > seq_num) {
         throw new Error(`We sent packages ordered wrong: seq_num ${seq_num}; old: ${old_seq_num}`);
