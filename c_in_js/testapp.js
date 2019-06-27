@@ -77,61 +77,63 @@ function wait_clear_reg_js(dev, reg, val) {
 
 class RxDescriptor {
   constructor(virtMem, index = 0) {
-    this.memView = new DataView(virtMem, index * 16, 16);
+    this.memView = virtMem;
+    this.offset = index * 16;
   }
 
-  pkt_addr() { return this.memView.getBigUint64(0, littleEndian); }
+  pkt_addr() { return this.memView.getBigUint64(0 + this.offset, littleEndian); }
 
-  hdr_addr() { return this.memView.getBigUint64(8, littleEndian); }
+  hdr_addr() { return this.memView.getBigUint64(8 + this.offset, littleEndian); }
 
   lower() {
     return {
       lo_dword: {
-        data: () => this.memView.getUint32(0, littleEndian),
+        data: () => this.memView.getUint32(0 + this.offset, littleEndian),
         hs_rss: {
-          pkt_info: () => this.memView.getUint16(0, littleEndian),
-          hdr_info: () => this.memView.getUint16(2, littleEndian),
+          pkt_info: () => this.memView.getUint16(0 + this.offset, littleEndian),
+          hdr_info: () => this.memView.getUint16(2 + this.offset, littleEndian),
         },
       },
       hi_dword: {
-        rss: () => this.memView.getUint32(4, littleEndian),
-        ip_id: () => this.memView.getUint16(4, littleEndian),
-        csum: () => this.memView.getUint16(6, littleEndian),
+        rss: () => this.memView.getUint32(4 + this.offset, littleEndian),
+        ip_id: () => this.memView.getUint16(4 + this.offset, littleEndian),
+        csum: () => this.memView.getUint16(6 + this.offset, littleEndian),
       },
     };
   }
 
   upper() {
     return {
-      status_error: () => this.memView.getUint32(8, littleEndian),
-      length: () => this.memView.getUint16(12, littleEndian),
-      vlan: () => this.memView.getUint16(14, littleEndian),
+      status_error: () => this.memView.getUint32(8 + this.offset, littleEndian),
+      length: () => this.memView.getUint16(12 + this.offset, littleEndian),
+      vlan: () => this.memView.getUint16(14 + this.offset, littleEndian),
     };
   }
 }
 class TxDescriptor {
   constructor(virtMem, index = 0) {
-    this.memView = new DataView(virtMem, index * 16, 16);
+    this.memView = virtMem;
+    this.offset = index * 16;
   }
+
 
   read() {
     return {
-      buffer_addr: () => this.memView.getBigUint64(0, littleEndian),
-      cmd_type_len: () => this.memView.getUint32(8, littleEndian),
-      olinfo_status: () => this.memView.getUint32(12, littleEndian),
+      buffer_addr: () => this.memView.getBigUint64(0 + this.offset, littleEndian),
+      cmd_type_len: () => this.memView.getUint32(8 + this.offset, littleEndian),
+      olinfo_status: () => this.memView.getUint32(12 + this.offset, littleEndian),
     };
   }
 
 
   wb() {
     return {
-      rsvd: () => this.memView.getBigUint64(0, littleEndian),
-      nxtseq_seed: () => this.memView.getUint32(8, littleEndian),
-      status: () => this.memView.getUint32(12, littleEndian),
+      rsvd: () => this.memView.getBigUint64(0 + this.offset, littleEndian),
+      nxtseq_seed: () => this.memView.getUint32(8 + this.offset, littleEndian),
+      status: () => this.memView.getUint32(12 + this.offset, littleEndian),
     };
   }
 }
-
 
 // see section 4.6.7
 // it looks quite complicated in the data sheet, but it's actually
