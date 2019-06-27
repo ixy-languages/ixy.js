@@ -245,6 +245,8 @@ function getPktBuffer(mempool, index, withBufferInfo = true) {
 
 function createPktBuffer(mempool, index, entry_size) {
   return { mem: new DataView(mempool.base_addr, index * entry_size, entry_size), mempool };
+  // TODO we could think about this, but we still set and read bigger than 8 bit values, and the performance is only about 25% better
+  // return { mem: new Uint8Array(mempool.base_addr, index * entry_size, entry_size), mempool };
 }
 
 
