@@ -807,6 +807,42 @@ function forward(rx_dev, rx_queue, tx_dev, tx_queue) {
   }
 }
 const MAX_QUEUES = 64;
+
+class IXY {
+  constructor(pci_addr, num_rx_queues, num_tx_queues) {
+    this.pci_addr = pci_addr;
+    this.driver_name = 'ixy.js';
+    this.num_rx_queues = num_rx_queues;
+    this.num_tx_queues = num_tx_queues;
+  }
+
+  // eslint-disable class-methods-use-this
+  rx_batch(dev, queue_id, bufs, num_bufs) { return ixgbe_rx_batch(dev, queue_id, bufs, num_bufs); }
+
+  tx_batch(dev, queue_id, bufs, num_bufs) { return ixgbe_tx_batch(dev, queue_id, bufs, num_bufs); }
+
+  get_link_speed(dev) { return ixgbe_get_link_speed(dev); }
+
+  read_stats(dev, stats) { return ixgbe_read_stats(dev, stats); }
+
+  set_promisc(dev, enabled) { return ixgbe_set_promisc(dev, enabled); }
+  // eslint-enable class-methods-use-this
+}
+
+class ixgbeDevice {
+  constructor(pci_addr, num_rx_queues, num_tx_queues) {
+    this.rx_queues = new Array(num_rx_queues);
+    this.tx_queues = new Array(num_rx_queues);
+    // get IXY memory
+    this.addr = addon.getIXYAddr(pci_addr);
+    // create a View on the IXY memory, which is RO (and seems to not work??)
+    this.dataView = new DataView(this.addr);
+    this.ixy = new IXY(pci_addr, num_rx_queues, num_tx_queues);
+    this.pkts_sent = 0;
+    this.pkts_rec = 0;
+  }
+}
+
 function ixgbe_init(pci_addr, num_rx_queues, num_tx_queues) {
   /* TODO add own root check?
   if (getuid()) {
@@ -820,37 +856,10 @@ function ixgbe_init(pci_addr, num_rx_queues, num_tx_queues) {
     throw new Error(`cannot configure ${num_tx_queues} tx queues: limit is ${MAX_QUEUES}`);
   }
 
-  const ixgbe_dev = {
-    ixy: {
-      pci_addr,
-      driver_name: 'ixy.js',
-      num_rx_queues,
-      num_tx_queues,
-      rx_batch: ixgbe_rx_batch,
-      tx_batch: ixgbe_tx_batch,
-      get_link_speed: ixgbe_get_link_speed,
-      read_stats: ixgbe_read_stats,
-      set_promisc: ixgbe_set_promisc,
-    },
-    addr: null,
-    dataView: null,
-    phAddr: null,
-    rx_queues: [],
-    tx_queues: [],
-    pkts_sent: 0,
-    pkts_rec: 0,
-  };
+  const ixgbeDev = new ixgbeDevice(pci_addr, num_rx_queues, num_tx_queues);
 
-  ixgbe_dev.rx_queues = new Array(ixgbe_dev.ixy.num_rx_queues);
-  ixgbe_dev.tx_queues = new Array(ixgbe_dev.ixy.num_rx_queues);
-
-  // get IXY memory
-  ixgbe_dev.addr = addon.getIXYAddr(ixgbe_dev.ixy.pci_addr);
-  // create a View on the IXY memory, which is RO
-  ixgbe_dev.dataView = new DataView(ixgbe_dev.addr);
-
-  reset_and_init(ixgbe_dev);
-  return ixgbe_dev;
+  reset_and_init(ixgbeDev);
+  return ixgbeDev;
 }
 
 function diff_mpps(pkts_new, pkts_old, nanos) {

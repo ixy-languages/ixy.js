@@ -5,8 +5,8 @@
   "main": "testapp.js",
   "scripts": {
     "start": "npm i && node-gyp configure build && node testapp.js",
-    "perf": "npm i && node-gyp configure build && 0x testapp.js -D flamegraphs/{timestamp}",
-    "perfk": "npm i && node-gyp configure build && 0x testapp.js -D flamegraphs/{timestamp} --kernel-tracing",
+    "perf": "npm i && node-gyp configure build && 0x --output-dir=\"flamegraphs/{timestamp}\" testapp.js",
+    "perfk": "npm i && node-gyp configure build && 0x --output-dir=\"flamegraphs/{timestamp}\" --kernel-tracing testapp.js",
     "all": "npm i --unsafe perm && sudo ./setup-hugetlbfs.sh && npm run start ",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
