@@ -254,7 +254,7 @@ function createPktBuffer(mempool, index, entry_size) {
     mem32: new Uint32Array(mempool.base_addr, index * entry_size, entry_size / 4),
     mem64: new BigUint64Array(mempool.base_addr, (index + 1) * entry_size - 8, 1), // we only need this for a single case
     mempool,
-    mem: new DataView(mempool.base_addr, index * entry_size, entry_size) // for C to phys addr, we can change this later to use our typed array
+    mem: new DataView(mempool.base_addr, index * entry_size, entry_size), // for C to phys addr, we can change this later to use our typed array
   };
 }
 
@@ -673,8 +673,10 @@ function ixgbe_read_stats(dev, stats) {
     stats.rx_bytes += rx_bytes;
     stats.tx_bytes += tx_bytes;
     stats.rx_dropped_pkts += rx_dropped_pkts;
-    stats.pkts_sent = dev.pkts_sent,
-    stats.pkts_rec = dev.pkts_rec;
+    stats.pkts_sent += dev.pkts_sent;
+    stats.pkts_rec += dev.pkts_rec;
+    dev.pkts_rec = 0;
+    dev.pkts_sent = 0;
   }
 }
 
@@ -686,6 +688,8 @@ function stats_init(stats, dev) {
   stats.rx_bytes = 0;
   stats.tx_bytes = 0;
   stats.rx_dropped_pkts = 0;
+  stats.pkts_rec = 0;
+  stats.pkts_sent = 0;
   stats.device = dev;
   if (dev) {
     // reset stats
