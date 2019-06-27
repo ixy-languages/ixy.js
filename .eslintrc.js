@@ -32,7 +32,8 @@ module.exports = {
   parserOptions: {
     parser: "babel-eslint"
   },
-  'globals':{
-    'BigInt':true
-  },
+  globals: {
+    BigInt: true,
+    BigUint64Array: true
+  }
 };

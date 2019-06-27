@@ -245,17 +245,24 @@ function getPktBuffer(mempool, index, withBufferInfo = true) {
   return ret;
 }
 
+// This is only called during setup , so we can use constructors etc.
 function createPktBuffer(mempool, index, entry_size) {
-  return { mem: new DataView(mempool.base_addr, index * entry_size, entry_size), mempool };
-  // TODO we could think about this, but we still set and read bigger than 8 bit values, and the performance is only about 25% better
-  // return { mem: new Uint8Array(mempool.base_addr, index * entry_size, entry_size), mempool };
+  // return { mem: new DataView(mempool.base_addr, index * entry_size, entry_size), mempool };
+  // TODO we could think about this, but we still set and read bigger than 8 bit values, and the performance is only about 20% better
+  return {
+    mem8: new Uint8Array(mempool.base_addr, index * entry_size, entry_size),
+    mem32: new Uint32Array(mempool.base_addr, index * entry_size, entry_size / 4),
+    mem64: new BigUint64Array(mempool.base_addr, (index + 1) * entry_size - 8, 1), // we only need this for a single case
+    mempool,
+    mem: new DataView(mempool.base_addr, index * entry_size, entry_size) // for C to phys addr, we can change this later to use our typed array
+  };
 }
 
 
 function setPktBufData(buffer, data) {
   // data is an 8bit array
   for (let i = 0; i < data.length; i++) {
-    buffer.mem.setUint8(i, data[i]);
+    buffer.mem8[i] = data[i];
     if (i > 2048) {
       throw new Error('Too large data provided.');
     }
@@ -796,8 +803,7 @@ function forward(rx_dev, rx_queue, tx_dev, tx_queue) {
     // touch all packets, otherwise it's a completely unrealistic workload
     // if the packet just stays in L3
     for (let i = 0; i < num_rx; i++) {
-      const val = bufs[i].mem.getUint8(6) + 1;
-      bufs[i].mem.setUint8(6, val);
+      bufs[i].mem8[6] += 1;
     }
     const num_tx = tx_dev.ixy.tx_batch(tx_dev, tx_queue, bufs, num_rx);
     // there are two ways to handle the case that packets are not being sent out:
@@ -952,9 +958,6 @@ function init_mempool() {
     buf.size = PKT_SIZE;
 
     // we just do this with single bytes, as this is not relevant for performance?
-    /* pkt_data.REWRITE TO FOR OF/IN((v, i) => {
-      buf.mem.setUint8(i + 64, v); // data starts at offset 64?
-    }); */
     setPktBufData(buf, pkt_data);
     // TODO find a nice way to read the package data and write it
     // TODO double check the offset because above
@@ -962,9 +965,9 @@ function init_mempool() {
     // TODO double check if this is doing what it's supposed to be doing
     const data = new Array(20);
     for (let i = 0; i < 20; i++) {
-      data[i] = buf.mem.getUint8(i);
+      data[i] = buf.mem8[i];
     }
-    buf.mem.setUint32(24, calc_ip_checksum(data, 20, 14), littleEndian);
+    buf.mem32[6/* was 24 */] = calc_ip_checksum(data, 20, 14);
 
     bufs[buf_id] = buf;
   }
@@ -1016,7 +1019,8 @@ function packet_generator_program(argc, argv) {
     // the old packets might still be used by the NIC: tx is async
     pkt_buf_alloc_batch_js(mempool, bufs, BATCH_SIZE);
     for (const buf of bufs) {
-      buf.mem.setBigUint64(PKT_SIZE - 8, seq_num++, littleEndian);
+      // PKT_SIZE is not guaranteed to be dividable by 8, so we cannot use a typed array here
+      buf.mem64[0] = seq_num++;
     }
     // the packets could be modified here to generate multiple flows
     ixy_tx_batch_busy_wait_js(dev, 0, bufs, BATCH_SIZE);
