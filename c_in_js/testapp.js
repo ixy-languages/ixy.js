@@ -51,6 +51,7 @@ function get_reg_js(dev, reg) {
   return ret;
   */
 
+  // TODO test typed array here
   return addon.get_reg_js(dev.addr, reg);
 }
 
@@ -231,22 +232,10 @@ struct pkt_buf {
 };
 */
 
-function readDataViewData(dataView, length) {
-  const ret = new Array(length);
-  for (let i = 0; i < length; i++) {
-    // pretty sure this is broken now, but then again we dont use it
-    ret[i] = dataView.getUint8(i); // TODO optimize by reading larger?
-  }
-  return ret;
-}
-
 
 // TODO change how pkt_bufs extra info are saved, fully in JS!
-function getPktBuffer(mempool, index, withBufferInfo = true) {
+function getPktBuffer(mempool, index) {
   const ret = mempool.pkt_buffers[index];
-  if (withBufferInfo) {
-    ret.data = readDataViewData(ret.mem, ret.size);
-  }
   return ret;
 }
 
@@ -316,7 +305,7 @@ function pkt_buf_alloc_batch_js(mempool, bufs, num_bufs) {
   }
   for (let i = 0; i < num_bufs; i++) {
     const entry_id = mempool.free_stack[--mempool.free_stack_top];
-    const buf = getPktBuffer(mempool, entry_id, false);
+    const buf = getPktBuffer(mempool, entry_id);
     bufs[i] = buf;
   }
   return bufs;
@@ -643,16 +632,6 @@ function ixgbe_get_link_speed(dev) {
     return 10000;
   default:
     return 0;
-  }
-}
-
-function printRXErrors(dev) {
-  console.info(`Error counter: ${get_reg_js(dev.addr, defines.FCCRC)}`);
-  console.info(`CRC Error counter: ${get_reg_js(dev.addr, defines.CRCERRS)}`);
-  console.info(`Illegal byte Error counter: ${get_reg_js(dev.addr, defines.ILLERRC)}`);
-  console.info(`Error Byte counter: ${get_reg_js(dev.addr, defines.ERRBC)}`);
-  for (let i = 0; i < 8; i++) {
-    console.info(`Missed Packets Error counter(${i}): ${get_reg_js(dev.addr, defines.RXMPC(i))}`);
   }
 }
 
