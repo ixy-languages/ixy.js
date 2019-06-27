@@ -81,32 +81,32 @@ class RxDescriptor {
     this.offset = index * 16;
   }
 
-  pkt_addr() { return this.memView.getBigUint64(0 + this.offset, littleEndian); }
+  pkt_addr() { return this.memView.d64[0 + this.offset / 8]; }
 
-  hdr_addr() { return this.memView.getBigUint64(8 + this.offset, littleEndian); }
+  hdr_addr() { return this.memView.d64[1 + this.offset / 8]; }
 
   lower() {
     return {
       lo_dword: {
-        data: () => this.memView.getUint32(0 + this.offset, littleEndian),
+        data: () => this.memView.d32[0 + this.offset / 4],
         hs_rss: {
-          pkt_info: () => this.memView.getUint16(0 + this.offset, littleEndian),
-          hdr_info: () => this.memView.getUint16(2 + this.offset, littleEndian),
+          pkt_info: () => this.memView.d16[0 + this.offset / 2],
+          hdr_info: () => this.memView.d16[1 + this.offset / 2],
         },
       },
       hi_dword: {
-        rss: () => this.memView.getUint32(4 + this.offset, littleEndian),
-        ip_id: () => this.memView.getUint16(4 + this.offset, littleEndian),
-        csum: () => this.memView.getUint16(6 + this.offset, littleEndian),
+        rss: () => this.memView.d32[1 + this.offset / 4],
+        ip_id: () => this.memView.d16[2 + this.offset / 2],
+        csum: () => this.memView.d16[3 + this.offset / 2],
       },
     };
   }
 
   upper() {
     return {
-      status_error: () => this.memView.getUint32(8 + this.offset, littleEndian),
-      length: () => this.memView.getUint16(12 + this.offset, littleEndian),
-      vlan: () => this.memView.getUint16(14 + this.offset, littleEndian),
+      status_error: () => this.memView.d32[2 + this.offset / 4],
+      length: () => this.memView.d16[6 + this.offset / 2],
+      vlan: () => this.memView.d16[7 + this.offset / 2],
     };
   }
 }
@@ -119,18 +119,18 @@ class TxDescriptor {
 
   read() {
     return {
-      buffer_addr: () => this.memView.getBigUint64(0 + this.offset, littleEndian),
-      cmd_type_len: () => this.memView.getUint32(8 + this.offset, littleEndian),
-      olinfo_status: () => this.memView.getUint32(12 + this.offset, littleEndian),
+      buffer_addr: () => this.memView.d64[0 + this.offset / 8],
+      cmd_type_len: () => this.memView.d32[2 + this.offset / 4],
+      olinfo_status: () => this.memView.d32[3 + this.offset / 4],
     };
   }
 
 
   wb() {
     return {
-      rsvd: () => this.memView.getBigUint64(0 + this.offset, littleEndian),
-      nxtseq_seed: () => this.memView.getUint32(8 + this.offset, littleEndian),
-      status: () => this.memView.getUint32(12 + this.offset, littleEndian),
+      rsvd: () => this.memView.d64[0 + this.offset / 8],
+      nxtseq_seed: () => this.memView.d32[2 + this.offset / 4],
+      status: () => this.memView.d32[3 + this.offset / 4],
     };
   }
 }
@@ -195,8 +195,12 @@ function init_rx(ixgbe_device) {
     const queue = {
       num_entries: defines.NUM_RX_QUEUE_ENTRIES,
       rx_index: 0,
-      descriptors: new DataView(mem.virt),
       virtual_addresses: new Array(defines.NUM_RX_QUEUE_ENTRIES),
+      descriptors: {
+        d16: new Uint16Array(mem.virt),
+        d32: new Uint32Array(mem.virt),
+        d64: new BigUint64Array(mem.virt),
+      },
     };
     ixgbe_device.rx_queues[i] = queue;
   }
@@ -230,6 +234,7 @@ struct pkt_buf {
 function readDataViewData(dataView, length) {
   const ret = new Array(length);
   for (let i = 0; i < length; i++) {
+    // pretty sure this is broken now, but then again we dont use it
     ret[i] = dataView.getUint8(i); // TODO optimize by reading larger?
   }
   return ret;
@@ -346,9 +351,9 @@ function start_rx_queue(ixgbe_device, queue_id) {
       throw new Error('failed to allocate rx descriptor');
     }
     // set pkt addr
-    rxd.memView.setBigUint64(0 + rxd.offset, buf.buf_addr_phy, littleEndian);
+    rxd.memView.d64[0 + rxd.offset / 8] = buf.buf_addr_phy;
     // set hdr addr
-    rxd.memView.setBigUint64(8 + rxd.offset, BigInt(0)/* 0n */, littleEndian); // TODO rewrite to 1n syntax before running, but keep at BigInt(1) syntax because otherwise eslint will not work
+    rxd.memView.d64[1 + rxd.offset / 8] = BigInt(0)/* 0n */; // TODO rewrite to 1n syntax before running, but keep at BigInt(1) syntax because otherwise eslint will not work
 
     // we need to return the virtual address in the rx function
     // which the descriptor doesn't know by default
@@ -414,9 +419,9 @@ function ixgbe_rx_batch(dev, queue_id, bufs, num_bufs) { // returns number
         throw new Error('failed to allocate new mbuf for rx, you are either leaking memory or your mempool is too small');
       }
       // reset the descriptor
-      desc_ptr.memView.setBigUint64(0 + desc_ptr.offset, new_buf.buf_addr_phy, littleEndian);
+      desc_ptr.memView.d64[0 + desc_ptr.offset / 8] = new_buf.buf_addr_phy;
       // this resets the flags
-      desc_ptr.memView.setBigUint64(8 + desc_ptr.offset, BigInt(0)/* 0n */, littleEndian); // TODO rewrite to 1n syntax before running, but keep at BigInt(1) syntax because otherwise eslint will not work
+      desc_ptr.memView.d64[1 + desc_ptr.offset / 8] = BigInt(0)/* 0n */; // TODO rewrite to 1n syntax before running, but keep at BigInt(1) syntax because otherwise eslint will not work
       queue.virtual_addresses[rx_index] = new_buf;
       bufs[buf_index] = buf;
       // want to read the next one in the next iteration,
@@ -492,13 +497,17 @@ function init_tx(dev) {
     // private data for the driver, 0-initialized
     const queue = {
       num_entries: defines.NUM_TX_QUEUE_ENTRIES,
-      descriptors: new DataView(mem.virt),
       // position to clean up descriptors that where sent out by the nic
       clean_index: 0,
       // position to insert packets for transmission
       tx_index: 0,
       // virtual addresses to map descriptors back to their mbuf for freeing
       virtual_addresses: new Array(defines.NUM_TX_QUEUE_ENTRIES),
+      descriptors: {
+        d16: new Uint16Array(mem.virt),
+        d32: new Uint32Array(mem.virt),
+        d64: new BigUint64Array(mem.virt),
+      },
     };
     dev.tx_queues[i] = queue;
   }
@@ -597,19 +606,19 @@ function ixgbe_tx_batch(dev, queue_id, bufs, num_bufs) {
     const txd = new TxDescriptor(queue.descriptors, cur_index);
 
     // NIC reads from here
-    txd.memView.setBigUint64(0 + txd.offset, buf.buf_addr_phy, littleEndian);
+    txd.memView.d64[0 + txd.offset / 8] = buf.buf_addr_phy;
 
     // always the same flags: one buffer (EOP), advanced data descriptor, CRC offload, data length
-    txd.memView.setUint32(8 + txd.offset, (defines.IXGBE_ADVTXD_DCMD_EOP | defines.IXGBE_ADVTXD_DCMD_RS
+    txd.memView.d32[2 + txd.offset / 4] = (defines.IXGBE_ADVTXD_DCMD_EOP | defines.IXGBE_ADVTXD_DCMD_RS
       | defines.IXGBE_ADVTXD_DCMD_IFCS | defines.IXGBE_ADVTXD_DCMD_DEXT
-      | defines.IXGBE_ADVTXD_DTYP_DATA | buf.size), littleEndian);
+      | defines.IXGBE_ADVTXD_DTYP_DATA | buf.size);
 
     // no fancy offloading stuff - only the total payload length
     // implement offloading flags here:
     // * ip checksum offloading is trivial: just set the offset
     // * tcp/udp checksum offloading is more annoying,
     // you have to precalculate the pseudo - header checksum
-    txd.memView.setUint32(12 + txd.offset, buf.size << defines.IXGBE_ADVTXD_PAYLEN_SHIFT, littleEndian);
+    txd.memView.d32[3 + txd.offset / 4] = buf.size << defines.IXGBE_ADVTXD_PAYLEN_SHIFT;
     cur_index = next_index;
   }
   // send out by advancing tail, i.e., pass control of the bufs to the nic
