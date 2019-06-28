@@ -189,64 +189,6 @@ napi_value dataviewToPhys(napi_env env, napi_callback_info info)
   return ret;
 }
 
-// what we want to implement to use in JS:
-void setReg32(const uint8_t *addr, int32_t reg, uint32_t value)
-{
-  __asm__ volatile(""
-                   :
-                   :
-                   : "memory");
-  *((volatile uint32_t *)(addr + reg)) = value;
-}
-uint32_t getReg32(const uint8_t *addr, int reg)
-{
-  __asm__ volatile(""
-                   :
-                   :
-                   : "memory");
-  return *((volatile uint32_t *)(addr + reg));
-}
-
-/**
- * This makes the get_reg32 function available for JS
- * */
-napi_value get_reg_js(napi_env env, napi_callback_info info)
-{
-  napi_status stat;
-  size_t argc = 2;
-  napi_value argv[2];
-
-  stat = napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-  if (stat != napi_ok)
-  {
-    napi_throw_error(env, NULL, "Failed to parse arguments");
-  }
-  // get first arg: addr
-  uint8_t *addr; // lets hope we dont need to actually allocate all that memory
-  size_t size;
-  stat = napi_get_arraybuffer_info(env, argv[0], &addr, size);
-  if (stat != napi_ok)
-  {
-    napi_throw_error(env, NULL, "Failed to get the arraybuffer.");
-  }
-  // get second arg: reg
-  int reg;
-  stat = napi_get_value_int32(env, argv[1], &reg);
-  if (stat != napi_ok)
-  {
-    napi_throw_error(env, NULL, "Failed getting register offset.");
-  }
-  uint32_t gotReg = getReg32(addr, reg);
-
-  napi_value ret;
-  stat = napi_create_uint32(env, gotReg, &ret);
-  if (stat != napi_ok)
-  {
-    napi_throw_error(env, NULL, "Failed to create the register value.");
-  }
-  return ret;
-}
-
 // TODO check if this can be done with a js mmap
 napi_value getIDs(napi_env env, napi_callback_info info)
 {
@@ -299,15 +241,6 @@ napi_value getIDs(napi_env env, napi_callback_info info)
   {
 
     FILE *filepointer = fdopen(config, "w+"); //deactivate using pointer to file
-    /*
-    struct stat stat2;
-    check_err(fstat(config, &stat2), "stat pci resource");
-    debug("Size of the stat: %d\n", stat2.st_size);
-
-    uint8_t *pci_map_resource_js = check_err(mmap(NULL, stat2.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, config, 0), "mmap pci resource"); // we get the error Invalid Argument here
-    //void *filepointer = get_reg(pci_map_resource_js, 0);
-    void *filepointer = *pci_map_resource_js;
-*/
     napi_value testReturnVal;
     stat = napi_create_external_arraybuffer(env, filepointer, 4, NULL, NULL, &testReturnVal);
     if (stat != napi_ok)
@@ -399,46 +332,6 @@ napi_value getIXYAddr(napi_env env, napi_callback_info info)
   }
   return returnVal;
 }
-/**
- * This makes the set_reg function available for JS
- * */
-napi_value set_reg_js(napi_env env, napi_callback_info info)
-{
-  napi_status stat;
-  size_t argc = 3;
-  napi_value argv[3];
-
-  stat = napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-  if (stat != napi_ok)
-  {
-    napi_throw_error(env, NULL, "Failed to parse arguments");
-  }
-  // get first arg: addr
-  uint8_t *addr; // lets hope we dont need to actually allocate all that memory
-  size_t size;
-  stat = napi_get_arraybuffer_info(env, argv[0], &addr, size);
-  if (stat != napi_ok)
-  {
-    napi_throw_error(env, NULL, "Failed to get the arraybuffer.");
-  }
-  // get second arg: reg
-  int32_t reg;
-  stat = napi_get_value_int32(env, argv[1], &reg);
-  if (stat != napi_ok)
-  {
-    napi_throw_error(env, NULL, "Failed getting register offset.");
-  }
-  // get third arg: value
-  uint32_t value;
-  stat = napi_get_value_uint32(env, argv[2], &value);
-  if (stat != napi_ok)
-  {
-    napi_throw_error(env, NULL, "Failed getting value.");
-  }
-
-  setReg32(addr, reg, value);
-  return NULL;
-}
 
 // This part just exposes our C functions to Node
 napi_value Init(napi_env env, napi_value exports)
@@ -466,30 +359,6 @@ napi_value Init(napi_env env, napi_value exports)
   }
 
   status = napi_set_named_property(env, exports, "getIXYAddr", fn);
-  if (status != napi_ok)
-  {
-    napi_throw_error(env, NULL, "Unable to populate exports");
-  }
-  // add set_reg to the export
-  status = napi_create_function(env, NULL, 0, set_reg_js, NULL, &fn); // USED
-  if (status != napi_ok)
-  {
-    napi_throw_error(env, NULL, "Unable to wrap native function");
-  }
-
-  status = napi_set_named_property(env, exports, "set_reg_js", fn);
-  if (status != napi_ok)
-  {
-    napi_throw_error(env, NULL, "Unable to populate exports");
-  }
-  // add get_reg to the export
-  status = napi_create_function(env, NULL, 0, get_reg_js, NULL, &fn); // USED
-  if (status != napi_ok)
-  {
-    napi_throw_error(env, NULL, "Unable to wrap native function");
-  }
-
-  status = napi_set_named_property(env, exports, "get_reg_js", fn);
   if (status != napi_ok)
   {
     napi_throw_error(env, NULL, "Unable to populate exports");

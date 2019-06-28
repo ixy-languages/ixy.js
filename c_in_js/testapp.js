@@ -233,8 +233,8 @@ function createPktBuffer(mempool, index, entry_size) {
     mem: new DataView(mempool.base_addr, index * entry_size, entry_size),
     mem8: new Uint8Array(mempool.base_addr, index * entry_size, entry_size),
     mem32: new Uint32Array(mempool.base_addr, index * entry_size, entry_size / 4),
-    // we only need this for a single case !! we cannot use this, as pkt size is not always dividable by 8 
-    //mem64: new BigUint64Array(mempool.base_addr, ((index + 1) * entry_size) - 8, 1),
+    // we only need this for a single case !! we cannot use this, as pkt size is not always dividable by 8
+    // mem64: new BigUint64Array(mempool.base_addr, ((index + 1) * entry_size) - 8, 1),
   };
 }
 
@@ -990,12 +990,11 @@ function packet_generator_program(argc, argv) {
     // we cannot immediately recycle packets, we need to allocate new packets every time
     // the old packets might still be used by the NIC: tx is async
     pkt_buf_alloc_batch_js(mempool, bufs, BATCH_SIZE);
-    for (buf of bufs) {
-      //bufs[i].mem64[0] = seq_num++;
+    for (const buf of bufs) {
+      // bufs[i].mem64[0] = seq_num++;
       // this has a huge performance impact,
       // but if we want pkt size to not be limited to % 8, we need it
-      buf.mem.setBigUint64(buf.size - 8,seq_num++,littleEndian);
-
+      buf.mem.setBigUint64(buf.size - 8, seq_num++, littleEndian);
     }
     // the packets could be modified here to generate multiple flows
     ixy_tx_batch_busy_wait_js(dev, 0, bufs, BATCH_SIZE);
@@ -1225,7 +1224,7 @@ function forwardProgram(argc, argv) {
 }
 
 
-const programToRun = 1;
+const programToRun = 0;
 switch (programToRun) {
 case 0:
   forwardProgram(3, ['', pciAddr, pciAddr2]);
