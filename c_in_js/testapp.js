@@ -1,15 +1,6 @@
-const fs = require('fs');
+// const fs = require('fs');
 const addon = require('./build/Release/exported_module'); // eslint-disable-line import/no-unresolved
 const defines = require('./constants');
-
-
-// check if little or big endian
-const littleEndian = (function lE() {
-  const buffer = new ArrayBuffer(2);
-  new DataView(buffer).setInt16(0, 256, true /* littleEndian */);
-  // Int16Array uses the correct byte-order for the platform.
-  return new Int16Array(buffer)[0] === 256;
-}());
 
 //  synchronous wait function for testing
 function wait(ms) {
@@ -38,21 +29,7 @@ default:
 }
 
 function get_reg_js(dev, reg) {
-  /*
-  // first dv.get then c seems to break c as well, dv and c seem to differ at times, but not always...
-  const ret = dev.dataView.getUint32(reg, littleEndian);
-  const cRet = addon.get_reg_js(dev.addr, reg);
-
-  if (ret != cRet) {
-    console.log(`---------------------------------------------------------------we got ${ret} but C gave us ${cRet}`);
-    return cRet;
-  }
-  console.log(`C and JS agree: ${ret}`);
-  return ret;
-  */
-
-  // TODO test typed array here
-  return addon.get_reg_js(dev.addr, reg);
+  return dev.mem32[reg / 4];
 }
 
 function clear_flags_js(dev, reg, flags) {
@@ -241,12 +218,11 @@ function getPktBuffer(mempool, index) {
 
 // This is only called during setup , so we can use constructors etc.
 function createPktBuffer(mempool, index, entry_size) {
-  // return { mem: new DataView(mempool.base_addr, index * entry_size, entry_size), mempool };
-  // TODO we could think about this, but we still set and read bigger than 8 bit values, and the performance is only about 20% better
   return {
     mem8: new Uint8Array(mempool.base_addr, index * entry_size, entry_size),
     mem32: new Uint32Array(mempool.base_addr, index * entry_size, entry_size / 4),
-    mem64: new BigUint64Array(mempool.base_addr, (index + 1) * entry_size - 8, 1), // we only need this for a single case
+    // we only need this for a single case
+    mem64: new BigUint64Array(mempool.base_addr, (index + 1) * entry_size - 8, 1),
     mempool,
     mem: new DataView(mempool.base_addr, index * entry_size, entry_size), // for C to phys addr, we can change this later to use our typed array
   };
@@ -598,9 +574,10 @@ function ixgbe_tx_batch(dev, queue_id, bufs, num_bufs) {
     txd.memView.d64[0 + txd.offset / 8] = buf.buf_addr_phy;
 
     // always the same flags: one buffer (EOP), advanced data descriptor, CRC offload, data length
-    txd.memView.d32[2 + txd.offset / 4] = (defines.IXGBE_ADVTXD_DCMD_EOP | defines.IXGBE_ADVTXD_DCMD_RS
-      | defines.IXGBE_ADVTXD_DCMD_IFCS | defines.IXGBE_ADVTXD_DCMD_DEXT
-      | defines.IXGBE_ADVTXD_DTYP_DATA | buf.size);
+    txd.memView.d32[2 + txd.offset / 4] = (defines.IXGBE_ADVTXD_DCMD_EOP
+      | defines.IXGBE_ADVTXD_DCMD_RS | defines.IXGBE_ADVTXD_DCMD_IFCS
+      | defines.IXGBE_ADVTXD_DCMD_DEXT | defines.IXGBE_ADVTXD_DTYP_DATA
+      | buf.size);
 
     // no fancy offloading stuff - only the total payload length
     // implement offloading flags here:
@@ -837,10 +814,10 @@ class ixgbeDevice {
     // get IXY memory
     this.addr = addon.getIXYAddr(pci_addr);
     // create a View on the IXY memory, which is RO (and seems to not work??)
-    this.dataView = new DataView(this.addr);
     this.ixy = new IXY(pci_addr, num_rx_queues, num_tx_queues);
     this.pkts_sent = 0;
     this.pkts_rec = 0;
+    this.mem32 = new Uint32Array(this.addr);
   }
 }
 
