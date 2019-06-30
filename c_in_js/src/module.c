@@ -7,33 +7,23 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
-#define check_err(expr, op) ({\
-	int64_t result = (int64_t) (expr);\
-	if ((int64_t) result == -1LL) {\
-		int err = errno;\
-		char buf[512];\
-		strerror_r(err, buf, sizeof(buf));\
-		fprintf(stderr, "[ERROR] %s:%d %s(): Failed to %s: %s\n", __FILE__, __LINE__, __func__, op, buf);\
-		exit(err);\
-	}\
-	result;\
+#define check_err(expr, op) ({                                                                        \
+  int64_t result = (int64_t)(expr);                                                                   \
+  if ((int64_t)result == -1LL)                                                                        \
+  {                                                                                                   \
+    int err = errno;                                                                                  \
+    char buf[512];                                                                                    \
+    strerror_r(err, buf, sizeof(buf));                                                                \
+    fprintf(stderr, "[ERROR] %s:%d %s(): Failed to %s: %s\n", __FILE__, __LINE__, __func__, op, buf); \
+    exit(err);                                                                                        \
+  }                                                                                                   \
+  result;                                                                                             \
 })
-
-#ifndef NDEBUG
-#define debug(fmt, ...) do {\
-	fprintf(stderr, "[DEBUG] %s:%d %s(): " fmt "\n", __FILE__, __LINE__, __func__, ##__VA_ARGS__);\
-} while(0)
-#else
-#define debug(fmt, ...) do {} while(0)
-#undef assert
-#define assert(expr) (void) (expr)
-#endif
 
 int pci_open_resource(const char *pci_addr, const char *resource)
 {
   char path[PATH_MAX];
   snprintf(path, PATH_MAX, "/sys/bus/pci/devices/%s/%s", pci_addr, resource);
-  debug("Opening PCI resource at %s", path);
   int fd = check_err(open(path, O_RDWR), "open pci resource");
   return fd;
 }
@@ -64,7 +54,7 @@ static uint32_t huge_pg_id;
 // this requires hugetlbfs to be mounted at /mnt/huge
 // not using anonymous hugepages because hugetlbfs can give us multiple pages with contiguous virtual addresses
 // allocating anonymous pages would require manual remapping which is more annoying than handling files
-void *  memory_allocate_dma(size_t size, bool require_contiguous)
+void *memory_allocate_dma(size_t size, bool require_contiguous)
 {
   // round up to multiples of 2 MB if necessary, this is the wasteful part
   // this could be fixed by co-locating allocations on the same page until a request would be too large
@@ -91,7 +81,7 @@ void *  memory_allocate_dma(size_t size, bool require_contiguous)
   // don't keep it around in the hugetlbfs
   close(fd);
   unlink(path);
-   return virt_addr;
+  return virt_addr;
 }
 
 napi_value getDmaMem(napi_env env, napi_callback_info info)
@@ -145,9 +135,7 @@ napi_value virtToPhys(napi_env env, napi_callback_info info)
     napi_throw_error(env, NULL, "Failed to get virtual Memory from ArrayBuffer.");
   }
   uintptr_t physPointer = virt_to_phys(virt);
-  //printf("Phys addr we computed: %016" PRIxPTR "\n", physPointer);
   napi_value ret;
-  //hoping physical pointers are 64bit, else we need to handle every function that needs this value in C as well
   stat = napi_create_bigint_uint64(env, physPointer, &ret);
   if (stat != napi_ok)
   {
@@ -179,7 +167,7 @@ napi_value dataviewToPhys(napi_env env, napi_callback_info info)
   {
     napi_throw_error(env, NULL, "Failed to get virtual Memory from Dataview.");
   }
-  uintptr_t physPointer = virt_to_phys(virt); // TODO double check, but apparently offset is already added!
+  uintptr_t physPointer = virt_to_phys(virt);
   napi_value ret;
   stat = napi_create_bigint_uint64(env, physPointer, &ret);
   if (stat != napi_ok)
@@ -189,68 +177,7 @@ napi_value dataviewToPhys(napi_env env, napi_callback_info info)
   return ret;
 }
 
-// TODO check if this can be done with a js mmap
-napi_value getIDs(napi_env env, napi_callback_info info)
-{
-  napi_status stat;
-  napi_value returnValue;
-  size_t argc = 2;
-  napi_value argv[2];
-
-  stat = napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
-  if (stat != napi_ok)
-  {
-    napi_throw_error(env, NULL, "Failed to parse arguments");
-  }
-  char *pci_addr = malloc(12); // "0000:03:00.0"
-  size_t size;
-  stat = napi_get_value_string_utf8(env, argv[0], pci_addr, 13, &size); // for some reason we need to use length 13 not 12, to get 12 bytes
-  if (stat != napi_ok)
-  {
-    napi_throw_error(env, NULL, "Invalid string of length 12, the PCI adress, was passed as first argument");
-  }
-
-  //check if we want to actually give JS the raw adress or already parse (to compare the values we get)
-  bool returnRawPointer;
-  stat = napi_get_value_bool(env, argv[1], &returnRawPointer);
-  if (stat != napi_ok)
-  {
-    napi_throw_error(env, NULL, "Failed to get the 2nd argument, a boolean");
-  }
-
-  enable_dma(pci_addr); // do we need this to actually be able to write there?
-
-  //The file handle can be found by typing lscpi -v
-  //and looking for your device.
-  int config = pci_open_resource(pci_addr, "config");
-  // now lets create this as a buffer we give JS
-  void *buf = malloc(4);
-  stat = napi_create_arraybuffer(env, 4, &buf, &returnValue);
-  if (stat != napi_ok)
-  {
-    napi_throw_error(env, NULL, "Failed our buffer creation");
-  }
-  // fill empty buffer inside of C
-  if (!returnRawPointer)
-  {
-    pread(config, buf, 4, 0);
-
-    return returnValue;
-  }
-  else
-  {
-
-    FILE *filepointer = fdopen(config, "w+"); //deactivate using pointer to file
-    napi_value testReturnVal;
-    stat = napi_create_external_arraybuffer(env, filepointer, 4, NULL, NULL, &testReturnVal);
-    if (stat != napi_ok)
-    {
-      napi_throw_error(env, NULL, "Failed our external buffer creation");
-    }
-    return testReturnVal;
-  }
-}
-// TODO js
+// TODO try to port this to js
 void remove_driver(const char *pci_addr) // for now C is fine but at some point well put this into JS
 {
   char path[PATH_MAX];
@@ -258,7 +185,6 @@ void remove_driver(const char *pci_addr) // for now C is fine but at some point 
   int fd = open(path, O_WRONLY);
   if (fd == -1)
   {
-    debug("no driver loaded");
     return;
   }
   if (write(fd, pci_addr, strlen(pci_addr)) != (ssize_t)strlen(pci_addr))
@@ -285,12 +211,6 @@ void enable_dma(const char *pci_addr)
   printf("enabled dma...\n");
 }
 
-//endof copypastas
-
-// endof trying
-
-
-// TODO check if we actually use this
 /**
  * This will give us an ArrayBuffer in JS, which points to the Network Card installed in the PCI Address we provide
  * */
@@ -313,9 +233,8 @@ napi_value getIXYAddr(napi_env env, napi_callback_info info)
     napi_throw_error(env, NULL, "Invalid string of length 12, the PCI adress, was passed as first argument");
   }
 
-  // let's keep both of these for now
-  remove_driver(pci_addr); // we added this to see if it works now
-  enable_dma(pci_addr);    // do we need this to actually be able to write there?
+  remove_driver(pci_addr);
+  enable_dma(pci_addr);
 
   //this is what we need to get the root adress
   int fd = pci_open_resource(pci_addr, "resource0");
@@ -338,19 +257,6 @@ napi_value Init(napi_env env, napi_value exports)
 {
   napi_status status;
   napi_value fn;
-
-  // adding my getIDs to get PCI id stuff
-  status = napi_create_function(env, NULL, 0, getIDs, NULL, &fn); // maybe use later?
-  if (status != napi_ok)
-  {
-    napi_throw_error(env, NULL, "Unable to wrap native function");
-  }
-
-  status = napi_set_named_property(env, exports, "getIDs", fn);
-  if (status != napi_ok)
-  {
-    napi_throw_error(env, NULL, "Unable to populate exports");
-  }
   // add getIXYAddr to the export
   status = napi_create_function(env, NULL, 0, getIXYAddr, NULL, &fn); // USED
   if (status != napi_ok)
