@@ -59,6 +59,6 @@ function start_tx_queue(dev, queue_id) {
   wait_set_reg_js(dev, defines.IXGBE_TXDCTL(queue_id), defines.IXGBE_TXDCTL_ENABLE);
 }
 
-module.export = {
+module.exports = {
   startRX: start_rx_queue, startTX: start_tx_queue,
 };

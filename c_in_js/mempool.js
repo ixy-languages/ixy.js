@@ -94,4 +94,4 @@ function init_mempool() {
 }
 
 
-module.export = { init: init_mempool, alloc: memory_allocate_mempool_js };
+module.exports = { init: init_mempool, alloc: memory_allocate_mempool_js };

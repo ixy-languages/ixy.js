@@ -51,7 +51,7 @@ function pkt_buf_free(buf) {
   mempool.free_stack[mempool.free_stack_top++] = buf.mempool_idx;
 }
 
-module.export = {
+module.exports = {
   create: createPktBuffer,
   set: setPktBufData,
   alloc: pkt_buf_alloc_js,

@@ -57,6 +57,6 @@ function copyStats(to, from) {
   to.pkts_rec = from.pkts_rec;
 }
 
-module.export = {
+module.exports = {
   print: print_stats_diff, convert: convertHRTimeToNano, init: stats_init, copy: copyStats,
 };

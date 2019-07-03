@@ -53,7 +53,7 @@ function packet_generator_program(pciAddr, batchSize) {
       const time = stats.convert(process.hrtime());
       if (time - last_stats_printed > 1000 * 1000 * 1000) {
         // every second
-        dev.ixy.read_stats(dev, stat);
+        dev.ixy.read_stats(stat);
         stats.print(stat, stat_old, time - last_stats_printed);
         stats.copy(stat_old, stat);
         last_stats_printed = time;
@@ -102,14 +102,14 @@ function packet_generator_program(pciAddr, batchSize) {
 
 function forward(rx_dev, rx_queue, tx_dev, tx_queue) {
   const bufs = new Array(BATCH_SIZE);
-  const num_rx = rx_dev.ixy.rx_batch(rx_dev, rx_queue, bufs, BATCH_SIZE);
+  const num_rx = rx_dev.ixy.rx_batch(rx_queue, bufs, BATCH_SIZE);
   if (num_rx > 0) {
     // touch all packets, otherwise it's a completely unrealistic workload
     // if the packet just stays in L3
     for (let i = 0; i < num_rx; i++) {
       bufs[i].mem8[6] += 1;
     }
-    const num_tx = tx_dev.ixy.tx_batch(tx_dev, tx_queue, bufs, num_rx);
+    const num_tx = tx_dev.ixy.tx_batch(tx_queue, bufs, num_rx);
     // there are two ways to handle the case that packets are not being sent out:
     // either wait on tx or drop them; in this case it's better to drop them,
     // otherwise we accumulate latency
@@ -149,11 +149,11 @@ function forwardProgram(pciAddr1, pciAddr2, batchSize) {
       i = 0;
       const time = process.hrtime(last_stats_printed);
       last_stats_printed = process.hrtime();
-      dev1.ixy.read_stats(dev1, stats1);
+      dev1.ixy.read_stats(stats1);
       stats.print(stats1, stats1_old, stats.convert(time));
       stats.copy(stats1_old, stats1);
       if (dev1.ixy.pci_addr !== dev2.ixy.pci_addr) {
-        dev2.ixy.read_stats(dev2, stats2);
+        dev2.ixy.read_stats(stats2);
         stats.print(stats2, stats2_old, stats.convert(time));
         stats.copy(stats2_old, stats2);
       }

@@ -171,7 +171,7 @@ class IXY {
     return sent;
   }
 
-  ixgbe_get_link_speed() {
+  get_link_speed() {
     const links = get_reg_js(this.dev, defines.IXGBE_LINKS);
     if (!(links & defines.IXGBE_LINKS_UP)) {
       return 0;
