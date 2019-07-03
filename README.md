@@ -1,11 +1,5 @@
 # ixy.js
-this will be the javascript implementation of [ixy](https://github.com/emmericp/ixy)
-
-I'm currently trying to get to the first working version, nothing to see here yet.
-
-# starting the current code on our testbed
-
-Let's use the testbed narva as an example, though you can use any if you change the PCI Adress in the code beforehand.
+This is the JavaScript implementation of [ixy](https://github.com/emmericp/ixy)
 
 
 ## move data from our directory to narva
@@ -13,22 +7,30 @@ Let's use the testbed narva as an example, though you can use any if you change 
 ```scp -r mountFromMac narva:/root/```
 
 ## install needed dependencies
-TODO update this
+TODO update this, use nvm
 `
 apt install sudo
 sudo apt-get update
 curl -sL https://deb.nodesource.com/setup_10.x | sudo -E bash -
 sudo apt-get install -y nodejs
-cd mountFromMac
-sudo ./setup-hugetlbfs.sh`
 
-we might need `npm i` here
 
 ## build the program
 
+```npm run setup```
 
-```npm i --unsafe-perm --production```
+If you want to work on the project, remember to also install dev dependencies via `npm i`
+They provide formatting etc. rules
 
 ## run program after building
 
-```nodejs testapp.js```
+to run the generate example:
+
+```node ixy.js generate xxxx:xx:xx.x optionalBatchSize```
+
+
+to run the forward example:
+
+```node ixy.js forward xxxx:xx:xx.x xxxx:xx:xx.x optionalBatchSize```
+
+The pci adresses should have the format `xxxx:xx:xx.x` and could look like this: `0000:03:00.0`

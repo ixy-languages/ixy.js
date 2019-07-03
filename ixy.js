@@ -1,7 +1,7 @@
-const IxgbeDevice = require('./ixgbeDevice');
-const packets = require('./packets');
-const memPool = require('./mempool');
-const stats = require('./stats');
+const IxgbeDevice = require('./src/ixgbeDevice');
+const packets = require('./src/packets');
+const memPool = require('./src/mempool');
+const stats = require('./src/stats');
 
 // check if little or big endian
 const littleEndian = (function lE() {
@@ -17,7 +17,7 @@ let BATCH_SIZE = 32;
 
 function packet_generator_program(pciAddr, batchSize) {
   if (!pciAddr) {
-    throw new Error('no pci adress supplied. please use: ixy.js generate xxxx:xx:xx.x optionalBatchSize');
+    throw new Error('no pci adress supplied. please use: node ixy.js generate xxxx:xx:xx.x optionalBatchSize');
   }
   if (batchSize) {
     BATCH_SIZE = batchSize;
@@ -121,7 +121,7 @@ function forward(rx_dev, rx_queue, tx_dev, tx_queue) {
 
 function forwardProgram(pciAddr1, pciAddr2, batchSize) {
   if (!(pciAddr1 && pciAddr2)) {
-    throw new Error('no pci adresses supplied. please use: ixy.js forward xxxx:xx:xx.x xxxx:xx:xx.x optionalBatchSize');
+    throw new Error('no pci adresses supplied. please use: node ixy.js forward xxxx:xx:xx.x xxxx:xx:xx.x optionalBatchSize');
   }
   if (batchSize) {
     BATCH_SIZE = batchSize;
