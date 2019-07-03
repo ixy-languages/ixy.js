@@ -13,25 +13,21 @@ Let's use the testbed narva as an example, though you can use any if you change 
 ```scp -r mountFromMac narva:/root/```
 
 ## install needed dependencies
-
-```apt install sudo
+TODO update this
+`
+apt install sudo
 sudo apt-get update
 curl -sL https://deb.nodesource.com/setup_10.x | sudo -E bash -
 sudo apt-get install -y nodejs
-
 cd mountFromMac
-sudo ./setup-hugetlbfs.sh```
+sudo ./setup-hugetlbfs.sh`
 
 we might need `npm i` here
 
 ## build the program
 
-will run it as well:
-```npm run start```
 
-or
-
-```npm i --unsafe-perm```
+```npm i --unsafe-perm --production```
 
 ## run program after building
 

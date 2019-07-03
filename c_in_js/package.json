@@ -19,8 +19,16 @@
   },
   "author": "Sebastian Di Luzio <sebastian.di-luzio@tum.de>",
   "license": "MIT",
-  "devDependencies": {},
-  "dependencies": {
+  "devDependencies": {
+    "babel-eslint": "^10.0.2",
+    "eslint": "^5.16.0",
+    "eslint-config-airbnb": "^17.1.0",
+    "eslint-plugin-import": "^2.17.3",
+    "eslint-plugin-jsx-a11y": "^6.2.1",
+    "eslint-plugin-react": "^7.13.0",
     "0x": "^4.8.2"
+  },
+  "dependencies": {
+    "make-runnable": "^1.3.6"
   }
 }
