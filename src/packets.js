@@ -17,10 +17,10 @@ class Packet {
   // data is an 8bit array
   setData(data) {
     for (let i = 0; i < data.length; i++) {
-      this.mem8[i] = data[i];
       if (i > 2048) {
         throw new Error('Too large data provided.');
       }
+      this.mem8[i] = data[i];
     }
   }
 
