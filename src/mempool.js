@@ -30,9 +30,7 @@ function memory_allocate_mempool_js(num_entries, entry_size) {
     // minor optimization opportunity: this only needs to be done once per page
     mempool.free_stack[i] = i;
     const buf = packets.create(mempool, i, entry_size);
-    buf.mempool_idx = i;
-    buf.size = 0;
-    packets.set(buf, new Array(entry_size).fill(0));
+    buf.setData(new Array(entry_size).fill(0));
     buf.buf_addr_phy = addon.dataviewToPhys(buf.mem);
     mempool.pkt_buffers[i] = buf;
   }
@@ -83,7 +81,7 @@ function init_mempool() {
   for (let buf_id = 0; buf_id < NUM_BUFS; buf_id++) {
     const buf = packets.alloc(mempool);
     buf.size = PKT_SIZE;
-    packets.set(buf, pkt_data);
+    buf.setData(pkt_data);
     const data = new Array(20);
     for (let i = 0; i < 20; i++) {
       data[i] = buf.mem8[i];
@@ -93,7 +91,7 @@ function init_mempool() {
   }
   // return them all to the mempool, all future allocations will return bufs with the data set above
   for (let buf_id = 0; buf_id < NUM_BUFS; buf_id++) {
-    packets.free(bufs[buf_id]);
+    bufs[buf_id].free();
   }
   return mempool;
 }

@@ -121,7 +121,7 @@ class IXY {
         let i = clean_index;
         while (true) {
           const buf = queue.virtual_addresses[i];
-          packets.free(buf);
+          buf.free();
           if (i === cleanup_to) {
             break;
           }
