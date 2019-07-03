@@ -2,10 +2,6 @@
 This is the JavaScript implementation of [ixy](https://github.com/emmericp/ixy)
 
 
-## move data from our directory to narva
-
-```scp -r mountFromMac narva:/root/```
-
 ## install needed dependencies
 TODO update this, use nvm
 `
@@ -20,6 +16,7 @@ sudo apt-get install -y nodejs
 ```npm run setup```
 
 If you want to work on the project, remember to also install dev dependencies via `npm i`
+
 They provide formatting etc. rules
 
 ## run program after building
