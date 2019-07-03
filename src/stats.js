@@ -20,9 +20,9 @@ function print_stats_diff(stats_new, stats_old, nanos) {
   console.info(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] TX: ${diff_mbit(stats_new.tx_bytes, stats_old.tx_bytes, stats_new.tx_pkts, stats_old.tx_pkts, nanos)} Mbit/s ${diff_mpps(stats_new.tx_pkts, stats_old.tx_pkts, nanos)} Mpps`);
   console.info(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] RX packets : ${stats_new.pkts_rec - stats_old.pkts_rec}`);
   console.info(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] TX packets : ${stats_new.pkts_sent - stats_old.pkts_sent}`);
-  console.info(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] according to NIC: RX: ${rxMbits} Mbit/s ${rxMpps} Mpps`);
-  console.info(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] according to NIC: RX_pkts: ${stats_new.rx_pkts - stats_old.rx_pkts} ; TX_pkts: ${stats_new.tx_pkts - stats_old.tx_pkts}`);
-  console.info(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] Packages actually getting received: ${recRate * 100}% ; droprate: ${(1 - recRate) * 100}%`);
+  // console.info(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] according to NIC: RX: ${rxMbits} Mbit/s ${rxMpps} Mpps`);
+  // console.info(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] according to NIC: RX_pkts: ${stats_new.rx_pkts - stats_old.rx_pkts} ; TX_pkts: ${stats_new.tx_pkts - stats_old.tx_pkts}`);
+  // console.info(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] Packages actually getting received: ${recRate * 100}% ; droprate: ${(1 - recRate) * 100}%`);
   console.info('----- ----- ----- -----');
 }
 
