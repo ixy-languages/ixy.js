@@ -3,17 +3,19 @@ function getPktBuffer(mempool, index) {
   return ret;
 }
 
+class Packet {
+  constructor(mempool, index, entry_size) {
+    this.mempool = mempool;
+    this.mem = new DataView(mempool.base_addr, index * entry_size, entry_size);
+    this.mem8 = new Uint8Array(mempool.base_addr, index * entry_size, entry_size);
+    this.mem32 = new Uint32Array(mempool.base_addr, index * entry_size, entry_size / 4);
+    // if we could assume entry_size % 8 == 0 we could add 64-bit as well, but we can't
+  }
+}
+
 // This is only called during setup , so we can use constructors etc.
 function createPktBuffer(mempool, index, entry_size) {
-  return {
-    mempool,
-    mem: new DataView(mempool.base_addr, index * entry_size, entry_size),
-    mem8: new Uint8Array(mempool.base_addr, index * entry_size, entry_size),
-    mem32: new Uint32Array(mempool.base_addr, index * entry_size, entry_size / 4),
-    // we only need this for a single case
-    // !!we cannot use this, as pkt size is not always dividable by 8
-    // mem64: new BigUint64Array(mempool.base_addr, ((index + 1) * entry_size) - 8, 1),
-  };
+  return new Packet(mempool, index, entry_size);
 }
 
 
