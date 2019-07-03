@@ -53,7 +53,8 @@ class IXY {
         // reset the descriptor
         desc_ptr.memView.d64[0 + desc_ptr.offset / 8] = new_buf.buf_addr_phy;
         // this resets the flags
-        desc_ptr.memView.d64[1 + desc_ptr.offset / 8] = BigInt(0)/* 0n */; // TODO rewrite to 1n syntax before running, but keep at BigInt(1) syntax because otherwise eslint will not work
+        desc_ptr.memView.d64[1 + desc_ptr.offset / 8] = 0n;
+        // BigInt(0)/* 0n */; // TODO rewrite to 1n syntax before running, but keep at BigInt(1) syntax because otherwise eslint will not work
         queue.virtual_addresses[rx_index] = new_buf;
         bufs[buf_index] = buf;
         // want to read the next one in the next iteration,

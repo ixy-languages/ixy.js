@@ -52,7 +52,8 @@ function init_rx(ixgbe_device) {
       virtMemView[count / 4] = 0xFFFFFFFF;
     }
     const PhysBeginning = Number(mem.phy) & 0xFFFFFFFF;
-    const PhysEnding = Number(mem.phy >> BigInt(32)/* 32n */); // TODO rewrite to 1n syntax before running, but keep at BigInt(1) syntax because otherwise eslint will not work
+    const PhysEnding = Number(mem.phy >> 32n);
+    // BigInt(32)/* 32n */); // TODO rewrite to 1n syntax before running, but keep at BigInt(1) syntax because otherwise eslint will not work
     set_reg_js(ixgbe_device, defines.IXGBE_RDBAL(i), PhysBeginning);
     set_reg_js(ixgbe_device, defines.IXGBE_RDBAH(i), PhysEnding);
     set_reg_js(ixgbe_device, defines.IXGBE_RDLEN(i), ring_size_bytes);
@@ -116,7 +117,8 @@ function init_tx(dev) {
       virtMemView[count / 4] = 0xFFFFFFFF;
     }
     const PhysBeginning = Number(mem.phy) & 0xFFFFFFFF;
-    const PhysEnding = Number(mem.phy >> BigInt(32)/* 32n */); // TODO rewrite to 1n syntax before running, but keep at BigInt(1) syntax because otherwise eslint will not work
+    const PhysEnding = Number(mem.phy >> 32n);
+    // BigInt(32)/* 32n */); // TODO rewrite to 1n syntax before running, but keep at BigInt(1) syntax because otherwise eslint will not work
     set_reg_js(dev, defines.IXGBE_TDBAL(i), PhysBeginning);
     set_reg_js(dev, defines.IXGBE_TDBAH(i), PhysEnding);
     set_reg_js(dev, defines.IXGBE_TDLEN(i), ring_size_bytes);

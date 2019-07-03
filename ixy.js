@@ -31,7 +31,8 @@ function packet_generator_program(pciAddr, batchSize) {
   stats.init(stat_old, dev);
   // array of bufs sent out in a batch
   const bufs = new Array(BATCH_SIZE);
-  let seq_num = BigInt(0)/* 0n */; // TODO rewrite to 1n syntax before running, but keep at BigInt(1) syntax because otherwise eslint will not work
+  let seq_num = 0n;
+  // BigInt(0)/* 0n */; // TODO rewrite to 1n syntax before running, but keep at BigInt(1) syntax because otherwise eslint will not work
   // /*
   let counter = 0;
   // tx loop
