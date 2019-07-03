@@ -2,6 +2,17 @@ const addon = require('../build/Release/exported_module'); // eslint-disable-lin
 const packets = require('./packets');
 const defines = require('./constants');
 
+class Mempool {
+  constructor(mem, num_entries, entry_size) {
+    this.num_entries = num_entries;
+    this.buf_size = entry_size;
+    this.base_addr = mem; // buffer that holds mempool
+    this.free_stack_top = num_entries;
+    this.free_stack = new Array(num_entries);
+    this.pkt_buffers = new Array(num_entries);
+  }
+}
+
 function memory_allocate_mempool_js(num_entries, entry_size) {
   entry_size = entry_size || 2048;
   // require entries that neatly fit into the page size, this makes the memory pool much easier
@@ -11,13 +22,7 @@ function memory_allocate_mempool_js(num_entries, entry_size) {
     console.error(`entry size must be a divisor of the huge page size ${defines.HUGE_PAGE_SIZE}`);
   }
   const mem = addon.getDmaMem(num_entries * entry_size, false);
-  const mempool = {};
-  mempool.num_entries = num_entries;
-  mempool.buf_size = entry_size;
-  mempool.base_addr = mem; // buffer that holds mempool
-  mempool.free_stack_top = num_entries;
-  mempool.free_stack = new Array(num_entries);
-  mempool.pkt_buffers = new Array(num_entries);
+  const mempool = new Mempool(mem, num_entries, entry_size);
 
   for (let i = 0; i < num_entries; i++) {
     // this is the creation of all the bufs
