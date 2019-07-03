@@ -4,11 +4,9 @@
   "description": "Javascript implementation of ixy, a userspace network driver",
   "main": "testapp.js",
   "scripts": {
-    "start": "npm i && node-gyp configure build && node testapp.js",
-    "perf": "npm i && node-gyp configure build && 0x -F=\"flamegraphs/{timestamp}.html\" testapp.js",
-    "perfk": "npm i && node-gyp configure build && 0x -F=\"flamegraphs/{timestamp}.html\" --kernel-tracing testapp.js",
-    "all": "npm i --unsafe perm && sudo ./setup-hugetlbfs.sh && npm run start ",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "perf": "npm i && node-gyp configure build && 0x -F=\"flamegraphs/{timestamp}.html\" ixy.js",
+    "perfk": "npm i && node-gyp configure build && 0x -F=\"flamegraphs/{timestamp}.html\" --kernel-tracing ixy.js",
+    "setup": "npm i --unsafe perm --production && sudo ./setup-hugetlbfs.sh"
   },
   "repository": {
     "type": "git",
