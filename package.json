@@ -13,7 +13,7 @@
     "url": "git+https://github.com/ixy-languages/ixy.js.git"
   },
   "engines": {
-    "node": ">=8.4.0"
+    "node": ">=10.4.0"
   },
   "author": "Sebastian Di Luzio <sebastian.di-luzio@tum.de>",
   "license": "MIT",
