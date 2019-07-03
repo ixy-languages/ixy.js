@@ -1,4 +1,4 @@
-const addon = require('./build/Release/exported_module'); // eslint-disable-line import/no-unresolved
+const addon = require('../build/Release/exported_module'); // eslint-disable-line import/no-unresolved
 const packets = require('./packets');
 const defines = require('./constants');
 

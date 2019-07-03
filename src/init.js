@@ -1,4 +1,4 @@
-const addon = require('./build/Release/exported_module'); // eslint-disable-line import/no-unresolved
+const addon = require('../build/Release/exported_module'); // eslint-disable-line import/no-unresolved
 const defines = require('./constants');
 const {
   get_reg_js, set_reg_js, clear_flags_js, set_flags_js, wait_set_reg_js, wait_clear_reg_js, wait,

@@ -1,4 +1,4 @@
-const addon = require('./build/Release/exported_module'); // eslint-disable-line import/no-unresolved
+const addon = require('../build/Release/exported_module'); // eslint-disable-line import/no-unresolved
 const { IXY } = require('./IXYclass');
 const init = require('./init');
 
