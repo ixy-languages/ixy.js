@@ -192,9 +192,9 @@ function reset_and_init(dev) {
   dev.set_reg_js(defines.IXGBE_EIMC, 0x7FFFFFFF);
   console.info(`Initializing device ${dev.ixy.pci_addr}`);
   // section 4.6.3 - Wait for EEPROM auto read completion
-  wait_dev.set_reg_js(defines.IXGBE_EEC, defines.IXGBE_EEC_ARD);
+  dev.wait_set_reg_js(defines.IXGBE_EEC, defines.IXGBE_EEC_ARD);
   // section 4.6.3 - Wait for DMA initialization done (RDRXCTL.DMAIDONE)
-  wait_dev.set_reg_js(defines.IXGBE_RDRXCTL, defines.IXGBE_RDRXCTL_DMAIDONE);
+  dev.wait_set_reg_js(defines.IXGBE_RDRXCTL, defines.IXGBE_RDRXCTL_DMAIDONE);
   // section 4.6.4 - initialize link (auto negotiation)
   init_link(dev);
   // section 4.6.5 - statistical counters
