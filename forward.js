@@ -19,7 +19,7 @@ function forward(rx_dev, rx_queue, tx_dev, tx_queue) {
     // either wait on tx or drop them; in this case it's better to drop them,
     // otherwise we accumulate latency
     for (const buf of bufs.slice(num_tx, num_rx)) {
-      packets.free(buf);
+      buf.free();
     }
   }
 }
