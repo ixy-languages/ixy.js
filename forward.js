@@ -1,5 +1,4 @@
 const IxgbeDevice = require('./src/ixgbeDevice');
-const packets = require('./src/packets');
 const stats = require('./src/stats');
 
 let BATCH_SIZE = 32;

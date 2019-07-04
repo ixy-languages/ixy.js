@@ -34,7 +34,8 @@ function createPktBuffer(mempool, index, entry_size) {
   return new Packet(mempool, index, entry_size);
 }
 
-function pkt_buf_alloc_batch_js(mempool, bufs, num_bufs) {
+function pkt_buf_alloc_batch_js(mempool, bufs) {
+  let num_bufs = bufs.length;
   if (mempool.free_stack_top < num_bufs) {
     console.warn(`memory pool ${mempool} only has ${mempool.free_stack_top} free bufs, requested ${num_bufs}`);
     num_bufs = mempool.free_stack_top;
@@ -44,13 +45,12 @@ function pkt_buf_alloc_batch_js(mempool, bufs, num_bufs) {
     const buf = getPktBuffer(mempool, entry_id);
     bufs[i] = buf;
   }
-  return bufs;
 }
 
 function pkt_buf_alloc_js(mempool) {
   const bufs = new Array(1);
-  const buf = pkt_buf_alloc_batch_js(mempool, bufs, 1);
-  return buf[0];
+  pkt_buf_alloc_batch_js(mempool, bufs);
+  return bufs[0];
 }
 
 module.exports = {

@@ -37,7 +37,7 @@ function packet_generator_program(pciAddr, batchSize) {
   while (true) {
     // we cannot immediately recycle packets, we need to allocate new packets every time
     // the old packets might still be used by the NIC: tx is async
-    packets.allocBatch(mempool, bufs, BATCH_SIZE);
+    packets.allocBatch(mempool, bufs);
     for (const buf of bufs) {
       // bufs[i].mem64[0] = seq_num++;
       // this has a huge performance impact,
@@ -77,7 +77,7 @@ function packet_generator_program(pciAddr, batchSize) {
   function sendstuff() {
     // we cannot immediately recycle packets, we need to allocate new packets every time
     // the old packets might still be used by the NIC: tx is async
-    packets.allocBatch(mempool, bufs, BATCH_SIZE);
+    packets.allocBatch(mempool, bufs);
     for (const buf of bufs) {
       buf.mem.setBigUint64(buf.size - 8, seq_num++, littleEndian);
       // TODO theres errors are not thrown
