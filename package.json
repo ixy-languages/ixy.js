@@ -4,9 +4,14 @@
   "description": "Javascript implementation of ixy, a userspace network driver",
   "main": "testapp.js",
   "scripts": {
-    "perf": "npm i && node-gyp configure build && 0x -F=\"flamegraphs/{timestamp}.html\" ixy.js",
-    "perfk": "npm i && node-gyp configure build && 0x -F=\"flamegraphs/{timestamp}.html\" --kernel-tracing ixy.js",
-    "setup": "npm i --unsafe --production && sudo ./setup-hugetlbfs.sh"
+    "forward": "node ixy.js forward 0000:03:00.0 0000:01:00.0",
+    "generate": "node ixy.js generate 0000:01:00.0",
+    "forward-perf": "0x -F=\"flamegraphs/{timestamp}.html\" ixy.js forward 0000:03:00.0 0000:01:00.0",
+    "forward-perfk": "0x -F=\"flamegraphs/{timestamp}.html\" --kernel-tracing ixy.js forward 0000:03:00.0 0000:01:00.0",
+    "generate-perf": "0x -F=\"flamegraphs/{timestamp}.html\" ixy.js generate 0000:01:00.0",
+    "generate-perfk": "0x -F=\"flamegraphs/{timestamp}.html\" --kernel-tracing ixy.js generate 0000:01:00.0",
+    "setup": "npm i --unsafe --production && sudo ./setup-hugetlbfs.sh",
+    "devsetup": "npm i --unsafe && sudo ./setup-hugetlbfs.sh"
   },
   "repository": {
     "type": "git",
