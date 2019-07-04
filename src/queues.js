@@ -1,9 +1,6 @@
 const defines = require('./constants');
 const packets = require('./packets');
 const { RxDescriptor } = require('./descriptors');
-const {
-  set_reg_js, set_flags_js, wait_set_reg_js,
-} = require('./regOps');
 const mempool = require('./mempool');
 
 function start_rx_queue(ixgbe_device, queue_id) {
@@ -38,12 +35,12 @@ function start_rx_queue(ixgbe_device, queue_id) {
     queue.virtual_addresses[i] = buf;
   }
   // enable queue and wait if necessary
-  set_flags_js(ixgbe_device, defines.IXGBE_RXDCTL(queue_id), defines.IXGBE_RXDCTL_ENABLE);
-  wait_set_reg_js(ixgbe_device, defines.IXGBE_RXDCTL(queue_id), defines.IXGBE_RXDCTL_ENABLE);
+  ixgbe_device.set_flags_js(defines.IXGBE_RXDCTL(queue_id), defines.IXGBE_RXDCTL_ENABLE);
+  ixgbe_device.wait_set_reg_js(defines.IXGBE_RXDCTL(queue_id), defines.IXGBE_RXDCTL_ENABLE);
   // rx queue starts out full
-  set_reg_js(ixgbe_device, defines.IXGBE_RDH(queue_id), 0);
+  ixgbe_device.set_reg_js(defines.IXGBE_RDH(queue_id), 0);
   // was set to 0 before in the init function
-  set_reg_js(ixgbe_device, defines.IXGBE_RDT(queue_id), queue.num_entries - 1);
+  ixgbe_device.set_reg_js(defines.IXGBE_RDT(queue_id), queue.num_entries - 1);
 }
 
 function start_tx_queue(dev, queue_id) {
@@ -53,11 +50,11 @@ function start_tx_queue(dev, queue_id) {
     throw new Error('number of queue entries must be a power of 2');
   }
   // tx queue starts out empty
-  set_reg_js(dev, defines.IXGBE_TDH(queue_id), 0);
-  set_reg_js(dev, defines.IXGBE_TDT(queue_id), 0);
+  dev.set_reg_js(defines.IXGBE_TDH(queue_id), 0);
+  dev.set_reg_js(defines.IXGBE_TDT(queue_id), 0);
   // enable queue and wait if necessary
-  set_flags_js(dev, defines.IXGBE_TXDCTL(queue_id), defines.IXGBE_TXDCTL_ENABLE);
-  wait_set_reg_js(dev, defines.IXGBE_TXDCTL(queue_id), defines.IXGBE_TXDCTL_ENABLE);
+  dev.set_flags_js(defines.IXGBE_TXDCTL(queue_id), defines.IXGBE_TXDCTL_ENABLE);
+  dev.wait_set_reg_js(defines.IXGBE_TXDCTL(queue_id), defines.IXGBE_TXDCTL_ENABLE);
 }
 
 module.exports = {

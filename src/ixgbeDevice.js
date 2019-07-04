@@ -1,6 +1,7 @@
 const addon = require('../build/Release/exported_module'); // eslint-disable-line import/no-unresolved
 const { IXY } = require('./IXYclass');
 const init = require('./init');
+const wait = require('./wait');
 
 class IxgbeDevice {
   constructor(pci_addr, num_rx_queues, num_tx_queues) {
@@ -13,6 +14,36 @@ class IxgbeDevice {
     // create a View on the IXY memory
     this.mem32 = new Uint32Array(this.addr);
     this.ixy = new IXY(pci_addr, num_rx_queues, num_tx_queues, this);
+  }
+
+  get_reg_js(reg) {
+    return this.mem32[reg / 4];
+  }
+
+  set_reg_js(reg, val) {
+    this.mem32[reg / 4] = val;
+  }
+
+  clear_flags_js(reg, flags) {
+    this.set_reg_js(reg, this.get_reg_js(reg) & ~flags);
+  }
+
+  set_flags_js(reg, flags) {
+    this.set_reg_js(reg, this.get_reg_js(reg) | flags);
+  }
+
+  wait_set_reg_js(reg, val) {
+    while ((this.get_reg_js(reg) & val) !== val) {
+      this.set_reg_js(reg, val);
+      wait(100);
+    }
+  }
+
+  wait_clear_reg_js(reg, val) {
+    while ((this.get_reg_js(reg) & val) !== 0) {
+      this.clear_flags_js(reg, val);
+      wait(100);
+    }
   }
 }
 const MAX_QUEUES = 64;

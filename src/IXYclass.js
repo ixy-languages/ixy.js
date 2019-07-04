@@ -1,8 +1,5 @@
 const defines = require('./constants');
 const { RxDescriptor, TxDescriptor } = require('./descriptors');
-const {
-  get_reg_js, set_reg_js, clear_flags_js, set_flags_js,
-} = require('./regOps');
 const packets = require('./packets');
 
 function wrap_ring(index, ring_size) {
@@ -70,7 +67,7 @@ class IXY {
       // this is intentionally off by one, otherwise we'd set RDT=RDH
       // if we are receiving faster than packets are coming in
       // RDT=RDH means queue is full
-      set_reg_js(this.dev, defines.IXGBE_RDT(queue_id), last_rx_index);
+      this.dev.set_reg_js(defines.IXGBE_RDT(queue_id), last_rx_index);
       queue.rx_index = rx_index;
     }
     this.dev.pkts_rec += buf_index;
@@ -167,13 +164,13 @@ class IXY {
     // send out by advancing tail, i.e., pass control of the bufs to the nic
     // this seems like a textbook case for a release memory order,
     // but Intel's driver doesn't even use a compiler barrier here
-    set_reg_js(this.dev, defines.IXGBE_TDT(queue_id), queue.tx_index);
+    this.dev.set_reg_js(defines.IXGBE_TDT(queue_id), queue.tx_index);
     this.dev.pkts_sent += sent;
     return sent;
   }
 
   get_link_speed() {
-    const links = get_reg_js(this.dev, defines.IXGBE_LINKS);
+    const links = this.dev.get_reg_js(defines.IXGBE_LINKS);
     if (!(links & defines.IXGBE_LINKS_UP)) {
       return 0;
     }
@@ -192,14 +189,13 @@ class IXY {
   // read stat counters and accumulate in stats
   // stats may be NULL to just reset the counters
   read_stats(stats) {
-    const rx_pkts = get_reg_js(this.dev, defines.IXGBE_GPRC);
-    const tx_pkts = get_reg_js(this.dev, defines.IXGBE_GPTC);
-    const rx_bytes = get_reg_js(this.dev, defines.IXGBE_GORCL);
-    const tx_bytes = get_reg_js(this.dev, defines.IXGBE_GOTCL);
+    const rx_pkts = this.dev.get_reg_js(defines.IXGBE_GPRC);
+    const tx_pkts = this.dev.get_reg_js(defines.IXGBE_GPTC);
+    const rx_bytes = this.dev.get_reg_js(defines.IXGBE_GORCL);
+    const tx_bytes = this.dev.get_reg_js(defines.IXGBE_GOTCL);
     let rx_dropped_pkts = 0;
     for (let i = 0; i < 2/* 8 */; i++) { // we can only have 64bit numbers anyways
-      rx_dropped_pkts += get_reg_js(this.dev,
-        defines.RXMPC(i));
+      rx_dropped_pkts += this.dev.get_reg_js(defines.RXMPC(i));
     }
     if (stats) {
       stats.rx_pkts += rx_pkts;
@@ -217,11 +213,11 @@ class IXY {
   set_promisc(enabled) {
     if (enabled) {
       console.info('enabling promisc mode');
-      set_flags_js(this.dev, defines.IXGBE_FCTRL, defines.IXGBE_FCTRL_MPE
+      this.dev.set_flags_js(defines.IXGBE_FCTRL, defines.IXGBE_FCTRL_MPE
           | defines.IXGBE_FCTRL_UPE);
     } else {
       console.info('disabling promisc mode');
-      clear_flags_js(this.dev, defines.IXGBE_FCTRL, defines.IXGBE_FCTRL_MPE
+      this.dev.clear_flags_js(defines.IXGBE_FCTRL, defines.IXGBE_FCTRL_MPE
           | defines.IXGBE_FCTRL_UPE);
     }
   }
