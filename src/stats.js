@@ -19,9 +19,10 @@ function print_stats_diff(stats_new, stats_old, nanos, trackAverage = false) {
     stats_new.rx_pkts, stats_old.rx_pkts, nanos);
   const rxMpps = diff_mpps(stats_new.rx_pkts, stats_old.rx_pkts, nanos);
   const recRate = (stats_new.pkts_rec - stats_old.pkts_rec)
-      / (stats_new.rx_pkts - stats_old.rx_pkts);
+    / (stats_new.rx_pkts - stats_old.rx_pkts);
+  const TxMpps = diff_mpps(stats_new.tx_pkts, stats_old.tx_pkts, nanos);
   console.info(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] RX: ${rxMbits * recRate} Mbits/s ${rxMpps * recRate} Mpps`);
-  console.info(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] TX: ${diff_mbit(stats_new.tx_bytes, stats_old.tx_bytes, stats_new.tx_pkts, stats_old.tx_pkts, nanos)} Mbit/s ${diff_mpps(stats_new.tx_pkts, stats_old.tx_pkts, nanos)} Mpps`);
+  console.info(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] TX: ${diff_mbit(stats_new.tx_bytes, stats_old.tx_bytes, stats_new.tx_pkts, stats_old.tx_pkts, nanos)} Mbit/s ${TxMpps} Mpps`);
   console.info(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] RX packets : ${stats_new.pkts_rec - stats_old.pkts_rec}`);
   console.info(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] TX packets : ${stats_new.pkts_sent - stats_old.pkts_sent}`);
   // console.info(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] according to NIC: RX: ${rxMbits} Mbit/s ${rxMpps} Mpps`);
@@ -30,11 +31,14 @@ function print_stats_diff(stats_new, stats_old, nanos, trackAverage = false) {
   console.info('----- ----- ----- -----');
   if (trackAverage) {
     // handle performance analysis
-    if (!stats_new.startTime) {
-      stats_new.startTime = process.hrtime();
+    if (!stats_new.counter) {
+      stats_new.counter = 0;
+      stats_new.sum = 0;
     }
-    const sinceStartTimeNano = convertHRTimeToNano(process.hrtime(stats_new.startTime));
-    console.info(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] Average one way performance: ${diff_mpps(stats_new.tx_pkts, 0, sinceStartTimeNano)} Mpps`);
+    stats_new.counter++;
+    // let's hope this value doesnt become too big
+    stats_new.sum += TxMpps;
+    console.info(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] Average one way performance: ${stats_new.sum / stats_new.counter} Mpps`);
   }
 }
 
