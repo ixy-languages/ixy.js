@@ -45,21 +45,23 @@ function forwardProgram(pciAddr1, pciAddr2, batchSize, trackPerformance = false)
 
   let last_stats_printed = process.hrtime();
   // /*
-  let i = 0;
+  let counter = 0;
   while (true) {
     forward(dev1, 0, dev2, 0);
     forward(dev2, 0, dev1, 0);
-    if (i++ > 50000) {
-      i = 0;
-      const time = process.hrtime(last_stats_printed);
-      last_stats_printed = process.hrtime();
-      dev1.ixy.read_stats(stats1);
-      stats.print(stats1, stats1_old, stats.convert(time), trackPerformance);
-      stats.copy(stats1_old, stats1);
-      if (dev1.ixy.pci_addr !== dev2.ixy.pci_addr) {
-        dev2.ixy.read_stats(stats2);
-        stats.print(stats2, stats2_old, stats.convert(time), trackPerformance);
-        stats.copy(stats2_old, stats2);
+    if ((counter++ & 0xFFF) === 0) {
+      const time = stats.convert(process.hrtime());
+      const timeDifference = time - last_stats_printed;
+      if (timeDifference > 1000 * 1000 * 1000) { // every second
+        last_stats_printed = time;
+        dev1.ixy.read_stats(stats1);
+        stats.print(stats1, stats1_old, timeDifference, trackPerformance);
+        stats.copy(stats1_old, stats1);
+        if (dev1.ixy.pci_addr !== dev2.ixy.pci_addr) {
+          dev2.ixy.read_stats(stats2);
+          stats.print(stats2, stats2_old, timeDifference, trackPerformance);
+          stats.copy(stats2_old, stats2);
+        }
       }
     }
   }
