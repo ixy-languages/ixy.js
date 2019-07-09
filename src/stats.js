@@ -10,7 +10,11 @@ function diff_mbit(bytes_new, bytes_old, pkts_new, pkts_old, nanos) {
       + diff_mpps(pkts_new, pkts_old, nanos) * 20 * 8);
 }
 
-function print_stats_diff(stats_new, stats_old, nanos) {
+function convertHRTimeToNano(time) {
+  return time[0] * 1000000000 + time[1];
+}
+
+function print_stats_diff(stats_new, stats_old, nanos, trackAverage = false) {
   const rxMbits = diff_mbit(stats_new.rx_bytes, stats_old.rx_bytes,
     stats_new.rx_pkts, stats_old.rx_pkts, nanos);
   const rxMpps = diff_mpps(stats_new.rx_pkts, stats_old.rx_pkts, nanos);
@@ -24,10 +28,14 @@ function print_stats_diff(stats_new, stats_old, nanos) {
   // console.info(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] according to NIC: RX_pkts: ${stats_new.rx_pkts - stats_old.rx_pkts} ; TX_pkts: ${stats_new.tx_pkts - stats_old.tx_pkts}`);
   // console.info(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] Packages actually getting received: ${recRate * 100}% ; droprate: ${(1 - recRate) * 100}%`);
   console.info('----- ----- ----- -----');
-}
-
-function convertHRTimeToNano(time) {
-  return time[0] * 1000000000 + time[1];
+  if (trackAverage) {
+    // handle performance analysis
+    if (!stats_new.startTime) {
+      stats_new.startTime = process.hrtime();
+    }
+    const sinceStartTimeNano = convertHRTimeToNano(process.hrtime(stats_new.startTime));
+    console.info(`[${stats_new.device ? stats_new.device.ixy.pci_addr : '???'}] Average one way performance: ${diff_mpps(stats_new.tx_pkts, 0, sinceStartTimeNano)} Mpps`);
+  }
 }
 
 // initializes a stats and clears the stats on the device

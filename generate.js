@@ -13,9 +13,9 @@ const littleEndian = (function lE() {
   // Int16Array uses the correct byte-order for the platform.
   return new Int16Array(buffer)[0] === 256;
 }());
-function packet_generator_program(pciAddr, batchSize) {
+function packet_generator_program(pciAddr, batchSize, trackPerformance = false) {
   if (!pciAddr) {
-    throw new Error('no pci adress supplied. please use: node ixy.js generate xxxx:xx:xx.x optionalBatchSize');
+    throw new Error('no pci adress supplied. please use: node ixy.js generate xxxx:xx:xx.x optionalBatchSize optionalTrackPerformance');
   }
   if (batchSize) {
     BATCH_SIZE = batchSize;
@@ -53,7 +53,7 @@ function packet_generator_program(pciAddr, batchSize) {
       if (time - last_stats_printed > 1000 * 1000 * 1000) {
         // every second
         dev.ixy.read_stats(stat);
-        stats.print(stat, stat_old, time - last_stats_printed);
+        stats.print(stat, stat_old, time - last_stats_printed, trackPerformance);
         stats.copy(stat_old, stat);
         last_stats_printed = time;
       }
