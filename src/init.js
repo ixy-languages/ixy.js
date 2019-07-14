@@ -55,8 +55,6 @@ function init_rx(ixgbe_device) {
     ixgbe_device.set_reg_js(defines.IXGBE_RDBAL(i), PhysBeginning);
     ixgbe_device.set_reg_js(defines.IXGBE_RDBAH(i), PhysEnding);
     ixgbe_device.set_reg_js(defines.IXGBE_RDLEN(i), ring_size_bytes);
-    console.info(`rx ring ${i} phy addr: ${mem.phy}`);
-    console.info(`rx ring ${i} virt addr: ${mem.virt}`);
     // set ring to empty at start
     ixgbe_device.set_reg_js(defines.IXGBE_RDH(i), 0);
     ixgbe_device.set_reg_js(defines.IXGBE_RDT(i), 0);

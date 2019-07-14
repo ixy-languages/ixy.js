@@ -43,7 +43,7 @@ function forwardProgram(pciAddr1, pciAddr2, batchSize, trackPerformance = false)
   stats.init(stats2, dev2);
   stats.init(stats2_old, dev2);
 
-  let last_stats_printed = process.hrtime();
+  let last_stats_printed = stats.convert(process.hrtime());
   let counter = 0;
   while (true) {
     forward(dev1, 0, dev2, 0);

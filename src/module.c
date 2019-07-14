@@ -107,7 +107,6 @@ napi_value getDmaMem(napi_env env, napi_callback_info info)
     napi_throw_error(env, NULL, "Failed to get requireContigious from inputs.");
   }
   size_t size = (size_t)size32;
-  printf("trying to allocate dma in size of %zd, contigious? %d\n", size, requireContigious);
   void *virtualAddress = memory_allocate_dma(size, requireContigious);
   napi_value ret;
   stat = napi_create_external_arraybuffer(env, virtualAddress, size, NULL, NULL, &ret);
@@ -207,7 +206,6 @@ void enable_dma(const char *pci_addr)
   assert(lseek(fd, 4, SEEK_SET) == 4);
   assert(write(fd, &dma, 2) == 2);
   check_err(close(fd), "close");
-  printf("enabled dma...\n");
 }
 
 /**
