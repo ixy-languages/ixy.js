@@ -51,7 +51,7 @@ class IXY {
         desc_ptr.memView.d64[0 + desc_ptr.offset / 8] = new_buf.buf_addr_phy;
         // this resets the flags
         desc_ptr.memView.d64[1 + desc_ptr.offset / 8] = 0n;
-        // BigInt(0)/* 0n */; // TODO rewrite to 1n syntax before running, but keep at BigInt(1) syntax because otherwise eslint will not work
+        // BigInt(0)/* 0n */; // rewrite to 1n syntax before running, but keep at BigInt(1) syntax because otherwise eslint will not work
         queue.virtual_addresses[rx_index] = new_buf;
         bufs[buf_index] = buf;
         // want to read the next one in the next iteration,
@@ -194,7 +194,7 @@ class IXY {
     const rx_bytes = this.dev.get_reg_js(defines.IXGBE_GORCL);
     const tx_bytes = this.dev.get_reg_js(defines.IXGBE_GOTCL);
     let rx_dropped_pkts = 0;
-    for (let i = 0; i < 2/* 8 */; i++) { // we can only have 64bit numbers anyways
+    for (let i = 0; i < 8; i++) {
       rx_dropped_pkts += this.dev.get_reg_js(defines.RXMPC(i));
     }
     if (stats) {

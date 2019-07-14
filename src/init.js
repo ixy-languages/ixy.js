@@ -51,7 +51,7 @@ function init_rx(ixgbe_device) {
     }
     const PhysBeginning = Number(mem.phy) & 0xFFFFFFFF;
     const PhysEnding = Number(mem.phy >> 32n);
-    // BigInt(32)/* 32n */); // TODO rewrite to 1n syntax before running, but keep at BigInt(1) syntax because otherwise eslint will not work
+    // BigInt(32)/* 32n */); // rewrite to 1n syntax before running, but keep at BigInt(1) syntax because otherwise eslint will not work
     ixgbe_device.set_reg_js(defines.IXGBE_RDBAL(i), PhysBeginning);
     ixgbe_device.set_reg_js(defines.IXGBE_RDBAH(i), PhysEnding);
     ixgbe_device.set_reg_js(defines.IXGBE_RDLEN(i), ring_size_bytes);
@@ -104,7 +104,7 @@ function init_tx(dev) {
   for (let i = 0; i < dev.ixy.num_tx_queues; i++) {
     console.info(`initializing tx queue ${i}`);
     // setup descriptor ring, see section 7.1.9
-    const ring_size_bytes = defines.NUM_TX_QUEUE_ENTRIES * 16; // 128bit headers? -> 128/8 bytes
+    const ring_size_bytes = defines.NUM_TX_QUEUE_ENTRIES * 16;
     const mem = {};
     mem.virt = addon.getDmaMem(ring_size_bytes, true);
     mem.phy = addon.virtToPhys(mem.virt);
@@ -116,7 +116,7 @@ function init_tx(dev) {
     }
     const PhysBeginning = Number(mem.phy) & 0xFFFFFFFF;
     const PhysEnding = Number(mem.phy >> 32n);
-    // BigInt(32)/* 32n */); // TODO rewrite to 1n syntax before running, but keep at BigInt(1) syntax because otherwise eslint will not work
+    // BigInt(32)/* 32n */); // rewrite to 1n syntax before running, but keep at BigInt(1) syntax because otherwise eslint will not work
     dev.set_reg_js(defines.IXGBE_TDBAL(i), PhysBeginning);
     dev.set_reg_js(defines.IXGBE_TDBAH(i), PhysEnding);
     dev.set_reg_js(defines.IXGBE_TDLEN(i), ring_size_bytes);

@@ -177,7 +177,6 @@ napi_value dataviewToPhys(napi_env env, napi_callback_info info)
   return ret;
 }
 
-// TODO try to port this to js
 void remove_driver(const char *pci_addr) // for now C is fine but at some point well put this into JS
 {
   char path[PATH_MAX];
@@ -193,7 +192,7 @@ void remove_driver(const char *pci_addr) // for now C is fine but at some point 
   }
   check_err(close(fd), "close");
 }
-// todo js
+// port this to JS at some point
 void enable_dma(const char *pci_addr)
 {
   char path[PATH_MAX];
@@ -258,7 +257,7 @@ napi_value Init(napi_env env, napi_value exports)
   napi_status status;
   napi_value fn;
   // add getIXYAddr to the export
-  status = napi_create_function(env, NULL, 0, getIXYAddr, NULL, &fn); // USED
+  status = napi_create_function(env, NULL, 0, getIXYAddr, NULL, &fn);
   if (status != napi_ok)
   {
     napi_throw_error(env, NULL, "Unable to wrap native function");
@@ -270,7 +269,7 @@ napi_value Init(napi_env env, napi_value exports)
     napi_throw_error(env, NULL, "Unable to populate exports");
   }
   // add getDmaMem to the export
-  status = napi_create_function(env, NULL, 0, getDmaMem, NULL, &fn); // USED
+  status = napi_create_function(env, NULL, 0, getDmaMem, NULL, &fn);
   if (status != napi_ok)
   {
     napi_throw_error(env, NULL, "Unable to wrap native function");
@@ -280,8 +279,9 @@ napi_value Init(napi_env env, napi_value exports)
   if (status != napi_ok)
   {
     napi_throw_error(env, NULL, "Unable to populate exports");
-  }                                                                   // add virtToPhys to the export
-  status = napi_create_function(env, NULL, 0, virtToPhys, NULL, &fn); // USED
+  }
+  // add virtToPhys to the export
+  status = napi_create_function(env, NULL, 0, virtToPhys, NULL, &fn);
   if (status != napi_ok)
   {
     napi_throw_error(env, NULL, "Unable to wrap native function");
@@ -292,8 +292,8 @@ napi_value Init(napi_env env, napi_value exports)
   {
     napi_throw_error(env, NULL, "Unable to populate exports");
   }
-  // add virtToPhys to the export
-  status = napi_create_function(env, NULL, 0, dataviewToPhys, NULL, &fn); // USED
+  // add dataviewToPhys to the export
+  status = napi_create_function(env, NULL, 0, dataviewToPhys, NULL, &fn);
   if (status != napi_ok)
   {
     napi_throw_error(env, NULL, "Unable to wrap native function");

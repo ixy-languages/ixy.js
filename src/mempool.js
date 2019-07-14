@@ -60,7 +60,7 @@ const pkt_data = [
 
 // calculate a IP/TCP/UDP checksum
 function calc_ip_checksum(data, len, offset = 0) {
-  if (len % 1) throw new Error('odd-sized checksums NYI'); // we don't need that
+  if (len % 1) throw new Error('odd-sized checksums NYI');
   let cs = 0;
   for (let i = offset; i < (len / 2) + offset; i += 2) {
     cs += (((data[i] & 0xFF) << 8) | (data[i + 1] & 0xFF));

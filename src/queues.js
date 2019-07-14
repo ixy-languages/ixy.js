@@ -28,7 +28,7 @@ function start_rx_queue(ixgbe_device, queue_id) {
     rxd.memView.d64[0 + rxd.offset / 8] = buf.buf_addr_phy;
     // set hdr addr
     rxd.memView.d64[1 + rxd.offset / 8] = 0n;
-    // BigInt(0)/* 0n */; // TODO rewrite to 1n syntax before running, but keep at BigInt(1) syntax because otherwise eslint will not work
+    // BigInt(0)/* 0n */; // rewrite to 1n syntax before running, but keep at BigInt(1) syntax because otherwise eslint will not work
 
     // we need to return the virtual address in the rx function
     // which the descriptor doesn't know by default

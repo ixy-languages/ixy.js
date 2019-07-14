@@ -1,15 +1,15 @@
 {
   "name": "ixy.js",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Javascript implementation of ixy, a userspace network driver",
-  "main": "testapp.js",
+  "main": "ixy.js",
   "scripts": {
-    "forward": "node ixy.js forward 0000:03:00.0 0000:01:00.0",
-    "generate": "node ixy.js generate 0000:01:00.0",
-    "forward-perf": "0x -F=\"flamegraphs/{timestamp}.html\" ixy.js forward 0000:03:00.0 0000:01:00.0",
-    "forward-perfk": "0x -F=\"flamegraphs/{timestamp}.html\" --kernel-tracing ixy.js forward 0000:03:00.0 0000:01:00.0",
-    "generate-perf": "0x -F=\"flamegraphs/{timestamp}.html\" ixy.js generate 0000:01:00.0",
-    "generate-perfk": "0x -F=\"flamegraphs/{timestamp}.html\" --kernel-tracing ixy.js generate 0000:01:00.0",
+    "forward": "node ixy.js forward",
+    "generate": "node ixy.js generate",
+    "forward-perf": "0x -F=\"flamegraphs/{timestamp}.html\" ixy.js forward",
+    "forward-perfk": "0x -F=\"flamegraphs/{timestamp}.html\" --kernel-tracing ixy.js forward",
+    "generate-perf": "0x -F=\"flamegraphs/{timestamp}.html\" ixy.js generate",
+    "generate-perfk": "0x -F=\"flamegraphs/{timestamp}.html\" --kernel-tracing ixy.js generate",
     "setup": "npm i --unsafe --production && sudo ./setup-hugetlbfs.sh",
     "devsetup": "npm i --unsafe && sudo ./setup-hugetlbfs.sh"
   },
@@ -20,7 +20,7 @@
   "engines": {
     "node": ">=10.4.0"
   },
-  "author": "Sebastian Di Luzio <sebastian.di-luzio@tum.de>",
+  "author": "Sebastian Di Luzio <sebidiluzio@gmail.com>",
   "license": "MIT",
   "devDependencies": {
     "babel-eslint": "^10.0.2",

@@ -44,7 +44,6 @@ function forwardProgram(pciAddr1, pciAddr2, batchSize, trackPerformance = false)
   stats.init(stats2_old, dev2);
 
   let last_stats_printed = process.hrtime();
-  // /*
   let counter = 0;
   while (true) {
     forward(dev1, 0, dev2, 0);
@@ -65,32 +64,6 @@ function forwardProgram(pciAddr1, pciAddr2, batchSize, trackPerformance = false)
       }
     }
   }
-
-  /* */
-  /*
-      // async
-      setInterval(() => {
-        process.nextTick(() => {
-          const time = process.hrtime(last_stats_printed);
-          last_stats_printed = process.hrtime();
-          dev1.ixy.read_stats(dev1, stats1);
-          stats.print(stats1, stats1_old, stats.convert(time));
-          stats.copy(stats1_old, stats1);
-          if (dev1.ixy.pci_addr !== dev2.ixy.pci_addr) {
-            dev2.ixy.read_stats(dev2, stats2);
-            stats.print(stats2, stats2_old, stats.convert(time));
-            stats.copy(stats2_old, stats2);
-          }
-        });
-      }, 1000);
-      function forwardStuff() {
-        forward(dev1, 0, dev2, 0);
-        forward(dev2, 0, dev1, 0);
-        setImmediate(forwardStuff);
-      }
-      forwardStuff();
-
-      /* */
 }
 
 

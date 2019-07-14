@@ -49,7 +49,7 @@ class IxgbeDevice {
 const MAX_QUEUES = 64;
 
 function ixgbe_init(pci_addr, num_rx_queues, num_tx_queues) {
-  // TODO warn if not running on root?
+  // potential addition for later: warn if not running on root
   if (num_rx_queues > MAX_QUEUES) {
     throw new Error(`cannot configure ${num_rx_queues} rx queues: limit is ${MAX_QUEUES}`);
   }

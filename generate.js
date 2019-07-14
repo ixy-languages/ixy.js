@@ -30,8 +30,7 @@ function packet_generator_program(pciAddr, batchSize, trackPerformance = false) 
   // array of bufs sent out in a batch
   const bufs = new Array(BATCH_SIZE);
   let seq_num = 0n;
-  // BigInt(0)/* 0n */; // TODO rewrite to 1n syntax before running, but keep at BigInt(1) syntax because otherwise eslint will not work
-  // /*
+  // BigInt(0)/* 0n */; // rewrite to 1n syntax before running, but keep at BigInt(1) syntax because otherwise eslint will not work
   let counter = 0;
   // tx loop
   while (true) {
@@ -39,7 +38,6 @@ function packet_generator_program(pciAddr, batchSize, trackPerformance = false) 
     // the old packets might still be used by the NIC: tx is async
     packets.allocBatch(mempool, bufs);
     for (const buf of bufs) {
-      // bufs[i].mem64[0] = seq_num++;
       // this has a huge performance impact,
       // but if we want pkt size to not be limited to % 8, we need it
       buf.mem.setBigUint64(buf.size - 8, seq_num++, littleEndian);
@@ -59,44 +57,6 @@ function packet_generator_program(pciAddr, batchSize, trackPerformance = false) 
       }
     }
   }
-  /**/
-  // non blocking test
-  // TX 1000!
-  // tx loop
-  // TODO look at process.nextTick() for async
-  // every second
-  /*
-  let old_seq_num = -1;
-  setInterval(() => {
-    const time = stats.convert(process.hrtime());
-    dev.ixy.read_stats(dev, stats);
-    stats.print(stats, stats_old, time - last_stats_printed);
-    stats.copy(stats_old, stats);
-    last_stats_printed = time;
-  }, 1000);
-  function sendstuff() {
-    // we cannot immediately recycle packets, we need to allocate new packets every time
-    // the old packets might still be used by the NIC: tx is async
-    packets.allocBatch(mempool, bufs);
-    for (const buf of bufs) {
-      buf.mem.setBigUint64(buf.size - 8, seq_num++, littleEndian);
-      // TODO theres errors are not thrown
-      if (old_seq_num > seq_num) {
-        throw new Error(`We sent packages ordered wrong: seq_num ${seq_num}; old: ${old_seq_num}`);
-      } else if (old_seq_num === seq_num) {
-        throw new Error(`We sent multiple packages with the smae seq_num: ${seq_num}`);
-      }
-      old_seq_num = seq_num;
-    }
-    // the packets could be modified here to generate multiple flows
-    dev.ixy.tx_batch_busy_wait( 0, bufs, BATCH_SIZE);
-    // TODO check if this can be done async as well!
-
-    setImmediate(sendstuff);
-  }
-
-  sendstuff();
-  /* */
 }
 
 

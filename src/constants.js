@@ -32,8 +32,8 @@ module.exports = {
   SIZE_PKT_BUF_HEADROOM: 40,
   IXGBE_RXDCTL: i => (i < 64 ? 0x01028 + (i * 0x40) : 0x0D028 + ((i - 64) * 0x40)),
   IXGBE_RXDCTL_ENABLE: 0x02000000,
-  IXGBE_RXDADV_STAT_DD: 0x01 /* Done */,
-  IXGBE_RXDADV_STAT_EOP: 0x02 /* End of Packet */,
+  IXGBE_RXDADV_STAT_DD: 0x01,
+  IXGBE_RXDADV_STAT_EOP: 0x02,
   IXGBE_GPRC: 0x04074,
   IXGBE_GPTC: 0x04080,
   IXGBE_GORCL: 0x04088,
@@ -41,11 +41,11 @@ module.exports = {
   IXGBE_GORCH: 0x0408C,
   IXGBE_GOTCH: 0x04094,
   FCCRC: 0x05118,
-  CRCERRS: 0x04000, // crc error
-  ILLERRC: 0x04004, // illegal byte
-  ERRBC: 0x04008, // error byte
-  RXMPC: i => 0x03FA0 + (4 * i), // missed packets count (0-7)
-  Link_Status_Register: 0xB2, // first 4 bits are relevant!
+  CRCERRS: 0x04000,
+  ILLERRC: 0x04004,
+  ERRBC: 0x04008,
+  RXMPC: i => 0x03FA0 + (4 * i),
+  Link_Status_Register: 0xB2,
   IXGBE_LINKS: 0x042A4,
   IXGBE_LINKS_UP: 0x40000000,
   IXGBE_LINKS_SPEED_82599: 0x30000000,
@@ -88,5 +88,5 @@ module.exports = {
   IXGBE_ADVTXD_DCMD_DEXT: 0x20000000,
   IXGBE_ADVTXD_DTYP_DATA: 0x00300000,
   IXGBE_TDH: i => (0x06010 + ((i) * 0x40)),
-  IXGBE_TXDCTL_ENABLE: 0x02000000, // Ena specific Tx Queue
+  IXGBE_TXDCTL_ENABLE: 0x02000000,
 };
