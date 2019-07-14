@@ -7,16 +7,23 @@ This should **not** be used in production environments or private, non-expendabl
 
 ## install node
 Make sure you have sudo:
+
 `apt install sudo`
+
 `sudo apt-get update`
 
 Install nvm via 
+
 ```curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.34.0/install.sh | bash```
 
 Then close and reopen your terminal to start using nvm or run the following to use it instantly:
+
 `export NVM_DIR="$HOME/.nvm"`
+
 `[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm`
+
 `[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion`
+
 
 
 After that you can install and choose a node version by simply typing
