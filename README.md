@@ -34,13 +34,15 @@ and
 
 
 ## build the program
+To build the complete program simply use 
 
 ```npm run setup```
 
 
-If you want to work on the project, remember to also install dev dependencies via `npm i` or simply use ```npm run devsetup``` instead.
+If you want to work on the project, remember to also install dev dependencies to use the predefined formatting rules for ESLint.
 
-They provide formatting rules and other IDE functionalities.
+You can do so via `npm i` or simply use ```npm run devsetup``` instead.
+
 
 ## run program after building
 
@@ -49,7 +51,7 @@ to run the generate example:
 ```npm run generate xxxx:xx:xx.x optionalBatchSize```
 
 
-to run the forward example: (remember, you need to send packets to those ports for forwarding to do something. (Moongen)[https://github.com/ixy-languages/benchmark-scripts] can handle that.)
+to run the forward example: (remember, you need to send packets to those ports for forwarding to do something; [Moongen](https://github.com/ixy-languages/benchmark-scripts) can handle that)
 
 ```npm run forward xxxx:xx:xx.x xxxx:xx:xx.x optionalBatchSize```
 
